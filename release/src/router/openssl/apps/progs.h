@@ -93,6 +93,10 @@ FUNCTION functions[] = {
 #ifndef OPENSSL_NO_AES
 	{FUNC_TYPE_CIPHER,"aes-256-ecb",enc_main},
 #endif
+#if !defined(OPENSSL_NO_SOCK)
+	{FUNC_TYPE_GENERAL,"s_client",s_client_main},
+#endif
+
 #if 0
 
 	{FUNC_TYPE_GENERAL,"verify",verify_main},
@@ -139,9 +143,6 @@ FUNCTION functions[] = {
 	{FUNC_TYPE_GENERAL,"genpkey",genpkey_main},
 #if !defined(OPENSSL_NO_SOCK)
 	{FUNC_TYPE_GENERAL,"s_server",s_server_main},
-#endif
-#if !defined(OPENSSL_NO_SOCK)
-	{FUNC_TYPE_GENERAL,"s_client",s_client_main},
 #endif
 #if !defined(OPENSSL_NO_SOCK)
 	{FUNC_TYPE_GENERAL,"s_time",s_time_main},

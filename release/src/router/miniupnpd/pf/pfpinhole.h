@@ -1,7 +1,7 @@
-/* $Id: pfpinhole.h,v 1.12 2014/05/15 09:27:21 nanard Exp $ */
+/* $Id: pfpinhole.h,v 1.13 2016/01/19 10:03:30 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
- * (c) 2012 Thomas Bernard
+ * (c) 2012-2016 Thomas Bernard
  * This software is subject to the conditions detailed
  * in the LICENCE file provided within the distribution */
 
@@ -9,6 +9,12 @@
 #define PFPINHOLE_H_INCLUDED
 
 #ifdef ENABLE_UPNPPINHOLE
+
+int find_pinhole(const char * ifname,
+                 const char * rem_host, unsigned short rem_port,
+                 const char * int_client, unsigned short int_port,
+                 int proto,
+                 char *desc, int desc_len, unsigned int * timestamp);
 
 int add_pinhole(const char * ifname,
                 const char * rem_host, unsigned short rem_port,

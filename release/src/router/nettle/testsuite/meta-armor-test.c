@@ -3,7 +3,8 @@
 
 const char* armors[] = {
   "base16",
-  "base64"
+  "base64",
+  "base64url",
 };
 
 void

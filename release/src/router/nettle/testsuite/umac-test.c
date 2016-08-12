@@ -9,7 +9,7 @@
 static void
 update (void *ctx, nettle_hash_update_func *f,
 	const struct tstring *msg,
-	unsigned length)
+	size_t length)
 {
   for (; length > msg->length; length -= msg->length)
     f(ctx, msg->length, msg->data);
@@ -18,8 +18,8 @@ update (void *ctx, nettle_hash_update_func *f,
 
 static void
 check_digest (const char *name, void *ctx, nettle_hash_digest_func *f,
-	      const struct tstring *msg, unsigned length,
-	      unsigned tag_length, const uint8_t *ref)
+	      const struct tstring *msg, size_t length,
+	      size_t tag_length, const uint8_t *ref)
 {
   uint8_t tag[16];
   f(ctx, tag_length, tag);
@@ -27,7 +27,7 @@ check_digest (const char *name, void *ctx, nettle_hash_digest_func *f,
     {
       printf ("%s failed\n", name);
       printf ("msg: "); print_hex (msg->length, msg->data);
-      printf ("length: %u\n", length);
+      printf ("length: %lu\n", (unsigned long) length);
       printf ("tag: "); print_hex (tag_length, tag);
       printf ("ref: "); print_hex (tag_length, ref);
       abort ();
@@ -39,7 +39,7 @@ static void
 test_umac (const struct tstring *key,
 	   const struct tstring *nonce,
 	   const struct tstring *msg,
-	   unsigned length,
+	   size_t length,
 	   const struct tstring *ref32,
 	   const struct tstring *ref64,
 	   const struct tstring *ref128)
@@ -91,7 +91,7 @@ static void
 test_align(const struct tstring *key,
 	   const struct tstring *nonce,
 	   const struct tstring *msg,
-	   unsigned length,
+	   size_t length,
 	   const struct tstring *ref32,
 	   const struct tstring *ref64,
 	   const struct tstring *ref128)
@@ -106,7 +106,7 @@ test_align(const struct tstring *key,
       struct umac128_ctx ctx128;
 
       uint8_t *input;
-      unsigned i;
+      size_t i;
 
       memset(buffer, 17, length + 16);
       input = buffer + offset;

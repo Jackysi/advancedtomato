@@ -243,7 +243,7 @@ testmain (int argc, char **argv)
 	      assert (tn <= MAXLIMBS);
 	      mpn_copyi (t, a->_mp_d, tn);
 
-	      bn = mpn_get_str (bp, base, t, tn);
+	      bn = mpn_get_str ((unsigned char *) bp, base, t, tn);
 	      if (bn != arn)
 		{
 		  fprintf (stderr, "mpn_get_str failed:\n");
@@ -286,7 +286,7 @@ testmain (int argc, char **argv)
 		      abort ();
 		    }
 		}
-	      tn = mpn_set_str (t, bp, bn, base);
+	      tn = mpn_set_str (t, (unsigned char *) bp, bn, base);
 	      if (tn != mpz_size (a) || mpn_cmp (t, a->_mp_d, tn))
 		{
 		  fprintf (stderr, "mpn_set_str failed:\n");

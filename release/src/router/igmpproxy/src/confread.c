@@ -91,7 +91,7 @@ int openConfigFile(char *filename) {
 /**
 *   Closes the currently open config file.
 */
-void closeConfigFile() {
+void closeConfigFile(void) {
     // Close the file.
     if(confFilePtr!=NULL) {
         fclose(confFilePtr);
@@ -106,7 +106,7 @@ void closeConfigFile() {
 *   Returns the next token from the configfile. The function
 *   return NULL if there are no more tokens in the file.    
 */
-char *nextConfigToken() {
+char *nextConfigToken(void) {
 
     validToken = 0;
 
@@ -207,7 +207,7 @@ char *nextConfigToken() {
 *   Returns the currently active token, or null
 *   if no tokens are availible.
 */
-char *getCurrentConfigToken() {
+char *getCurrentConfigToken(void) {
     return validToken ? cToken : NULL;
 }
 

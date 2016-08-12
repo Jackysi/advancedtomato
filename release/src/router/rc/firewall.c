@@ -745,6 +745,9 @@ static void mangle_table(void)
 		}
 	}
 
+// Clamp TCP MSS to PMTU of WAN interface (IPv4 & IPv6)
+		ip46t_write("-I FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu\n");
+
 	ipt_routerpolicy();
 
 	ip46t_write("COMMIT\n");
@@ -1113,7 +1116,7 @@ static void nat_table(void)
 		switch (get_ipv6_service()) {
 		case IPV6_6IN4:
 			// avoid NATing proto-41 packets when using 6in4 tunnel
-			p = "-p ! 41";
+			p = "! -p 41";
 			break;
 		}
 #endif
@@ -1519,20 +1522,6 @@ static void filter_input(void)
 	// default policy: DROP
 }
 
-// clamp TCP MSS to PMTU of WAN interface (IPv4 only?)
-static void clampmss(void)
-{
-	ipt_write("-A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu\n");
-#ifdef TCONFIG_IPV6
-	switch (get_ipv6_service()) {
-	case IPV6_ANYCAST_6TO4:
-	case IPV6_6IN4:
-		ip6t_write("-A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu\n");
-		break;
-	}
-#endif
-}
-
 static void filter_forward(void)
 {
 	char dst[64];
@@ -1611,9 +1600,6 @@ static void filter_forward(void)
 	ip46t_write(
 		"-A FORWARD -m state --state INVALID -j DROP\n");		// drop if INVALID state
 
-	// clamp tcp mss to pmtu
-	clampmss();
-
 	if (wanup || wan2up
 #ifdef TCONFIG_MULTIWAN
 	|| wan3up || wan4up
@@ -1680,6 +1666,16 @@ static void filter_forward(void)
 	// ICMPv6 rules
 	for (i = 0; i < sizeof(allowed_icmpv6)/sizeof(int); ++i) {
 		ip6t_write("-A FORWARD -p ipv6-icmp --icmpv6-type %i -j %s\n", allowed_icmpv6[i], chain_in_accept);
+	}
+
+	//IPv6 IPSec - RFC 6092
+	if (nvram_match("ipv6_ipsec", "1")) {
+		if (*wan6face) {
+			ip6t_write(
+				"-A FORWARD -i %s -p esp -j ACCEPT\n"				//ESP
+				"-A FORWARD -i %s -p udp --dport 500 -j ACCEPT\n",	//IKE
+				wan6face, wan6face);
+		}
 	}
 
 	//IPv6
@@ -2007,7 +2003,6 @@ static void filter_table(void)
 	}
 	else {
 		ip46t_write(":FORWARD ACCEPT [0:0]\n");
-		clampmss();
 	}
 	ip46t_write("COMMIT\n");
 }

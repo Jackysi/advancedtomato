@@ -27,7 +27,7 @@
 #include "algo.h"
 #include "session.h"
 #include "dbutil.h"
-#include "kex.h"
+#include "dh_groups.h"
 #include "ltc_prng.h"
 #include "ecc.h"
 
@@ -248,20 +248,30 @@ algo_type sshhostkey[] = {
 	{NULL, 0, NULL, 0, NULL}
 };
 
+#if DROPBEAR_DH_GROUP1
 static const struct dropbear_kex kex_dh_group1 = {DROPBEAR_KEX_NORMAL_DH, dh_p_1, DH_P_1_LEN, NULL, &sha1_desc };
-static const struct dropbear_kex kex_dh_group14 = {DROPBEAR_KEX_NORMAL_DH, dh_p_14, DH_P_14_LEN, NULL, &sha1_desc };
+#endif
+#if DROPBEAR_DH_GROUP14
+static const struct dropbear_kex kex_dh_group14_sha1 = {DROPBEAR_KEX_NORMAL_DH, dh_p_14, DH_P_14_LEN, NULL, &sha1_desc };
+#if DROPBEAR_DH_GROUP14_256
+static const struct dropbear_kex kex_dh_group14_sha256 = {DROPBEAR_KEX_NORMAL_DH, dh_p_14, DH_P_14_LEN, NULL, &sha256_desc };
+#endif
+#endif
+#if DROPBEAR_DH_GROUP16
+static const struct dropbear_kex kex_dh_group16_sha512 = {DROPBEAR_KEX_NORMAL_DH, dh_p_16, DH_P_16_LEN, NULL, &sha512_desc };
+#endif
 
 /* These can't be const since dropbear_ecc_fill_dp() fills out
  ecc_curve at runtime */
 #ifdef DROPBEAR_ECDH
 #ifdef DROPBEAR_ECC_256
-static struct dropbear_kex kex_ecdh_nistp256 = {DROPBEAR_KEX_ECDH, NULL, 0, &ecc_curve_nistp256, &sha256_desc };
+static const struct dropbear_kex kex_ecdh_nistp256 = {DROPBEAR_KEX_ECDH, NULL, 0, &ecc_curve_nistp256, &sha256_desc };
 #endif
 #ifdef DROPBEAR_ECC_384
-static struct dropbear_kex kex_ecdh_nistp384 = {DROPBEAR_KEX_ECDH, NULL, 0, &ecc_curve_nistp384, &sha384_desc };
+static const struct dropbear_kex kex_ecdh_nistp384 = {DROPBEAR_KEX_ECDH, NULL, 0, &ecc_curve_nistp384, &sha384_desc };
 #endif
 #ifdef DROPBEAR_ECC_521
-static struct dropbear_kex kex_ecdh_nistp521 = {DROPBEAR_KEX_ECDH, NULL, 0, &ecc_curve_nistp521, &sha512_desc };
+static const struct dropbear_kex kex_ecdh_nistp521 = {DROPBEAR_KEX_ECDH, NULL, 0, &ecc_curve_nistp521, &sha512_desc };
 #endif
 #endif /* DROPBEAR_ECDH */
 
@@ -285,8 +295,18 @@ algo_type sshkex[] = {
 	{"ecdh-sha2-nistp256", 0, &kex_ecdh_nistp256, 1, NULL},
 #endif
 #endif
-	{"diffie-hellman-group14-sha1", 0, &kex_dh_group14, 1, NULL},
+#if DROPBEAR_DH_GROUP14
+#if DROPBEAR_DH_GROUP14_256
+	{"diffie-hellman-group14-sha256", 0, &kex_dh_group14_sha256, 1, NULL},
+#endif
+	{"diffie-hellman-group14-sha1", 0, &kex_dh_group14_sha1, 1, NULL},
+#endif
+#if DROPBEAR_DH_GROUP1
 	{"diffie-hellman-group1-sha1", 0, &kex_dh_group1, 1, NULL},
+#endif
+#if DROPBEAR_DH_GROUP16
+	{"diffie-hellman-group16-sha512", 0, &kex_dh_group16_sha512, 1, NULL},
+#endif
 #ifdef USE_KEXGUESS2
 	{KEXGUESS2_ALGO_NAME, KEXGUESS2_ALGO_ID, NULL, 1, NULL},
 #endif
@@ -318,7 +338,7 @@ void buf_put_algolist(buffer * buf, algo_type localalgos[]) {
 	unsigned int donefirst = 0;
 	buffer *algolist = NULL;
 
-	algolist = buf_new(200);
+	algolist = buf_new(300);
 	for (i = 0; localalgos[i].name != NULL; i++) {
 		if (localalgos[i].usable) {
 			if (donefirst)
@@ -511,21 +531,6 @@ check_algo(const char* algo_name, algo_type *algos)
 	return NULL;
 }
 
-static void
-try_add_algo(const char *algo_name, algo_type *algos, 
-		const char *algo_desc, algo_type * new_algos, int *num_ret)
-{
-	algo_type *match_algo = check_algo(algo_name, algos);
-	if (!match_algo)
-	{
-		dropbear_log(LOG_WARNING, "This Dropbear program does not support '%s' %s algorithm", algo_name, algo_desc);
-		return;
-	}
-
-	new_algos[*num_ret] = *match_algo;
-	(*num_ret)++;
-}
-
 /* Checks a user provided comma-separated algorithm list for available
  * options. Any that are not acceptable are removed in-place. Returns the
  * number of valid algorithms. */
@@ -533,30 +538,43 @@ int
 check_user_algos(const char* user_algo_list, algo_type * algos, 
 		const char *algo_desc)
 {
-	algo_type new_algos[MAX_PROPOSED_ALGO];
-	/* this has two passes. first we sweep through the given list of
-	 * algorithms and mark them as usable=2 in the algo_type[] array... */
-	int num_ret = 0;
+	algo_type new_algos[MAX_PROPOSED_ALGO+1];
 	char *work_list = m_strdup(user_algo_list);
-	char *last_name = work_list;
+	char *start = work_list;
 	char *c;
-	for (c = work_list; *c; c++)
+	int n;
+	/* So we can iterate and look for null terminator */
+	memset(new_algos, 0x0, sizeof(new_algos));
+	for (c = work_list, n = 0; ; c++)
 	{
-		if (*c == ',')
-		{
+		char oc = *c;
+		if (n >= MAX_PROPOSED_ALGO) {
+			dropbear_exit("Too many algorithms '%s'", user_algo_list);
+		}
+		if (*c == ',' || *c == '\0') {
+			algo_type *match_algo = NULL;
 			*c = '\0';
-			try_add_algo(last_name, algos, algo_desc, new_algos, &num_ret);
+			match_algo = check_algo(start, algos);
+			if (match_algo) {
+				if (check_algo(start, new_algos)) {
+					TRACE(("Skip repeated algorithm '%s'", start))
+				} else {
+					new_algos[n] = *match_algo;
+					n++;
+				}
+			} else {
+				dropbear_log(LOG_WARNING, "This Dropbear program does not support '%s' %s algorithm", start, algo_desc);
+			}
 			c++;
-			last_name = c;
+			start = c;
+		}
+		if (oc == '\0') {
+			break;
 		}
 	}
-	try_add_algo(last_name, algos, algo_desc, new_algos, &num_ret);
 	m_free(work_list);
-
-	new_algos[num_ret].name = NULL;
-
-	/* Copy one more as a blank delimiter */
-	memcpy(algos, new_algos, sizeof(*new_algos) * (num_ret+1));
-	return num_ret;
+	/* n+1 to include a null terminator */
+	memcpy(algos, new_algos, sizeof(*new_algos) * (n+1));
+	return n;
 }
 #endif /* ENABLE_USER_ALGO_LIST */

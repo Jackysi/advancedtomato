@@ -2,7 +2,7 @@
 
    Contributed to the GNU project by Niels Möller
 
-Copyright 1991-1997, 1999-2014 Free Software Foundation, Inc.
+Copyright 1991-1997, 1999-2015 Free Software Foundation, Inc.
 
 This file is part of the GNU MP Library.
 
@@ -264,12 +264,12 @@ gmp_default_alloc (size_t size)
 static void *
 gmp_default_realloc (void *old, size_t old_size, size_t new_size)
 {
-  mp_ptr p;
+  void * p;
 
   p = realloc (old, new_size);
 
   if (!p)
-    gmp_die("gmp_default_realoc: Virtual memory exhausted.");
+    gmp_die("gmp_default_realloc: Virtual memory exhausted.");
 
   return p;
 }
@@ -322,14 +322,14 @@ mp_set_memory_functions (void *(*alloc_func) (size_t),
 static mp_ptr
 gmp_xalloc_limbs (mp_size_t size)
 {
-  return gmp_xalloc (size * sizeof (mp_limb_t));
+  return (mp_ptr) gmp_xalloc (size * sizeof (mp_limb_t));
 }
 
 static mp_ptr
 gmp_xrealloc_limbs (mp_ptr old, mp_size_t size)
 {
   assert (size > 0);
-  return (*gmp_reallocate_func) (old, 0, size * sizeof (mp_limb_t));
+  return (mp_ptr) (*gmp_reallocate_func) (old, 0, size * sizeof (mp_limb_t));
 }
 
 
@@ -346,7 +346,7 @@ mpn_copyi (mp_ptr d, mp_srcptr s, mp_size_t n)
 void
 mpn_copyd (mp_ptr d, mp_srcptr s, mp_size_t n)
 {
-  while (n-- > 0)
+  while (--n >= 0)
     d[n] = s[n];
 }
 
@@ -373,20 +373,22 @@ mpn_cmp4 (mp_srcptr ap, mp_size_t an, mp_srcptr bp, mp_size_t bn)
 static mp_size_t
 mpn_normalized_size (mp_srcptr xp, mp_size_t n)
 {
-  for (; n > 0 && xp[n-1] == 0; n--)
-    ;
+  while (n > 0 && xp[n-1] == 0)
+    --n;
   return n;
 }
 
-#define mpn_zero_p(xp, n) (mpn_normalized_size ((xp), (n)) == 0)
+int
+mpn_zero_p(mp_srcptr rp, mp_size_t n)
+{
+  return mpn_normalized_size (rp, n) == 0;
+}
 
 void
 mpn_zero (mp_ptr rp, mp_size_t n)
 {
-  mp_size_t i;
-
-  for (i = 0; i < n; i++)
-    rp[i] = 0;
+  while (--n >= 0)
+    rp[n] = 0;
 }
 
 mp_limb_t
@@ -578,17 +580,16 @@ mpn_mul (mp_ptr rp, mp_srcptr up, mp_size_t un, mp_srcptr vp, mp_size_t vn)
      way. */
 
   rp[un] = mpn_mul_1 (rp, up, un, vp[0]);
-  rp += 1, vp += 1, vn -= 1;
 
   /* Now accumulate the product of up[] and the next higher limb from
      vp[]. */
 
-  while (vn >= 1)
+  while (--vn >= 1)
     {
+      rp += 1, vp += 1;
       rp[un] = mpn_addmul_1 (rp, up, un, vp[0]);
-      rp += 1, vp += 1, vn -= 1;
     }
-  return rp[un - 1];
+  return rp[un];
 }
 
 void
@@ -608,7 +609,6 @@ mpn_lshift (mp_ptr rp, mp_srcptr up, mp_size_t n, unsigned int cnt)
 {
   mp_limb_t high_limb, low_limb;
   unsigned int tnc;
-  mp_size_t i;
   mp_limb_t retval;
 
   assert (n >= 1);
@@ -623,7 +623,7 @@ mpn_lshift (mp_ptr rp, mp_srcptr up, mp_size_t n, unsigned int cnt)
   retval = low_limb >> tnc;
   high_limb = (low_limb << cnt);
 
-  for (i = n; --i != 0;)
+  while (--n != 0)
     {
       low_limb = *--up;
       *--rp = high_limb | (low_limb >> tnc);
@@ -639,7 +639,6 @@ mpn_rshift (mp_ptr rp, mp_srcptr up, mp_size_t n, unsigned int cnt)
 {
   mp_limb_t high_limb, low_limb;
   unsigned int tnc;
-  mp_size_t i;
   mp_limb_t retval;
 
   assert (n >= 1);
@@ -651,7 +650,7 @@ mpn_rshift (mp_ptr rp, mp_srcptr up, mp_size_t n, unsigned int cnt)
   retval = (high_limb << tnc);
   low_limb = high_limb >> cnt;
 
-  for (i = n; --i != 0;)
+  while (--n != 0)
     {
       high_limb = *up++;
       *rp++ = low_limb | (high_limb << tnc);
@@ -876,7 +875,7 @@ mpn_div_qr_1_preinv (mp_ptr qp, mp_srcptr np, mp_size_t nn,
 
   d = inv->d1;
   di = inv->di;
-  while (nn-- > 0)
+  while (--nn >= 0)
     {
       mp_limb_t q;
 
@@ -1314,7 +1313,7 @@ mpn_set_str_other (mp_ptr rp, const unsigned char *sp, size_t sn,
 
   j = 0;
   w = sp[j++];
-  for (; --k > 0; )
+  while (--k != 0)
     w = w * b + sp[j++];
 
   rp[0] = w;
@@ -1388,7 +1387,7 @@ mpz_clear (mpz_t r)
   gmp_free (r->_mp_d);
 }
 
-static void *
+static mp_ptr
 mpz_realloc (mpz_t r, mp_size_t size)
 {
   size = GMP_MAX (size, 1);
@@ -1475,14 +1474,12 @@ mpz_fits_slong_p (const mpz_t u)
 {
   mp_size_t us = u->_mp_size;
 
-  if (us == 0)
-    return 1;
-  else if (us == 1)
+  if (us == 1)
     return u->_mp_d[0] < GMP_LIMB_HIGHBIT;
   else if (us == -1)
     return u->_mp_d[0] <= GMP_LIMB_HIGHBIT;
   else
-    return 0;
+    return (us == 0);
 }
 
 int
@@ -1796,18 +1793,14 @@ mpz_cmpabs (const mpz_t u, const mpz_t v)
 void
 mpz_abs (mpz_t r, const mpz_t u)
 {
-  if (r != u)
-    mpz_set (r, u);
-
+  mpz_set (r, u);
   r->_mp_size = GMP_ABS (r->_mp_size);
 }
 
 void
 mpz_neg (mpz_t r, const mpz_t u)
 {
-  if (r != u)
-    mpz_set (r, u);
-
+  mpz_set (r, u);
   r->_mp_size = -r->_mp_size;
 }
 
@@ -2077,8 +2070,7 @@ mpz_mul_2exp (mpz_t r, const mpz_t u, mp_bitcnt_t bits)
   else
     mpn_copyd (rp + limbs, u->_mp_d, un);
 
-  while (limbs > 0)
-    rp[--limbs] = 0;
+  mpn_zero (rp, limbs);
 
   r->_mp_size = (u->_mp_size < 0) ? - rn : rn;
 }
@@ -3074,9 +3066,7 @@ void
 mpz_ui_pow_ui (mpz_t r, unsigned long blimb, unsigned long e)
 {
   mpz_t b;
-  mpz_init_set_ui (b, blimb);
-  mpz_pow_ui (r, b, e);
-  mpz_clear (b);
+  mpz_pow_ui (r, mpz_roinit_n (b, &blimb, 1), e);
 }
 
 void
@@ -3148,7 +3138,7 @@ mpz_powm (mpz_t r, const mpz_t b, const mpz_t e, const mpz_t m)
     }
   mpz_init_set_ui (tr, 1);
 
-  while (en-- > 0)
+  while (--en >= 0)
     {
       mp_limb_t w = e->_mp_d[en];
       mp_limb_t bit;
@@ -3188,9 +3178,7 @@ void
 mpz_powm_ui (mpz_t r, const mpz_t b, unsigned long elimb, const mpz_t m)
 {
   mpz_t e;
-  mpz_init_set_ui (e, elimb);
-  mpz_powm (r, b, e, m);
-  mpz_clear (e);
+  mpz_powm (r, b, mpz_roinit_n (e, &elimb, 1), m);
 }
 
 /* x=trunc(y^(1/z)), r=y-x^z */
@@ -3218,7 +3206,7 @@ mpz_rootrem (mpz_t x, mpz_t r, const mpz_t y, unsigned long z)
   {
     mp_bitcnt_t tb;
     tb = mpz_sizeinbase (y, 2) / z + 1;
-    mpz_init2 (t, tb);
+    mpz_init2 (t, tb + 1);
     mpz_setbit (t, tb);
   }
 
@@ -3333,7 +3321,7 @@ void
 mpz_fac_ui (mpz_t x, unsigned long n)
 {
   mpz_set_ui (x, n + (n == 0));
-  for (;n > 2;)
+  while (n > 2)
     mpz_mul_ui (x, x, --n);
 }
 
@@ -3504,7 +3492,7 @@ mpz_tstbit (const mpz_t d, mp_bitcnt_t bit_index)
 	 must be complemented. */
       if (shift > 0 && (w << (GMP_LIMB_BITS - shift)) > 0)
 	return bit ^ 1;
-      while (limb_index-- > 0)
+      while (--limb_index >= 0)
 	if (d->_mp_d[limb_index] > 0)
 	  return bit ^ 1;
     }
@@ -3569,7 +3557,7 @@ mpz_abs_sub_bit (mpz_t d, mp_bitcnt_t bit_index)
 
   gmp_assert_nocarry (mpn_sub_1 (dp + limb_index, dp + limb_index,
 				 dn - limb_index, bit));
-  dn -= (dp[dn-1] == 0);
+  dn = mpn_normalized_size (dp, dn);
   d->_mp_size = (d->_mp_size < 0) ? - dn : dn;
 }
 
@@ -4065,7 +4053,7 @@ mpz_get_str (char *sp, int base, const mpz_t u)
 
   sn = 1 + mpz_sizeinbase (u, base);
   if (!sp)
-    sp = gmp_xalloc (1 + sn);
+    sp = (char *) gmp_xalloc (1 + sn);
 
   un = GMP_ABS (u->_mp_size);
 
@@ -4147,7 +4135,7 @@ mpz_set_str (mpz_t r, const char *sp, int base)
     }
 
   sn = strlen (sp);
-  dp = gmp_xalloc (sn + (sn == 0));
+  dp = (unsigned char *) gmp_xalloc (sn + (sn == 0));
 
   for (sn = 0; *sp; sp++)
     {

@@ -249,9 +249,8 @@ void mwan_table_add(char *sPrefix)
 	mwanlog(LOG_DEBUG, "OUT fun mwan_table_add");
 }
 
-void mwan_status_update(void)
+void mwan_state_files(void)
 {
-	mwanlog(LOG_DEBUG, "IN fun mwan_status_update, mwan_curr=%s", mwan_curr);
 	int mwan_num;
 	int wan_unit;
 	char prefix[] = "wanXX";
@@ -271,6 +270,23 @@ void mwan_status_update(void)
 			fprintf(f, "1\n");
 			fclose(f);
 		}
+	}
+}
+
+void mwan_status_update(void)
+{
+	mwanlog(LOG_DEBUG, "IN fun mwan_status_update, mwan_curr=%s", mwan_curr);
+	int mwan_num;
+	int wan_unit;
+	char prefix[] = "wanXX";
+	char tmp[100];
+	FILE *f;
+
+	mwan_num = nvram_get_int("mwan_num");
+	if(mwan_num == 1 || mwan_num > MWAN_MAX) return;
+	for(wan_unit = 1; wan_unit <= mwan_num; ++wan_unit){
+		get_wan_prefix(wan_unit, prefix);
+		get_wan_info(prefix);
 
 		if(checkConnect(prefix)){
 			if(wan_info.wan_weight > 0){
@@ -283,6 +299,9 @@ void mwan_status_update(void)
 		}
 	}
 
+	// write failover status to file
+	f = fopen("/tmp/wan.failover", "w+");
+
 #ifdef TCONFIG_MULTIWAN
 	if ((mwan_curr[0] < '2') && (mwan_curr[1] < '2') && (mwan_curr[2] < '2') && (mwan_curr[3] < '2')) {
 #else
@@ -292,23 +311,30 @@ void mwan_status_update(void)
 		if (nvram_match("wan_weight", "0") && (mwan_curr[0] == '1')) {
 			syslog(LOG_INFO, "mwan_status_update, failover in action - WAN1");
 			mwan_curr[0] = '2';
+			fprintf(f, "WAN:1\n");
 		}
 		if (nvram_match("wan2_weight", "0") && (mwan_curr[1] == '1')) {
 			syslog(LOG_INFO, "mwan_status_update, failover in action - WAN2");
 			mwan_curr[1] = '2';
+			fprintf(f, "WAN2:1\n");
 		}
 #ifdef TCONFIG_MULTIWAN
 		if (nvram_match("wan3_weight", "0") && (mwan_curr[2] == '1')) {
 			syslog(LOG_INFO, "mwan_status_update, failover in action - WAN3");
 			mwan_curr[2] = '2';
+			fprintf(f, "WAN3:1\n");
 		}
 		if (nvram_match("wan4_weight", "0") && (mwan_curr[3] == '1')) {
 			syslog(LOG_INFO, "mwan_status_update, failover in action - WAN4");
 			mwan_curr[3] = '2';
+			fprintf(f, "WAN4:1\n");
 		}
 #endif
+	} else {
+		fprintf(f, "NONE:0\n");
 	}
 
+	fclose(f);
 	mwanlog(LOG_DEBUG, "OUT fun mwan_status_update, mwan_curr=%s", mwan_curr);
 }
 
@@ -395,6 +421,9 @@ int mwan_route_main(int argc, char **argv)
 		if(strcmp(mwan_last,mwan_curr)){
 			syslog(LOG_WARNING, "Multiwan status is changed, last_status=%s, now_status=%s, Update multiwan policy.", mwan_last, mwan_curr);
 			mwan_load_balance();
+
+			stop_dnsmasq();
+			start_dnsmasq();
 		}
 		strcpy(mwan_last,mwan_curr);
 		sleep(check_time);

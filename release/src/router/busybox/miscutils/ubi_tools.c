@@ -105,6 +105,7 @@ int ubi_tools_main(int argc UNUSED_PARAM, char **argv)
 	int mtd_num;
 	int dev_num = UBI_DEV_NUM_AUTO;
 	int vol_id = UBI_VOL_NUM_AUTO;
+	int vid_hdr_offset = 0;
 	char *vol_name;
 	unsigned long long size_bytes = size_bytes; /* for compiler */
 	char *size_bytes_str;
@@ -133,10 +134,11 @@ int ubi_tools_main(int argc UNUSED_PARAM, char **argv)
 #define OPTION_a  (1 << 5)
 #define OPTION_t  (1 << 6)
 	if (do_mkvol) {
-		opt_complementary = "-1:d+:n+:a+";
-		opts = getopt32(argv, "md:n:N:s:a:t:",
+		opt_complementary = "-1:d+:n+:a+:O+";
+		opts = getopt32(argv, "md:n:N:s:a:t:O:",
 				&dev_num, &vol_id,
-				&vol_name, &size_bytes_str, &alignment, &type
+				&vol_name, &size_bytes_str, &alignment, &type,
+				&vid_hdr_offset
 			);
 	} else
 	if (do_update) {
@@ -162,17 +164,19 @@ int ubi_tools_main(int argc UNUSED_PARAM, char **argv)
 	//	bb_error_msg_and_die("%s: not a char device", ubi_ctrl);
 
 //usage:#define ubiattach_trivial_usage
-//usage:       "-m MTD_NUM [-d UBI_NUM] UBI_CTRL_DEV"
+//usage:       "-m MTD_NUM [-d UBI_NUM] [-O VID_HDR_OFF] UBI_CTRL_DEV"
 //usage:#define ubiattach_full_usage "\n\n"
 //usage:       "Attach MTD device to UBI\n"
 //usage:     "\n	-m MTD_NUM	MTD device number to attach"
 //usage:     "\n	-d UBI_NUM	UBI device number to assign"
+//usage:     "\n	-O VID_HDR_OFF	VID header offset"
 	if (do_attach) {
 		if (!(opts & OPTION_m))
 			bb_error_msg_and_die("%s device not specified", "MTD");
 
 		attach_req.mtd_num = mtd_num;
 		attach_req.ubi_num = dev_num;
+		attach_req.vid_hdr_offset = vid_hdr_offset;
 
 		xioctl(fd, UBI_IOCATT, &attach_req);
 	} else
@@ -191,7 +195,7 @@ int ubi_tools_main(int argc UNUSED_PARAM, char **argv)
 	} else
 
 //usage:#define ubimkvol_trivial_usage
-//usage:       "UBI_DEVICE -N NAME [-s SIZE | -m]"
+//usage:       "-N NAME [-s SIZE | -m] UBI_DEVICE"
 //usage:#define ubimkvol_full_usage "\n\n"
 //usage:       "Create UBI volume\n"
 //usage:     "\n	-a ALIGNMENT	Volume alignment (default 1)"
@@ -208,9 +212,7 @@ int ubi_tools_main(int argc UNUSED_PARAM, char **argv)
 			unsigned num;
 			char *p;
 
-			if (sscanf(ubi_ctrl, "/dev/ubi%u", &num) != 1)
-				bb_error_msg_and_die("wrong format of UBI device name");
-
+			num = ubi_devnum_from_devname(ubi_ctrl);
 			p = path_sys_class_ubi_ubi + sprintf(path_sys_class_ubi_ubi, "%u/", num);
 
 			strcpy(p, "avail_eraseblocks");
@@ -244,20 +246,31 @@ int ubi_tools_main(int argc UNUSED_PARAM, char **argv)
 	} else
 
 //usage:#define ubirmvol_trivial_usage
-//usage:       "UBI_DEVICE -n VOLID"
+//usage:       "-n VOLID / -N VOLNAME UBI_DEVICE"
 //usage:#define ubirmvol_full_usage "\n\n"
 //usage:       "Remove UBI volume\n"
 //usage:     "\n	-n VOLID	Volume ID"
+//usage:     "\n	-N VOLNAME	Volume name"
 	if (do_rmvol) {
-		if (!(opts & OPTION_n))
+		if (!(opts & (OPTION_n|OPTION_N)))
 			bb_error_msg_and_die("volume id not specified");
 
-		/* FIXME? kernel expects int32_t* here: */
-		xioctl(fd, UBI_IOCRMVOL, &vol_id);
+		if (opts & OPTION_N) {
+			unsigned num = ubi_devnum_from_devname(ubi_ctrl);
+			vol_id = ubi_get_volid_by_name(num, vol_name);
+		}
+
+		if (sizeof(vol_id) != 4) {
+			/* kernel expects int32_t* in this ioctl */
+			int32_t t = vol_id;
+			xioctl(fd, UBI_IOCRMVOL, &t);
+		} else {
+			xioctl(fd, UBI_IOCRMVOL, &vol_id);
+		}
 	} else
 
 //usage:#define ubirsvol_trivial_usage
-//usage:       "UBI_DEVICE -n VOLID -s SIZE"
+//usage:       "-n VOLID -s SIZE UBI_DEVICE"
 //usage:#define ubirsvol_full_usage "\n\n"
 //usage:       "Resize UBI volume\n"
 //usage:     "\n	-n VOLID	Volume ID"
@@ -275,7 +288,7 @@ int ubi_tools_main(int argc UNUSED_PARAM, char **argv)
 	} else
 
 //usage:#define ubiupdatevol_trivial_usage
-//usage:       "UBI_DEVICE [-t | [-s SIZE] IMG_FILE]"
+//usage:       "[-t | [-s SIZE] IMG_FILE] UBI_DEVICE"
 //usage:#define ubiupdatevol_full_usage "\n\n"
 //usage:       "Update UBI volume\n"
 //usage:     "\n	-t	Truncate to zero size"

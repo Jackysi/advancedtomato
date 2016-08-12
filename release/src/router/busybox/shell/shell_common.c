@@ -328,7 +328,7 @@ enum {
 };
 
 /* "-": treat args as parameters of option with ASCII code 1 */
-static const char ulimit_opt_string[] = "-HSa"
+static const char ulimit_opt_string[] ALIGN1 = "-HSa"
 #ifdef RLIMIT_FSIZE
 			"f::"
 #endif
@@ -380,7 +380,7 @@ static void printlim(unsigned opts, const struct rlimit *limit,
 		val = limit->rlim_cur;
 
 	if (val == RLIM_INFINITY)
-		printf("unlimited\n");
+		puts("unlimited");
 	else {
 		val >>= l->factor_shift;
 		printf("%llu\n", (long long) val);
@@ -493,7 +493,6 @@ shell_builtin_ulimit(char **argv)
 			/* bad option. getopt already complained. */
 			break;
 		}
-
 	} /* while (there are options) */
 
 	return 0;

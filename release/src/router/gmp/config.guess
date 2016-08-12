@@ -3,7 +3,7 @@
 # GMP config.guess wrapper.
 
 
-# Copyright 2000-2006, 2008, 2011-2014 Free Software Foundation, Inc.
+# Copyright 2000-2006, 2008, 2011-2015 Free Software Foundation, Inc.
 #
 #  This file is part of the GNU MP Library.
 #
@@ -173,7 +173,7 @@ EOF
   ;;
 
 arm*-*-*)
-  cpu_code=`sed -n 's/^CPU part.*\(0x.*\)$/\1/p' /proc/cpuinfo 2>/dev/null`
+  cpu_code=`sed -n 's/^CPU part.*\(0x.*\)$/\1/p' /proc/cpuinfo 2>/dev/null | head -n 1 2>/dev/null`
   case "$cpu_code" in
       0xa10 | 0xa11 | 0xb11)			# v4 strongarm/sa1100
 		exact_cpu="armsa1";;
@@ -199,8 +199,9 @@ arm*-*-*)
       0xc14)	exact_cpu="armcortexr4";;	# v7r
       0xc15)	exact_cpu="armcortexr5";;	# v7r
       0xc23)	exact_cpu="armcortexm3";;	# v7m
+      *)	exact_cpu=$guess_cpu;;
   esac
-  exact_cpu="${exact_cpu}`sed -n 's;^Features.*\(neon\).*;\1;p' /proc/cpuinfo 2>/dev/null`"
+  exact_cpu="${exact_cpu}`sed -n 's;^Features.*\(neon\).*;\1;p' /proc/cpuinfo 2>/dev/null | head -n 1 2>/dev/null`"
   ;;
 
 ia64*-*-*)
@@ -456,8 +457,8 @@ EOF
       970??)   exact_cpu="powerpc970" ;;
       603 | 603e | 604 | 604e | 750 | 821 | 860)
         exact_cpu="powerpc$x" ;;
-      POWER[4-9])
-        exact_cpu=`echo $x | sed "s;POWER;power;"` ;;
+      POWER[4-9]*)
+        exact_cpu=`echo $x | sed -e "s;POWER;power;" -e "s;[a-zA-Z]*$;;"` ;;
     esac
   fi
 
@@ -508,6 +509,9 @@ main ()
 #endif
 #ifdef POWER_7
   case POWER_7:    puts ("power7"); break;
+#endif
+#ifdef POWER_8
+  case POWER_8:    puts ("power8"); break;
 #endif
   default:
     if (_system_configuration.architecture == POWER_RS)
@@ -592,6 +596,8 @@ sparc-*-* | sparc64-*-*)
     elif grep 'cpu.*MB86904' /proc/cpuinfo >/dev/null; then
       # actually MicroSPARC-II
       exact_cpu=microsparc
+    elif grep 'cpu.*UltraSparc T5' /proc/cpuinfo >/dev/null; then
+      exact_cpu="ultrasparct5"
     elif grep 'cpu.*UltraSparc T4' /proc/cpuinfo >/dev/null; then
       exact_cpu="ultrasparct4"
     elif grep 'cpu.*UltraSparc T3' /proc/cpuinfo >/dev/null; then
@@ -655,7 +661,11 @@ sparc-*-* | sparc64-*-*)
   for prtconfopt in "" "-vp"; do
     if test -z "$exact_cpu"; then
       if $SHELL -c "/usr/sbin/prtconf $prtconfopt" 2>/dev/null >$dummy; then
-	if grep 'SUNW,UltraSPARC-T3' $dummy >/dev/null; then
+	if grep 'SUNW,UltraSPARC-T5' $dummy >/dev/null; then
+	  exact_cpu=ultrasparct5
+	elif grep 'SUNW,UltraSPARC-T4' $dummy >/dev/null; then
+	  exact_cpu=ultrasparct4
+	elif grep 'SUNW,UltraSPARC-T3' $dummy >/dev/null; then
 	  exact_cpu=ultrasparct3
 	elif grep 'SUNW,UltraSPARC-T2' $dummy >/dev/null; then
 	  exact_cpu=ultrasparct2
@@ -693,7 +703,11 @@ sparc-*-* | sparc64-*-*)
   #
   if test -z "$exact_cpu"; then
     if $SHELL -c "/sbin/sysctl hw.model" 2>/dev/null >$dummy; then
-      if grep -i 'UltraSparc-T3' $dummy >/dev/null; then
+      if grep -i 'UltraSparc-T5' $dummy >/dev/null; then
+        exact_cpu=ultrasparct5
+      elif grep -i 'UltraSparc-T4' $dummy >/dev/null; then
+        exact_cpu=ultrasparct4
+      elif grep -i 'UltraSparc-T3' $dummy >/dev/null; then
         exact_cpu=ultrasparct3
       elif grep -i 'UltraSparc-T2' $dummy >/dev/null; then
         exact_cpu=ultrasparct2
@@ -752,21 +766,23 @@ int
 main ()
 {
   char vendor_string[13];
-  char dummy_string[12];
+  char feature_string[12];
   long fms;
-  int family, model, stepping;
-  const char *modelstr;
-  int cpu_64bit = 0;
-  int cpuid_64bit;
+  int family, model;
+  const char *modelstr, *suffix;
+  int cpu_64bit = 0, cpu_avx = 0;
+  int cpuid_64bit, cpuid_avx, cpuid_osxsave;
 
   CPUID (vendor_string, 0);
   vendor_string[12] = 0;
 
-  fms = CPUID (dummy_string, 1);
+  fms = CPUID (feature_string, 1);
 
   family = ((fms >> 8) & 0xf) + ((fms >> 20) & 0xff);
   model = ((fms >> 4) & 0xf) + ((fms >> 12) & 0xf0);
-  stepping = fms & 0xf;
+
+  cpuid_avx     = (feature_string[11] >> 4) & 1;
+  cpuid_osxsave = (feature_string[11] >> 3) & 1;
 
   modelstr = "$guess_cpu";
 
@@ -782,46 +798,58 @@ main ()
 	  else if (model >= 4)	modelstr = "pentiummmx";
 	  break;
 	case 6:
-          if (model <= 1)                        modelstr = "pentiumpro";
-          else if (model <= 6)                   modelstr = "pentium2";
-          else if (model <= 8)                   modelstr = "pentium3";
-          else if (model <= 9)                   modelstr = "pentiumm";
-          else if (model <= 0x0c)                modelstr = "pentium3";
-          else if (model <= 0x0e)                modelstr = "pentiumm";
-          else if (model <= 0x19) cpu_64bit = 1, modelstr = "core2";
-          else if (model == 0x1a) cpu_64bit = 1, modelstr = "coreinhm"; /* NHM Gainestown */
-          else if (model == 0x1c) cpu_64bit = 1, modelstr = "atom";     /* Silverthorne */
-          else if (model == 0x1d) cpu_64bit = 1, modelstr = "core2";    /* PNR Dunnington */
-          else if (model == 0x1e) cpu_64bit = 1, modelstr = "coreinhm"; /* NHM Lynnfield/Jasper */
-          else if (model == 0x25) cpu_64bit = 1, modelstr = "coreiwsm"; /* WSM Clarkdale/Arrandale */
-          else if (model == 0x26) cpu_64bit = 1, modelstr = "atom";     /* Lincroft */
-          else if (model == 0x27) cpu_64bit = 1, modelstr = "atom";     /* Saltwell */
-          else if (model == 0x2a) cpu_64bit = 1, modelstr = "coreisbr"; /* SB */
-          else if (model == 0x2c) cpu_64bit = 1, modelstr = "coreiwsm"; /* WSM Gulftown */
-          else if (model == 0x2d) cpu_64bit = 1, modelstr = "coreisbr"; /* SBC-EP */
-          else if (model == 0x2e) cpu_64bit = 1, modelstr = "coreinhm"; /* NHM Beckton */
-          else if (model == 0x2f) cpu_64bit = 1, modelstr = "coreiwsm"; /* WSM Eagleton */
-          else if (model == 0x36) cpu_64bit = 1, modelstr = "atom";     /* Cedarview/Saltwell */
-          else if (model == 0x37) cpu_64bit = 1, modelstr = "coreinhm"; /* Atom Silvermont */
-          else if (model == 0x3a) cpu_64bit = 1, modelstr = "coreisbr"; /* IBR */
-          else if (model == 0x3c) cpu_64bit = 1, modelstr = "coreihwl"; /* Haswell client */
-          else if (model == 0x3d) cpu_64bit = 1, modelstr = "coreibwl"; /* Broadwell */
-          else if (model == 0x3e) cpu_64bit = 1, modelstr = "coreisbr"; /* Ivytown */
-          else if (model == 0x3f) cpu_64bit = 1, modelstr = "coreihwl"; /* Haswell server */
-          else if (model == 0x45) cpu_64bit = 1, modelstr = "coreihwl"; /* Haswell ULT */
-          else if (model == 0x46) cpu_64bit = 1, modelstr = "coreihwl"; /* Crystal Well */
-          else if (model == 0x4d) cpu_64bit = 1, modelstr = "coreinhm"; /* Silvermont/Avoton */
-          else if (model == 0x4f) cpu_64bit = 1, modelstr = "coreibwl"; /* Broadwell server */
-          else if (model == 0x56) cpu_64bit = 1, modelstr = "coreibwl"; /* Broadwell microserver */
-          else cpu_64bit = 1, modelstr = "corei"; /* default */
+          if (model <= 1)                                   modelstr = "pentiumpro";
+          else if (model <= 6)                              modelstr = "pentium2";
+          else if (model <= 8)                              modelstr = "pentium3";
+          else if (model <= 9)                              modelstr = "pentiumm";
+          else if (model <= 0x0c)                           modelstr = "pentium3";
+          else if (model <= 0x0e)                           modelstr = "pentiumm";
+          else if (model <= 0x19) cpu_64bit = 1,            modelstr = "core2";
+          else if (model == 0x1a) cpu_64bit = 1,            modelstr = "nehalem";    /* NHM Gainestown */
+          else if (model == 0x1c) cpu_64bit = 1,            modelstr = "atom";       /* Silverthorne */
+          else if (model == 0x1d) cpu_64bit = 1,            modelstr = "core2";      /* PNR Dunnington */
+          else if (model == 0x1e) cpu_64bit = 1,            modelstr = "nehalem";    /* NHM Lynnfield/Jasper */
+          else if (model == 0x25) cpu_64bit = 1,            modelstr = "westmere";   /* WSM Clarkdale/Arrandale */
+          else if (model == 0x26) cpu_64bit = 1,            modelstr = "atom";       /* Lincroft */
+          else if (model == 0x27) cpu_64bit = 1,            modelstr = "atom";       /* Saltwell */
+          else if (model == 0x2a) cpu_64bit = 1, cpu_avx=1, modelstr = "sandybridge";/* SB */
+          else if (model == 0x2c) cpu_64bit = 1,            modelstr = "westmere";   /* WSM Gulftown */
+          else if (model == 0x2d) cpu_64bit = 1, cpu_avx=1, modelstr = "sandybridge";/* SBC-EP */
+          else if (model == 0x2e) cpu_64bit = 1,            modelstr = "nehalem";    /* NHM Beckton */
+          else if (model == 0x2f) cpu_64bit = 1,            modelstr = "westmere";   /* WSM Eagleton */
+          else if (model == 0x36) cpu_64bit = 1,            modelstr = "atom";       /* Cedarview/Saltwell */
+          else if (model == 0x37) cpu_64bit = 1,            modelstr = "silvermont"; /* Silvermont */
+          else if (model == 0x3a) cpu_64bit = 1, cpu_avx=1, modelstr = "ivybridge";  /* IBR */
+          else if (model == 0x3c) cpu_64bit = 1, cpu_avx=1, modelstr = "haswell";    /* Haswell client */
+          else if (model == 0x3d) cpu_64bit = 1, cpu_avx=1, modelstr = "broadwell";  /* Broadwell */
+          else if (model == 0x3e) cpu_64bit = 1, cpu_avx=1, modelstr = "ivybridge";  /* Ivytown */
+          else if (model == 0x3f) cpu_64bit = 1, cpu_avx=1, modelstr = "haswell";    /* Haswell server */
+          else if (model == 0x45) cpu_64bit = 1, cpu_avx=1, modelstr = "haswell";    /* Haswell ULT */
+          else if (model == 0x46) cpu_64bit = 1, cpu_avx=1, modelstr = "haswell";    /* Crystal Well */
+          else if (model == 0x47) cpu_64bit = 1, cpu_avx=1, modelstr = "broadwell";  /* Broadwell */
+          else if (model == 0x4a) cpu_64bit = 1,            modelstr = "silvermont"; /* Silvermont */
+          else if (model == 0x4c) cpu_64bit = 1,            modelstr = "silvermont"; /* Airmont */
+          else if (model == 0x4d) cpu_64bit = 1,            modelstr = "silvermont"; /* Silvermont/Avoton */
+          else if (model == 0x4e) cpu_64bit = 1, cpu_avx=1, modelstr = "skylake";    /* Skylake client */
+          else if (model == 0x4f) cpu_64bit = 1, cpu_avx=1, modelstr = "broadwell";  /* Broadwell server */
+          else if (model == 0x55) cpu_64bit = 1, cpu_avx=1, modelstr = "skylake";    /* Skylake server */
+          else if (model == 0x56) cpu_64bit = 1, cpu_avx=1, modelstr = "broadwell";  /* Broadwell microserver */
+          else if (model == 0x57) cpu_64bit = 1,            modelstr = "knightslanding"; /* aka Xeon Phi */
+          else if (model == 0x5a) cpu_64bit = 1,            modelstr = "silvermont"; /* Silvermont */
+          else if (model == 0x5c) cpu_64bit = 1,            modelstr = "goldmont";   /* Goldmont */
+          else if (model == 0x5e) cpu_64bit = 1, cpu_avx=1, modelstr = "skylake";    /* Skylake */
+          else if (model == 0x5f) cpu_64bit = 1,            modelstr = "goldmont";   /* Goldmont */
+          else if (model == 0x8e) cpu_64bit = 1, cpu_avx=1, modelstr = "cabylake";   /* Capylake Y/U */
+          else if (model == 0x9e) cpu_64bit = 1, cpu_avx=1, modelstr = "cabylake";   /* Capylake desktop */
+          else                    cpu_64bit = 1,            modelstr = "nehalem";    /* default */
 
-	  if (strcmp (modelstr, "coreihwl") == 0)
+	  if (strcmp (modelstr, "haswell") == 0)
 	    {
 	      /* Some Haswells lack BMI2.  Let them appear as Sandybridges for
 		 now.  */
-	      CPUID (dummy_string, 7);
-	      if ((dummy_string[0 + 8 / 8] & (1 << (8 % 8))) == 0)
-		modelstr = "coreisbr";
+	      CPUID (feature_string, 7);
+	      if ((feature_string[0 + 8 / 8] & (1 << (8 % 8))) == 0)
+		modelstr = "sandybridge";
 	    }
 
 	  break;
@@ -864,7 +892,7 @@ main ()
 	  cpu_64bit = 1, modelstr = "bobcat";
 	  break;
 	case 21:		/* Bulldozer */
-	  cpu_64bit = 1;
+	  cpu_64bit = 1, cpu_avx = 1;
 	  if (model <= 1)
 	    modelstr = "bulldozer";
 	  else if (model < 0x20)	/* really 2, [0x10-0x20) */
@@ -875,7 +903,7 @@ main ()
 	    modelstr = "excavator";
 	  break;
 	case 22:		/* Jaguar, an improved bobcat */
-	  cpu_64bit = 1, modelstr = "jaguar";
+	  cpu_64bit = 1, cpu_avx = 1, modelstr = "jaguar";
 	  break;
 	}
     }
@@ -895,17 +923,25 @@ main ()
 	}
     }
 
-  CPUID (dummy_string, 0x80000001);
-  cpuid_64bit = (dummy_string[7] >> 5) & 1;
+  CPUID (feature_string, 0x80000001);
+  cpuid_64bit = (feature_string[7] >> 5) & 1;
 
-  /* If our cpuid-based CPU identification thinks this is a 32-bit CPU but
-     cpuid claims AMD64 capabilities, then revert to the generic "x86_64".
-     This is of course wrong, but it can happen in some emulators, so this
-     workaround allows for successful 64-bit builds.  */
+  suffix = "";
+
   if (cpuid_64bit && ! cpu_64bit)
+    /* If our cpuid-based CPU identification thinks this is a 32-bit CPU but
+       cpuid claims AMD64 capabilities, then revert to the generic "x86_64".
+       This is of course wrong, but it can happen in some virtualisers and
+       emulators, and this workaround allows for successful 64-bit builds.  */
     modelstr = "x86_64";
+  else if (cpu_avx && ! (cpuid_avx && cpuid_osxsave))
+    /* For CPUs nominally capable of executing AVX, append "noavx" when not
+       both the AVX and OSXSAVE cpuid bits are set.  We tolerate weirdness
+       here, as some virtualisers set a broken cpuid state here, while other
+       virtualisers allow users to set a broken state.  */
+    suffix = "noavx";
 
-  printf ("%s", modelstr);
+  printf ("%s%s", modelstr, suffix);
   return 0;
 }
 EOF

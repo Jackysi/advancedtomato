@@ -36,7 +36,7 @@ No part of this file may be used without permission.
 	<script type="text/javascript" src="js/wireless.jsx?_http_id=<% nv(http_id); %>"></script>
 	<script type="text/javascript" src="js/interfaces.js"></script>
 	<script type="text/javascript">
-		//<% nvram ("t_model_name,vlan0ports,vlan1ports,vlan2ports,vlan3ports,vlan4ports,vlan5ports,vlan6ports,vlan7ports,vlan8ports,vlan9ports,vlan10ports,vlan11ports,vlan12ports,vlan13ports,vlan14ports,vlan15ports,vlan0hwname,vlan1hwname,vlan2hwname,vlan3hwname,vlan4hwname,vlan5hwname,vlan6hwname,vlan7hwname,vlan8hwname,vlan9hwname,vlan10hwname,vlan11hwname,vlan12hwname,vlan13hwname,vlan14hwname,vlan15hwname,wan_ifnameX,wan2_ifnameX,wan3_ifnameX,wan4_ifnameX,manual_boot_nv,boardtype,boardflags,lan_ifname,lan_ifnames,lan1_ifname,lan1_ifnames,lan2_ifname,lan2_ifnames,lan3_ifname,lan3_ifnames,vlan0tag,vlan0vid,vlan1vid,vlan2vid,vlan3vid,vlan4vid,vlan5vid,vlan6vid,vlan7vid,vlan8vid,vlan9vid,vlan10vid,vlan11vid,vlan12vid,vlan13vid,vlan14vid,vlan15vid");%>
+		//<% nvram ("t_model_name,vlan0ports,vlan1ports,vlan2ports,vlan3ports,vlan4ports,vlan5ports,vlan6ports,vlan7ports,vlan8ports,vlan9ports,vlan10ports,vlan11ports,vlan12ports,vlan13ports,vlan14ports,vlan15ports,vlan0hwname,vlan1hwname,vlan2hwname,vlan3hwname,vlan4hwname,vlan5hwname,vlan6hwname,vlan7hwname,vlan8hwname,vlan9hwname,vlan10hwname,vlan11hwname,vlan12hwname,vlan13hwname,vlan14hwname,vlan15hwname,wan_ifnameX,wan2_ifnameX,wan3_ifnameX,wan4_ifnameX,boardtype,boardflags,lan_ifname,lan_ifnames,lan1_ifname,lan1_ifnames,lan2_ifname,lan2_ifnames,lan3_ifname,lan3_ifnames,vlan0tag,vlan0vid,vlan1vid,vlan2vid,vlan3vid,vlan4vid,vlan5vid,vlan6vid,vlan7vid,vlan8vid,vlan9vid,vlan10vid,vlan11vid,vlan12vid,vlan13vid,vlan14vid,vlan15vid");%>
 
 		var port_vlan_supported = 0;
 		var trunk_vlan_supported = 1; //Enable on all routers
@@ -51,7 +51,6 @@ No part of this file may be used without permission.
 		if ( nvram[ 'boardflags' ] & 0x0100 ) { // BFL_ENETVLAN = this board has vlan capability
 			port_vlan_supported = 1;
 		}
-
 
 		// TESTED ONLY ON WRT54G v2 (boardtype 0x0101),WRT54GL v1.1 (boardtype 0x0467) and WNR3500L (boardtype 0x04cf)
 		// info on some of these boardtypes/routers obtained from
@@ -74,6 +73,11 @@ No part of this file may be used without permission.
 			case 'Linksys E2500 v1/v2/v3':
 			case 'Linksys E3200 v1.0':
 			case 'Linksys E4200 v1':
+//	case 'Netgear WNDR3700v3':
+//	case 'Netgear WNDR4000':
+			case 'Netgear WNDR4500 V1':
+//	case 'Netgear WNDR4500 V2':
+//	case 'Netgear R6300 V1':
 				COL_P0N = '0';
 				COL_P1N = '1';
 				COL_P2N = '2';
@@ -84,10 +88,8 @@ No part of this file may be used without permission.
 			case 'Asus RT-N10U':
 			case 'Asus RT-N66U':
 			case 'Belkin N F5D8235-4 v3':
-			case 'Belkin Share Max N300 (F7D3301/F7D7301) v1':
 //	case 'Buffalo WZR-D1100H':
 //	case 'Buffalo WZR-D1800H':
-//	case 'Catchtech CW-5358U':
 			case 'Cisco M10 v1.0':
 			case 'Cisco M10 v2.0':
 			case 'D-Link DIR-865L':
@@ -101,10 +103,8 @@ No part of this file may be used without permission.
 			case 'Linksys WRT320N':
 			case 'Linksys WRT610N v2':
 			case 'Tenda N6':
+//	case 'Tenda N80':
 			case 'Tenda W1800R':
-			case 'Asus WL-500gP':
-			case 'Asus WL-500gP v2':
-			case 'Asus WL-500W':
 				COL_P0N = '1';
 				COL_P1N = '2';
 				COL_P2N = '3';
@@ -118,7 +118,12 @@ No part of this file may be used without permission.
 			case 'Asus RT-N15U':
 			case 'Asus RT-N53':
 			case 'Asus RT-N53 A1':
+			case 'Belkin Share Max N300 (F7D3301/F7D7301) v1':
 			case 'Belkin Play Max / N600 HD (F7D4301/F7D8301) v1':
+			case 'Netcore NR235W': //NOT in Shibby Firmware - https://github.com/Jackysi/advancedtomato/pull/142
+//	case 'Netgear WNDR3400':
+//	case 'Netgear WNDR3400v2':
+//	case 'Netgear WNDR3400v3':
 				COL_P0N = '3';
 				COL_P1N = '2';
 				COL_P2N = '1';
@@ -126,13 +131,14 @@ No part of this file may be used without permission.
 				COL_P4N = '4';
 				break;
 			case 'vlan-testid3':
-			case 'Asus RT-N16':
+			case 'Asus RT-N16': //invert port order=checked
 			case 'Asus RT-AC66U':
+			case 'Catchtech CW-5358U':
 //	case 'ChinaNet RG200E-CA':
 			case 'Netgear WNR2000 v2':
 			case 'Netgear WNR3500L/U/v2':
 			case 'Netgear WNR3500L v2':
-//	case 'Tenda N60':
+			case 'Tenda N60':
 				COL_P0N = '4';
 				COL_P1N = '3';
 				COL_P2N = '2';
@@ -153,33 +159,25 @@ No part of this file may be used without permission.
 				 case 'ZTE ZXV10 H618B':
 				 case 'Linksys WRT160N':
 				 case 'Linksys WRT300N v1':
-				 case 'Netgear WNDR3700v3':
-				 case 'Netgear WNDR4000':
 				 case 'D-Link DIR-627':
-				 case 'Netgear WNDR3400':
-				 case 'Netcore NR235W':
 				 case 'Netcore NI360/Q3':
-				 case 'Tenda N80':
 				 case 'PHICOMM FIR302b':
 				 case 'Vivick Q-W601':
-				 case 'Netcore NR235W/NI360':
 				 case 'Netcore NW715P':
-				 case 'Netgear R6300 V1':
-				 case 'Netgear WNDR3400v2':
 				 */
 		}
 
 		var COL_VID = 0;
 		var COL_MAP = 1;
-		var COL_P0  = 2;
+		var COL_P0 = 2;
 		var COL_P0T = 3;
-		var COL_P1  = 4;
+		var COL_P1 = 4;
 		var COL_P1T = 5;
-		var COL_P2  = 6;
+		var COL_P2 = 6;
 		var COL_P2T = 7;
-		var COL_P3  = 8;
+		var COL_P3 = 8;
 		var COL_P3T = 9;
-		var COL_P4  = 10;
+		var COL_P4 = 10;
 		var COL_P4T = 11;
 		var COL_VID_DEF = 12;
 		var COL_BRI = 13;
@@ -322,16 +320,6 @@ No part of this file may be used without permission.
 			 //        'lan3_ifnames=' + fom['lan3_ifnames'].value);
 			 REMOVE-END */
 
-// for some models, Tomato checks for a few vital/crucial nvram settings at init time
-// in some cases, if some/any of them are not found, a full nvram reset/clean could be triggered
-// so, to (try to) play it safe, we check for the 1st needed/available/required
-// VLAN for FastE (vlan0 is usually LAN) and GigE routers (vlan1 is usually LAN)
-			if ( (fom[ 'vlan0ports' ].value.length < 1) || (fom[ 'vlan0hwname' ].value.length < 1) ||
-			     (fom[ 'vlan1ports' ].value.length < 1) || (fom[ 'vlan1hwname' ].value.length < 1) )
-				fom[ 'manual_boot_nv' ].value = '1';
-			else
-				fom[ 'manual_boot_nv' ].value = nvram[ 'manual_boot_nv' ];
-
 			var e = E( 'footer-msg' );
 
 			if ( vlg.countWan() != 1 ) {
@@ -455,17 +443,17 @@ No part of this file may be used without permission.
 				bridged[ parseInt( nvram[ 'wan4_ifnameX' ].replace( 'vlan', '' ) ) ] = '9';
 				/* MULTIWAN-END */
 
-// go thru all possible VLANs
+				// go thru all possible VLANs
 				for ( var i = 0; i <= MAX_VLAN_ID; i++ ) {
 					var port   = [];
 					var tagged = [];
 					if ( (nvram[ 'vlan' + i + 'hwname' ].length > 0) || (nvram[ 'vlan' + i + 'ports' ].length > 0) ) {
-// (re)initialize our bitmap for this particular iteration
+						// (re)initialize our bitmap for this particular iteration
 						for ( var j = 0; j <= MAX_PORT_ID; j++ ) {
 							port[ j ]   = '0';
 							tagged[ j ] = '0';
 						}
-// which ports are members of this VLAN?
+						// which ports are members of this VLAN?
 						var m = nvram[ 'vlan' + i + 'ports' ].split( ' ' );
 						for ( var j = 0; j < (m.length); j++ ) {
 							port[ parseInt( m[ j ].charAt( 0 ) ) ]   = '1';
@@ -551,7 +539,8 @@ No part of this file may be used without permission.
 					 //      if(this.countElem(COL_P0,1)>0) {
 					 //      }
 					 REMOVE-END */
-				} else {
+				}
+				else {
 					f[ COL_P0T ].disabled = 1;
 					f[ COL_P0T ].checked  = 0;
 				}
@@ -580,7 +569,7 @@ No part of this file may be used without permission.
 					f[ COL_P4T ].checked  = 0;
 				}
 
-// Modifications to enable Native VLAN support(allow one untagged vlan per port) by default
+				// Modifications to enable Native VLAN support(allow one untagged vlan per port) by default
 				if ( (f[ COL_P0 ].checked == 1) && (this.countElem( COL_P0, 1 ) > 0) ) {
 					if ( ((this.countElem( COL_P0, 1 ) - 1) >= this.countElem( COL_P0T, 1 )) && (f[ COL_P0T ].checked == 0) ) {
 						ferror.set( f[ COL_P0T ], 'Only one untagged VLAN per port is allowed(Native VLAN)', quiet );
@@ -669,6 +658,7 @@ No part of this file may be used without permission.
 				} else {
 					ferror.clear( f[ COL_BRI ] );
 				}
+
 				/* MULTIWAN-END */
 
 				for ( var i = 0; i < 4; i++ ) {
@@ -697,11 +687,7 @@ No part of this file may be used without permission.
 				         (data[ COL_P4 ].toString() != '0') ? 'Yes' : '',
 				         (data[ COL_P4T ].toString() != '0') ? 'On' : '',
 				         (data[ COL_VID_DEF ].toString() != '0') ? '*' : '',
-				         [ '', 'WAN', 'LAN (br0)', 'LAN1 (br1)', 'LAN2 (br2)', 'LAN3 (br3)', 'WAN2'
-					         /* MULTIWAN-BEGIN */
-					         , 'WAN3', 'WAN4'
-					         /* MULTIWAN-END */
-				         ][ data[ COL_BRI ] - 1 ] ];
+				         [ '', 'WAN', 'LAN (br0)', 'LAN1 (br1)', 'LAN2 (br2)', 'LAN3 (br3)', 'WAN2'/* MULTIWAN-BEGIN */, 'WAN3', 'WAN4'/* MULTIWAN-END */ ][ data[ COL_BRI ] - 1 ] ];
 			}
 
 			vlg.dataToFieldValues = function( data ) {
@@ -880,6 +866,7 @@ No part of this file may be used without permission.
 				E( 'unknown_router' ).style.display = '';
 
 		}
+
 	</script>
 
 	<form id="_fom" method="post" action="tomato.cgi">
@@ -925,8 +912,7 @@ No part of this file may be used without permission.
 		/* MULTIWAN-BEGIN */
 		<input type="hidden" name="wan3_ifnameX">
 		<input type="hidden" name="wan4_ifnameX">
-		/* MULTIWAN-END */
-		<input type="hidden" name="manual_boot_nv">
+		/* MULTIWAN-END
 		<input type="hidden" name="lan_ifnames">
 		<input type="hidden" name="lan1_ifnames">
 		<input type="hidden" name="lan2_ifnames">

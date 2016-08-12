@@ -1,5 +1,5 @@
 .\"***************************************************************************
-.\" Copyright (c) 2008,2010 Free Software Foundation, Inc.                   *
+.\" Copyright (c) 2008-2014,2015 Free Software Foundation, Inc.              *
 .\"                                                                          *
 .\" Permission is hereby granted, free of charge, to any person obtaining a  *
 .\" copy of this software and associated documentation files (the            *
@@ -26,7 +26,7 @@
 .\" authorization.                                                           *
 .\"***************************************************************************
 .\"
-.\" $Id: curs_threads.3x,v 1.18 2010/12/04 18:38:55 tom Exp $
+.\" $Id: curs_threads.3x,v 1.21 2015/04/11 10:23:49 tom Exp $
 .TH curs_threads 3X ""
 .de bP
 .IP \(bu 4
@@ -51,9 +51,9 @@
 .br
 \fBint set_tabsize(int size);\fR
 .br
-\fBint use_screen(SCREEN *scr, NCURSES_WINDOW_CB func, void *data);\fR
+\fBint use_screen(SCREEN *scr, NCURSES_SCREEN_CB func, void *data);\fR
 .br
-\fBint use_window(WINDOW *win, NCURSES_SCREEN_CB func, void *data);\fR
+\fBint use_window(WINDOW *win, NCURSES_WINDOW_CB func, void *data);\fR
 .br
 .SH DESCRIPTION
 This implementation can be configured to provide rudimentary support
@@ -540,6 +540,7 @@ wget_wch/screen (input-operation)
 wget_wstr/screen (input-operation)
 wgetbkgrnd/window
 wgetch/screen (input-operation)
+wgetdelay/window
 wgetn_wstr/screen (input-operation)
 wgetnstr/screen (input-operation)
 wgetparent/window
@@ -587,7 +588,7 @@ wvline_set/window
 .TE
 .\" ***************************************************************************
 .SH RETURN VALUE
-These functions all return TRUE or FALSE, except as noted.
+These functions all return \fBTRUE\fP or \fBFALSE\fP, except as noted.
 .SH NOTES
 Both a macro and a function are provided for each name.
 .SH PORTABILITY

@@ -28,7 +28,7 @@ test_salsa20_stream(const struct tstring *key,
   uint8_t data[STREAM_LENGTH + 1];
   uint8_t stream[STREAM_LENGTH + 1];
   uint8_t xor[SALSA20_BLOCK_SIZE];
-  unsigned j;
+  size_t j;
 
   ASSERT (iv->length == SALSA20_IV_SIZE);
   ASSERT (ciphertext->length == 4*SALSA20_BLOCK_SIZE);
@@ -97,7 +97,8 @@ test_salsa20_stream(const struct tstring *key,
 
       if (!MEMEQ(j, data, stream))
 	{
-	  fprintf(stderr, "Encrypt failed for length %u:\n", j);
+	  fprintf(stderr, "Encrypt failed for length %lu:\n",
+		  (unsigned long) j);
 	  fprintf(stderr, "\nOutput: ");
 	  print_hex(j, data);
 	  fprintf(stderr, "\nExpected:");
@@ -107,7 +108,8 @@ test_salsa20_stream(const struct tstring *key,
 	}
       if (!memzero_p (data + j, STREAM_LENGTH + 1 - j))
 	{
-	  fprintf(stderr, "Encrypt failed for length %u, wrote too much:\n", j);
+	  fprintf(stderr, "Encrypt failed for length %lu, wrote too much:\n",
+		  (unsigned long) j);
 	  fprintf(stderr, "\nOutput: ");
 	  print_hex(STREAM_LENGTH + 1 - j, data + j);
 	  fprintf(stderr, "\n");
@@ -117,7 +119,7 @@ test_salsa20_stream(const struct tstring *key,
 }
 
 typedef void salsa20_func(struct salsa20_ctx *ctx,
-			  unsigned length, uint8_t *dst,
+			  size_t length, uint8_t *dst,
 			  const uint8_t *src);
 static void
 _test_salsa20(salsa20_func *crypt,
@@ -128,7 +130,7 @@ _test_salsa20(salsa20_func *crypt,
 {
   struct salsa20_ctx ctx;
   uint8_t *data;
-  unsigned length;
+  size_t length;
 
   ASSERT (cleartext->length == ciphertext->length);
   length = cleartext->length;
@@ -143,7 +145,8 @@ _test_salsa20(salsa20_func *crypt,
   crypt(&ctx, length, data, cleartext->data);
   if (data[length] != 17)
     {
-      fprintf(stderr, "Encrypt of %u bytes wrote too much!\nInput:", length);
+      fprintf(stderr, "Encrypt of %lu bytes wrote too much!\nInput:",
+	      (unsigned long) length);
       tstring_print_hex(cleartext);
       fprintf(stderr, "\n");
       FAIL();

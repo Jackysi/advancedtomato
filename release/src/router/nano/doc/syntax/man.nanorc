@@ -1,9 +1,18 @@
 ## Here is an example for manpages.
-##
+
 syntax "man" "\.[1-9]x?$"
-color green "\.(S|T)H.*$"
-color brightgreen "\.(S|T)H" "\.TP"
-color brightred "\.(BR?|I[PR]?).*$"
-color brightblue "\.(BR?|I[PR]?|PP)"
-color brightwhite "\\f[BIPR]"
-color yellow "\.(br|DS|RS|RE|PD)"
+magic "troff or preprocessor input text"
+comment ".\""
+
+color green "\.(SH|SS|TH) .*$"
+color brightgreen "\.(SH|SS|TH) " "\.([HIT]P)"
+color brightred "\.(B[IR]?|I[BR]?|R[BI]|S[BM]) .*$"
+color brightblue "\.(B[IR]?|I[BR]?|R[BI]|S[BM]) " "\.([LP]?P)$"
+color magenta "\\f[BIPR]"
+color yellow "\.(br|DT|RS|RE|PD)"
+
+# Comments.
+color cyan "\.?\\\".*$"
+
+# Trailing whitespace.
+color ,green "[[:space:]]+$"

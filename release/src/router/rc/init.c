@@ -425,6 +425,7 @@ static int init_vlan_ports(void)
 	case MODEL_WRT320N:
 	case MODEL_WNR3500LV2:
 	case MODEL_RTN66U:
+	case MODEL_RTN16:
 		dirty |= check_nv("vlan1ports", "4 3 2 1 8*");
 		dirty |= check_nv("vlan2ports", "0 8");
 		break;
@@ -503,7 +504,6 @@ static int init_vlan_ports(void)
 		break;
 	case MODEL_WRT610Nv2:
 	case MODEL_F5D8235v3:
-	case MODEL_RTN16:
 		dirty |= check_nv("vlan1ports", "1 2 3 4 8*");
 		dirty |= check_nv("vlan2ports", "0 8");
 		break;
@@ -3700,6 +3700,7 @@ int init_main(int argc, char *argv[])
 			start_vlan();
 			start_lan();
 			start_arpbind();
+			mwan_state_files();
 			start_wan(BOOT);
 			start_services();
 			start_wl();

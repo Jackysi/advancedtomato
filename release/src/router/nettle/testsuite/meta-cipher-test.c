@@ -9,7 +9,6 @@ const char* ciphers[] = {
   "arctwo64",
   "arctwo128",
   "arctwo_gutmann128",
-  "arcfour128",
   "camellia128",
   "camellia192",
   "camellia256",

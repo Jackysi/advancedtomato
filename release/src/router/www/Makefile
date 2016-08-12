@@ -11,6 +11,7 @@ install:
 	mkdir -p $(INSTALLDIR)/www			
 	mkdir -p $(INSTALLDIR)/www/js
 	mkdir -p $(INSTALLDIR)/www/css
+	mkdir -p $(INSTALLDIR)/www/css/schemes
 
 # Copy files we don't want to modify to new install directory
 	cp *.ico *.html *.php robots.txt $(INSTALLDIR)/www

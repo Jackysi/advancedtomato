@@ -1,27 +1,29 @@
-# OCaml sample nanorc
-#
+## Syntax highlighting for OCaml.
+
 syntax "ocaml" "\.mli?$"
-#uid
+comment "(*|*)"
+
+# Uid:
 color red "\<[A-Z][0-9a-z_]{2,}\>"
-#declarations
+# Declarations:
 color green "\<(let|val|method|in|and|rec|private|virtual|constraint)\>"
-#structure items
+# Structure items:
 color red "\<(type|open|class|module|exception|external)\>"
-#patterns
+# Patterns:
 color blue "\<(fun|function|functor|match|try|with)\>"
-#patterns-modifiers
-color yellow "\<(as|when|of)\>" 
-#conditions
+# Pattern modifiers:
+color yellow "\<(as|when|of)\>"
+# Conditions:
 color cyan "\<(if|then|else)\>"
-#blocs
+# Blocks:
 color magenta "\<(begin|end|object|struct|sig|for|while|do|done|to|downto)\>"
-#constantes
+# Constants:
 color green "\<(true|false)\>"
-#modules/classes
+# Modules/classes:
 color green "\<(include|inherit|initializer)\>"
-#expr modifiers
+# Expression modifiers:
 color yellow "\<(new|ref|mutable|lazy|assert|raise)\>"
-#comments
+# Comments:
 color white start="\(\*" end="\*\)"
-#strings (no multiline handling yet)
+# Strings: (no multiline handling yet)
 color brightblack ""[^\"]*""

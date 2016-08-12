@@ -1,15 +1,14 @@
-.\" Hey, EMACS: -*- nroff -*-
 .\" Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
 .\" Free Software Foundation, Inc.
 .\"
-.\" Le travail d'adaptation française de cette page de manuel a été
-.\" réalisé par Jean-Philippe Guérard, en 2003, 2004, 2005, 2006 et 2007.
+.\" Le travail d'adaptation franÃ§aise de cette page de manuel a Ã©tÃ©
+.\" rÃ©alisÃ© par Jean-Philippe GuÃ©rard, en 2003, 2004, 2005, 2006 et 2007.
 .\" Ce travail d'adaptation est dans le domaine public. Attention, la
 .\" page traduite reste soumise au droit d'auteur de ses auteurs
 .\" originaux.
 .\"
 .\" The French translation of this document is a public domain work of
-.\" Jean-Philippe Guérard. This translation work was made in 2003, 2004,
+.\" Jean-Philippe GuÃ©rard. This translation work was made in 2003, 2004,
 .\" 2005, 2006 and 2007. The translated man page in itself is still
 .\" subject to the copyright of its original authors.
 .\"
@@ -29,92 +28,91 @@
 .\"   Documentation License along with this program.  If not, see
 .\"   <http://www.gnu.org/licenses/>.
 .\"
-.\" Ce document est publié sous une double licence. Vous pouvez
+.\" Ce document est publiÃ© sous une double licence. Vous pouvez
 .\" le distribuer et le modifier selon les termes de l'une des deux
-.\" licences ci-dessous :
+.\" licences ci-dessousÂ :
 .\"
-.\" * La Licence publique générale GNU (GNU GPL) version 3 ou, à
-.\"   votre choix, supérieure, telle que publiée par la Free 
-.\"   Software Foundation. Vous devriez avoir reçu une copie de la 
-.\"   Licence publique générale GNU avec ce programme. Si ce n'est pas 
+.\" * La Licence publique gÃ©nÃ©rale GNU (GNU GPL) version 3 ou, Ã 
+.\"   votre choix, supÃ©rieure, telle que publiÃ©e par la Free 
+.\"   Software Foundation. Vous devriez avoir reÃ§u une copie de la 
+.\"   Licence publique gÃ©nÃ©rale GNU avec ce programme. Si ce n'est pas 
 .\"   le cas, consultez <http://www.gnu.org/licenses/>.
 .\"
 .\" * La Licence de documentation libre GNU (GNU FDL), version 1.2 ou,
-.\"   à votre choix, supérieure, telle que publiée par la Free
+.\"   Ã  votre choix, supÃ©rieure, telle que publiÃ©e par la Free
 .\"   Software Foundation, sans section invariante, ni texte de
-.\"   première ou de quatrième de couverture. Vous devriez avoir reçu 
+.\"   premiÃ¨re ou de quatriÃ¨me de couverture. Vous devriez avoir reÃ§u 
 .\"   une copie de la Licence de documentation libre GNU avec ce 
 .\"   programme. Si ce n'est pas le cas, consultez 
 .\"   <http://www.gnu.org/licenses/>.
 .\"
-.\" $Id: nano.1 4443 2009-11-27 02:50:12Z astyanax $
 .TH NANO 1 "version 2.0.0" "29\ novembre\ 2007"
 .\" Please adjust this date whenever revising the manpage.
-.\" Merci de modifier ces dates à chaque mise à jour de cette page.
+.\" Merci de modifier ces dates Ã  chaque mise Ã  jour de cette page.
 .\"
 
 .SH NOM
-nano \- NAno un NOuvel éditeur, un clone libre et amélioré de Pico
+nano \- NAno un NOuvel Ã©diteur, un clone libre et amÃ©liorÃ© de Pico
 
 .SH SYNOPSIS
 .B nano
-.I [OPTIONS]\ [[\+LIGNE,COLONNE]\ FICHIER]...
+.I [OPTIONS]\ [[+LIGNE,COLONNE]\ FICHIER]...
 .br
 
 .SH DESCRIPTION
-Cette page de manuel décrit brièvement la commande \fBnano\fR.
+Cette page de manuel dÃ©crit briÃ¨vement la commande \fBnano\fR.
 .PP
 .\" TeX users may be more comfortable with the \fB<whatever>\fP and
 .\" \fI<whatever>\fP escape sequences to invoke bold face and italics,
 .\" respectively.
-\fBnano\fR est un éditeur petit, sympathique et libre, qui vise à remplacer
-Pico, l'éditeur par défaut du logiciel non libre Pine. \fBnano\fR ne se
+\fBnano\fR est un Ã©diteur petit, sympathique et libre, qui vise Ã  remplacer
+Pico, l'Ã©diteur par dÃ©faut du logiciel non libre Pine. \fBnano\fR ne se
 contentant pas de copier l'interface et l'ergonomie de Pico, il offre
-également certaines fonctions manquantes (ou désactivées par défaut)
-dans Pico. Ces fonctionnalités sont, par exemple, les fonctions de
-recherche et de remplacement, et la possibilité de sauter directement à 
-une ligne et à une colonne précise.
+Ã©galement certaines fonctions manquantes (ou dÃ©sactivÃ©es par dÃ©faut)
+dans Pico. Ces fonctionnalitÃ©s sont, par exemple, les fonctions de
+recherche et de remplacement, et la possibilitÃ© de sauter directement Ã  
+une ligne et Ã  une colonne prÃ©cise.
 
 .SH OPTIONS
 .TP
-.B \+\fILIGNE\fP,\fICOLONNE\fP
-Démarre avec le curseur positionné à la colonne \fICOLONNE\fP de 
-la ligne \fILIGNE\fR (l'un des deux, au moins, devant être spécifié) au 
-lieu de démarrer à la colonne\ 1, ligne\ 1.
+.B +\fILIGNE\fP,\fICOLONNE\fP
+DÃ©marre avec le curseur positionnÃ© Ã  la colonne \fICOLONNE\fP de 
+la ligne \fILIGNE\fR (l'un des deux, au moins, devant Ãªtre spÃ©cifiÃ©) au 
+lieu de dÃ©marrer Ã  la colonne\ 1, ligne\ 1.
 .TP
 .B \-?
-Identique à \fB-h (\-\-help)\fP.
+Identique Ã  \fB\-h (\-\-help)\fP.
 .TP
 .B \-A (\-\-smarthome)
-Rend plus malin le fonctionnement de la touche «\ Début\ ». Lorsque l'on
-appuie sur cette touche à n'importe quel endroit excepté au tout début
-du texte d'une ligne (i.\ e. au premier caractère non blanc), le curseur
-se positionnera au début du texte de la ligne (qu'il soit en avant ou en
-arrière). Si le curseur est déjà là, il se placera au vrai début de la
+Rend plus malin le fonctionnement de la touche Â«\ DÃ©but\ Â». Lorsque l'on
+appuie sur cette touche Ã  n'importe quel endroit exceptÃ© au tout dÃ©but
+du texte d'une ligne (i.\ e. au premier caractÃ¨re non blanc), le curseur
+se positionnera au dÃ©but du texte de la ligne (qu'il soit en avant ou en
+arriÃ¨re). Si le curseur est dÃ©jÃ  lÃ , il se placera au vrai dÃ©but de la
 ligne.
 .TP
 .B \-B (\-\-backup)
-Lors de l'écriture d'un fichier, crée une copie de sécurité de la
-version précédente, en ajoutant un tilde (~) au nom du fichier.
+Lors de l'Ã©criture d'un fichier, crÃ©e une copie de sÃ©curitÃ© de la
+version prÃ©cÃ©dente, en ajoutant un tilde (~) au nom du fichier.
 .TP
 .B \-D (\-\-boldtext)
-Utilise des caractères gras à la place de la vidéo inverse.
+Utilise des caractÃ¨res gras Ã  la place de la vidÃ©o inverse.
 .TP
-.B \-C \fIrépertoire\fP (\-\-backupdir=\fIrépertoire\fP)
-Définit le répertoire utilisé par \fBnano\fP pour enregistrer les copies 
-de sécurité uniques si celles-ci sont activées.
+.B \-C \fIrÃ©pertoire\fP (\-\-backupdir=\fIrÃ©pertoire\fP)
+DÃ©finit le rÃ©pertoire utilisÃ© par \fBnano\fP pour enregistrer les copies 
+de sÃ©curitÃ© uniques si celles-ci sont activÃ©es.
 .TP
 .B \-E (\-\-tabstospaces)
 Convertit les tabulations clavier en espaces.
 .TP
 .B \-F (\-\-multibuffer)
-Active le mode multi-espace, autorisant l'édition simultanée de 
+Active le mode multi-espace, autorisant l'Ã©dition simultanÃ©e de 
 plusieurs fichiers, si ce mode est disponible.
 .TP
 .B \-H (\-\-historylog)
-Enregistre les chaînes ayant fait l'objet d'une recherche ou d'un
+Enregistre les chaÃ®nes ayant fait l'objet d'une recherche ou d'un
 remplacement dans le fichier \fI~/.nano_history\fR afin de permettre leur
-réutilisation. Ceci n'est possible que si \fBnano\fR est configuré pour
+rÃ©utilisation. Ceci n'est possible que si \fBnano\fR est configurÃ© pour
 utiliser les fichiers nanorc.
 .TP
 .B \-I (\-\-ignorercfiles)
@@ -122,63 +120,63 @@ Ne pas utiliser pas les fichiers \fISYSCONFDIR/nanorc\fR et
 \fI~/.nanorc\fR (si \fBnano\fR est capable de les utiliser).
 .TP
 .B \-K (\-\-rebindkeypad)
-Interprète les touches du pavé numérique afin qu'elles fonctionnent 
+InterprÃ¨te les touches du pavÃ© numÃ©rique afin qu'elles fonctionnent 
 toutes correctement. Vous ne devriez utiliser cette option que si ce 
 n'est pas le cas, car nano ne sera plus capable d'utiliser la souris 
-correctement lorsque cette option sera activée.
+correctement lorsque cette option sera activÃ©e.
 .TP
 .B \-L (\-\-nonewlines)
-Ne pas ajouter de passage à la ligne à la fin des fichiers.
+Ne pas ajouter de passage Ã  la ligne Ã  la fin des fichiers.
 .TP
 .B \-N (\-\-noconvert)
-Désactive la conversion automatique des fichiers depuis les formats Mac et
+DÃ©sactive la conversion automatique des fichiers depuis les formats Mac et
 DOS.
 .TP
 .B \-O (\-\-morespace)
-Utiliser la ligne blanche située sous la ligne de titre comme
-espace supplémentaire d'édition.
+Utiliser la ligne blanche situÃ©e sous la ligne de titre comme
+espace supplÃ©mentaire d'Ã©dition.
 .TP
-.B \-Q \fIchaîne\fP (\-\-quotestr=\fIchaîne\fP)
-Définit le préfixe par défaut des citations. Nano utilise ce préfixe
-pour réaliser une justification correcte des citations. Si nano est
-capable d'utiliser des expressions rationnelles, le préfixe par défaut
+.B \-Q \fIchaÃ®ne\fP (\-\-quotestr=\fIchaÃ®ne\fP)
+DÃ©finit le prÃ©fixe par dÃ©faut des citations. Nano utilise ce prÃ©fixe
+pour rÃ©aliser une justification correcte des citations. Si nano est
+capable d'utiliser des expressions rationnelles, le prÃ©fixe par dÃ©faut
 sera "\fI^([\ \\t]*[#:>\\|}])+\fP", sinon, ce sera "\fI>\ \fP". Dans 
-l'expression rationnelle précédente, «\ \fI\\t\fP\ » représente une 
+l'expression rationnelle prÃ©cÃ©dente, Â«\ \fI\\t\fP\ Â» reprÃ©sente une 
 tabulation.
 .TP
 .B \-R (\-\-restricted)
-Mode restreint\ : aucune lecture ou écriture de fichiers non indiqués 
+Mode restreint\ : aucune lecture ou Ã©criture de fichiers non indiquÃ©s 
 sur la ligne de commande, pas de lecture des fichiers nanorc, 
-interdiction de suspendre, interdiction d'ajouter au début, à la fin, 
-de sauvegarder un fichier ayant déjà un nom sous un nom différent, 
-d'utiliser une copie de sécurité ou le correcteur orthographique. Cette 
-option peut aussi être activée en appelant \fBnano\fP sous un nom 
-commençant par «\ r\ » (par exemple «\ rnano\ »).
+interdiction de suspendre, interdiction d'ajouter au dÃ©but, Ã  la fin, 
+de sauvegarder un fichier ayant dÃ©jÃ  un nom sous un nom diffÃ©rent, 
+d'utiliser une copie de sÃ©curitÃ© ou le correcteur orthographique. Cette 
+option peut aussi Ãªtre activÃ©e en appelant \fBnano\fP sous un nom 
+commenÃ§ant par Â«\ r\ Â» (par exemple Â«\ rnano\ Â»).
 .TP
 .B \-S (\-\-smooth)
-Active le défilement progressif. Le texte défilera ligne-par-ligne au lieu
-de défiler morceau-par-morceau.
+Active le dÃ©filement progressif. Le texte dÃ©filera ligne-par-ligne au lieu
+de dÃ©filer morceau-par-morceau.
 .TP
 .B \-T \fInombre\fP (\-\-tabsize=\fInombre\fP)
-Définit la taille (largeur) des tabulations en nombre de colonnes. Le 
-nombre indiqué doit être strictement supérieur à 0. La valeur par défaut 
+DÃ©finit la taille (largeur) des tabulations en nombre de colonnes. Le 
+nombre indiquÃ© doit Ãªtre strictement supÃ©rieur Ã  0. La valeur par dÃ©faut 
 est de 8.
 .TP
 .B \-U (\-\-quickblank)
-Effacement rapide de la ligne d'état. Les messages affichés par la ligne 
-d'état disparaîtront après une frappe clavier au lieu de 25. Notez que
+Effacement rapide de la ligne d'Ã©tat. Les messages affichÃ©s par la ligne 
+d'Ã©tat disparaÃ®tront aprÃ¨s une frappe clavier au lieu de 25. Notez que
 l'option \fB-c\fP prend le pas sur cette option.
 .TP
 .B \-V (\-\-version)
-Affiche la version, puis s'arrête.
+Affiche la version, puis s'arrÃªte.
 .TP
 .B \-W (\-\-wordbounds)
-Détection plus précise des limites de mots, obtenue en considérant les 
-caractères de ponctuation comme faisant partie des mots.
+DÃ©tection plus prÃ©cise des limites de mots, obtenue en considÃ©rant les 
+caractÃ¨res de ponctuation comme faisant partie des mots.
 .TP
-.B \-Y \fIchaîne\fP (\-\-syntax=\fIchaîne\fP)
+.B \-Y \fIchaÃ®ne\fP (\-\-syntax=\fIchaÃ®ne\fP)
 Indique quel mode de colorisation syntaxique adopter, parmi les modes
-définis dans le fichier \fI.nanorc\fR, si cette fonctionnalité est
+dÃ©finis dans le fichier \fI.nanorc\fR, si cette fonctionnalitÃ© est
 disponible.
 .TP
 .B \-c (\-\-const)
@@ -186,111 +184,111 @@ Affiche en permanence la position du curseur. Notez que cette option
 prend le pas sur l'option \fB-U\fP.
 .TP
 .B \-d (\-\-rebinddelete)
-Interprète différemment la touche «\ Supprimer\ », afin que les touches 
-«\ Effacement arrière\ » et «\ Supprimer\ » fonctionnent correctement. 
-Vous ne devriez avoir besoin de cette option que si, sur votre système, 
-la touche «\ Effacement arrière\ » produit l'effet de la touche
-«\ Supprimer\ ».
+InterprÃ¨te diffÃ©remment la touche Â«\ Supprimer\ Â», afin que les touches 
+Â«\ Effacement arriÃ¨re\ Â» et Â«\ Supprimer\ Â» fonctionnent correctement. 
+Vous ne devriez avoir besoin de cette option que si, sur votre systÃ¨me, 
+la touche Â«\ Effacement arriÃ¨re\ Â» produit l'effet de la touche
+Â«\ Supprimer\ Â».
 .TP
 .B \-h (\-\-help)
-Affiche un résumé des options de lancement de nano, puis s'arrête.
+Affiche un rÃ©sumÃ© des options de lancement de nano, puis s'arrÃªte.
 .TP
 .B \-i (\-\-autoindent)
-Indentation automatique. Commence chaque nouvelle ligne au même niveau que
-la ligne précédente. Utile pour l'édition de code source.
+Indentation automatique. Commence chaque nouvelle ligne au mÃªme niveau que
+la ligne prÃ©cÃ©dente. Utile pour l'Ã©dition de code source.
 .TP
 .B \-k (\-\-cut)
-Coupe le texte du curseur à la fin de la ligne, au lieu de couper la 
-ligne entière.
+Coupe le texte du curseur Ã  la fin de la ligne, au lieu de couper la 
+ligne entiÃ¨re.
 .TP
 .B \-l (\-\-nofollow)
-Si le fichier édité est un lien symbolique, au lieu de le suivre, 
-remplace le lien par le nouveau fichier. Sans doute utile pour éditer 
+Si le fichier Ã©ditÃ© est un lien symbolique, au lieu de le suivre, 
+remplace le lien par le nouveau fichier. Sans doute utile pour Ã©diter 
 les fichiers de \fI/tmp\fR, non\ ?
 .TP
 .B \-m (\-\-mouse)
 Active l'utilisation de la souris, si elle est disponible pour votre
-système. Lorsque celle-ci est activée, il est possible d'utiliser la 
+systÃ¨me. Lorsque celle-ci est activÃ©e, il est possible d'utiliser la 
 souris pour positionner le curseur, pour marquer le texte (avec un 
 double-clic) et pour lancer les fonctions correspondant aux raccourcis. 
 Il est possible d'utiliser la souris sous X\ Window ou en mode console 
 avec gpm.
 .TP
-.B \-o \fIrépertoire\fP (\-\-operatingdir=\fIrépertoire\fP)
-Définit le répertoire de travail. Demande à \fBnano\fP de mettre en place
-quelque chose de similaire à un environnement d'exécution restreint
+.B \-o \fIrÃ©pertoire\fP (\-\-operatingdir=\fIrÃ©pertoire\fP)
+DÃ©finit le rÃ©pertoire de travail. Demande Ã  \fBnano\fP de mettre en place
+quelque chose de similaire Ã  un environnement d'exÃ©cution restreint
 (\fIchroot\fR).
 .TP
 .B \-p (\-\-preserve)
-Préserve les séquences XON et XOFF (^Q et ^S), afin qu'elle soient reçues
+PrÃ©serve les sÃ©quences XON et XOFF (^Q et ^S), afin qu'elle soient reÃ§ues
 par le terminal.
 .TP
 .B \-r \fIcolonne\fP (\-\-fill=\fIcolonne\fP)
-Passe automatiquement à la ligne une fois arrivé à la colonne 
-\fIcolonne\fR. Si la valeur indiquée est de 0 ou moins, le point de 
-passage à la ligne aura lieu à la taille de l'écran moins \fIcolonne\fR. 
-Cela permet de faire varier le point de passage à la ligne lorsque l'on 
-change la taille de l'écran. La valeur par défaut est de \-8.
+Passe automatiquement Ã  la ligne une fois arrivÃ© Ã  la colonne 
+\fIcolonne\fR. Si la valeur indiquÃ©e est de 0 ou moins, le point de 
+passage Ã  la ligne aura lieu Ã  la taille de l'Ã©cran moins \fIcolonne\fR. 
+Cela permet de faire varier le point de passage Ã  la ligne lorsque l'on 
+change la taille de l'Ã©cran. La valeur par dÃ©faut est de \-8.
 .TP
 .B \-s \fIprogramme\fP (\-\-speller=\fIprogramme\fP)
 Choix d'un correcteur orthographique de remplacement.
 .TP
 .B \-t (\-\-tempfile)
-S'il a été modifié, le fichier sera sauvegardé automatiquement sans
-demande de confirmation. Identique à l'option \fB-t\fP de Pico.
+S'il a Ã©tÃ© modifiÃ©, le fichier sera sauvegardÃ© automatiquement sans
+demande de confirmation. Identique Ã  l'option \fB-t\fP de Pico.
 .TP
 .B \-v (\-\-view)
 Mode visualisation (lecture seule).
 .TP
 .B \-w (\-\-nowrap)
-Désactive le passage automatique à la ligne.
+DÃ©sactive le passage automatique Ã  la ligne.
 .TP
 .B \-x (\-\-nohelp)
-Désactive la barre d'aide affichée en bas de l'écran.
+DÃ©sactive la barre d'aide affichÃ©e en bas de l'Ã©cran.
 .TP
 .B \-z (\-\-suspend)
-Autorise à suspendre l'éditeur.
+Autorise Ã  suspendre l'Ã©diteur.
 .TP
 .B \-a, \-b, \-e, \-f, \-g, \-j
-Ignoré, pour être compatible avec Pico.
+IgnorÃ©, pour Ãªtre compatible avec Pico.
 
 .SH "FICHIERS D'INITIALISATION"
 \fBnano\fR lit les fichiers d'initialisation dans l'ordre suivant\ : 
-\fISYSCONFDIR/nanorc\fR, puis \fI~/.nanorc\fR. Référez-vous à la page de 
+\fISYSCONFDIR/nanorc\fR, puis \fI~/.nanorc\fR. RÃ©fÃ©rez-vous Ã  la page de 
 manuel de \fBnanorc(5)\fR et au fichier d'exemple \fInanorc.sample\fR, 
-qui devraient tous les deux être livrés avec \fBnano\fR.
+qui devraient tous les deux Ãªtre livrÃ©s avec \fBnano\fR.
 
 .SH NOTES
-Si aucun correcteur orthographique de remplacement n'est indiqué dans la 
+Si aucun correcteur orthographique de remplacement n'est indiquÃ© dans la 
 ligne de commande ou dans l'un des fichiers nanorc, \fBnano\fR prendra 
-la commande indiquée par la variable d'environnement \fBSPELL\fR si 
-elle est définie.
+la commande indiquÃ©e par la variable d'environnement \fBSPELL\fR si 
+elle est dÃ©finie.
 
 Dans certains cas, \fBnano\fR essaiera de sauvegarder le fichier en cours
-d'édition dans un fichier de secours. Cela arrivera principalement si
-\fBnano\fR reçoit un signal SIGHUP ou SIGTERM, ou bien se trouve à court de
-mémoire. Le nom de ce fichier de secours sera \fInano.save\fR si le fichier en
-cours n'avait pas encore de nom, ou sera composé du nom du fichier en cours
-suivi du suffixe «\ .save\ ». Si un fichier de ce nom existe déjà dans
-le répertoire, un «\ .save\ » et un nombre seront ajoutés à la fin du
+d'Ã©dition dans un fichier de secours. Cela arrivera principalement si
+\fBnano\fR reÃ§oit un signal SIGHUP ou SIGTERM, ou bien se trouve Ã  court de
+mÃ©moire. Le nom de ce fichier de secours sera \fInano.save\fR si le fichier en
+cours n'avait pas encore de nom, ou sera composÃ© du nom du fichier en cours
+suivi du suffixe Â«\ .save\ Â». Si un fichier de ce nom existe dÃ©jÃ  dans
+le rÃ©pertoire, un Â«\ .save\ Â» et un nombre seront ajoutÃ©s Ã  la fin du
 nom du fichier en cours afin de le rendre unique (par exemple,
-«\ .save.1\ »). En mode multi-espace, \fBnano\fR réalisera une
+Â«\ .save.1\ Â»). En mode multi-espace, \fBnano\fR rÃ©alisera une
 sauvegarde de tous les fichiers en cours dans leurs fichiers de secours
 respectifs.
 
 .SH BOGUES
 Merci de nous faire parvenir vos commentaires et de nous signaler les
-bogues, en écrivant, en anglais, à \fBnano@nano-editor.org\fR.
+bogues, en Ã©crivant, en anglais, Ã  \fBnano@nano-editor.org\fR.
 
-La liste de discussion anglophone \fBnano\fR est disponible à l'adresse
+La liste de discussion anglophone \fBnano\fR est disponible Ã  l'adresse
 \fBnano-devel@gnu.org\fR.
 
-Pour vous abonner, envoyez un courrier électronique à
-\fBnano-devel-request@gnu.org\fR, ayant pour objet «\ subscribe\ ».
+Pour vous abonner, envoyez un courrier Ã©lectronique Ã 
+\fBnano-devel-request@gnu.org\fR, ayant pour objet Â«\ subscribe\ Â».
 
-N'hésitez pas également à envoyez vos commentaires, suggestions et 
-corrections relatives à l'adaptation française de cette page de manuel 
-ou du logiciel à \fBjean-philippe.guerard@tigreraye.org\fR.
+N'hÃ©sitez pas Ã©galement Ã  envoyez vos commentaires, suggestions et 
+corrections relatives Ã  l'adaptation franÃ§aise de cette page de manuel 
+ou du logiciel Ã  \fBjean-philippe.guerard@tigreraye.org\fR.
 
 .SH "SITE INTERNET"
 http://www.nano-editor.org/
@@ -300,27 +298,27 @@ http://www.nano-editor.org/
 .TP
 \fBnanorc\fR(5)
 .PP
-\fI/usr/share/doc/nano/\fR (ou son équivalent sur votre système)
+\fI/usr/share/doc/nano/\fR (ou son Ã©quivalent sur votre systÃ¨me)
 
 .SH AUTEUR
 Chris Allegretta <chrisa@asty.org> et d'autres (voir les fichiers 
 \fIAUTHORS\fR et \fITHANKS\fR pour plus d'information). Cette page de 
-manuel a été initialement rédigée par Jordi Mallach <jordi@gnu.org> pour 
-le système Debian (mais elle peut être utilisée par d'autres).
+manuel a Ã©tÃ© initialement rÃ©digÃ©e par Jordi Mallach <jordi@gnu.org> pour 
+le systÃ¨me Debian (mais elle peut Ãªtre utilisÃ©e par d'autres).
 
 .SH TRADUCTION
-Cette adaptation française a été réalisée par Jean-Philippe\ Guérard 
-<jean-philippe.guerard@tigreraye.org> le 29\ novembre\ 2007 à partir 
+Cette adaptation franÃ§aise a Ã©tÃ© rÃ©alisÃ©e par Jean-Philippe\ GuÃ©rard 
+<jean-philippe.guerard@tigreraye.org> le 29\ novembre\ 2007 Ã  partir 
 de la version 1.54 du 11\ octobre\ 2007 de la page de manuel de nano 
-2.0.0. Cette page a été relue par Gérard Delafond.
+2.0.0. Cette page a Ã©tÃ© relue par GÃ©rard Delafond.
 
-Un maximum de soin a été apporté lors de l'élaboration de cette
-traduction\ ; néanmoins, quelques imperfections peuvent subsister. Si
-vous en rencontrez, que ce soit dans la version française ou dans la
-version originale, n'hésitez pas à les signaler à l'auteur ou au
+Un maximum de soin a Ã©tÃ© apportÃ© lors de l'Ã©laboration de cette
+traduction\ ; nÃ©anmoins, quelques imperfections peuvent subsister. Si
+vous en rencontrez, que ce soit dans la version franÃ§aise ou dans la
+version originale, n'hÃ©sitez pas Ã  les signaler Ã  l'auteur ou au
 traducteur.
 
-La version originale la plus à jour de ce document est toujours 
+La version originale la plus Ã  jour de ce document est toujours 
 consultable via la commande\ :
 
 LANGUAGE=en man nano

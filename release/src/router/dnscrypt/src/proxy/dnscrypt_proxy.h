@@ -129,6 +129,7 @@ typedef struct ProxyContext_ {
     _Bool                    daemonize;
     _Bool                    ephemeral_keys;
     _Bool                    listeners_started;
+    _Bool                    syslog;
     _Bool                    tcp_only;
     _Bool                    test_only;
 } ProxyContext;

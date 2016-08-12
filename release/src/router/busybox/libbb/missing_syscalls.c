@@ -39,4 +39,11 @@ int pivot_root(const char *new_root, const char *put_old)
 {
 	return syscall(__NR_pivot_root, new_root, put_old);
 }
+
+# if __ANDROID_API__ < 21
+int tcdrain(int fd)
+{
+	return ioctl(fd, TCSBRK, 1);
+}
+# endif
 #endif

@@ -1,8 +1,13 @@
-# unattributed syntax highlighting example from wiki.linuxhelp.net/
+## Here is an example for Makefiles.
 
-syntax "makefile" "Makefile[^/]*$"
+syntax "makefile" "Makefile[^/]*$" "\.(make|mk)$"
+comment "#"
+
 color red "[:=]"
 color magenta "\<(if|ifeq|else|endif)\>"
 color blue "\$+[{(][a-zA-Z0-9_-]+[})]"
 color brightblue "^[^ 	]+:"
 color green "#.*$"
+
+## Trailing whitespace.
+color ,green "[[:space:]]+$"
