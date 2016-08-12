@@ -5,7 +5,7 @@ http://www.polarcloud.com/tomato/
 
 For use with Tomato Firmware only.
 No part of this file may be used without permission.
---><title>Trace</title>
+--><title>Trace Tool</title>
 <content>
 	<style type="text/css">
 		#ttr-grid .co1, #ttr-grid .co3 {

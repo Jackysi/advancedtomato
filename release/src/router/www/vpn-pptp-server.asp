@@ -11,7 +11,7 @@ No part of this file may be used without permission.
 --><title>PPTP Server Configuration</title>
 <content>
 	<script type="text/javascript">
-		//    <% nvram("at_update,tomatoanon_answer,lan_ipaddr,lan_netmask,pptpd_enable,pptpd_remoteip,pptpd_forcemppe,pptpd_broadcast,pptpd_users,pptpd_dns1,pptpd_dns2,pptpd_wins1,pptpd_wins2,pptpd_mtu,pptpd_mru,pptpd_custom"); %>
+		//    <% nvram("at_update,tomatoanon_answer,lan_ipaddr,lan_netmask,pptpd_enable,pptpd_remoteip,pptpd_forcemppe,pptpd_broadcast,pptpd_users,pptpd_dns1,pptpd_dns2,pptpd_wins1,pptpd_wins2,pptpd_mtu,pptpd_mru,pptpd_custom,pptpd_ipup_script,pptpd_ipdown_script"); %>
 
 		if (nvram.pptpd_remoteip == '') nvram.pptpd_remoteip = '172.19.0.1-6';
 		if (nvram.pptpd_forcemppe == '') nvram.pptpd_forcemppe = '1';
@@ -129,6 +129,8 @@ No part of this file may be used without permission.
 			E('_f_pptpd_startip').disabled = c;
 			E('_f_pptpd_endip').disabled = c;
 			E('_pptpd_custom').disabled = c;
+			E('_pptpd_ipup_script').disabled = c;
+			E('_pptpd_ipdown_script').disabled = c;
 			var a = E('_f_pptpd_startip');
 			var b = E('_f_pptpd_endip');
 			if (Math.abs((aton(a.value) - (aton(b.value)))) > 5) {
@@ -212,7 +214,9 @@ No part of this file may be used without permission.
 						{ title: '', name: 'pptpd_wins2', type: 'text', maxlen: 15, size: 17, value: nvram.pptpd_wins2 },
 						{ title: 'MTU', name: 'pptpd_mtu', type: 'text', maxlen: 4, size: 6, value: (nvram.pptpd_mtu ? nvram.pptpd_mtu : 1450)},
 						{ title: 'MRU', name: 'pptpd_mru', type: 'text', maxlen: 4, size: 6, value: (nvram.pptpd_mru ? nvram.pptpd_mru : 1450)},
-						{ title: '<a href="http://poptop.sourceforge.net/" target="_new">Poptop</a><br>Custom configuration', name: 'pptpd_custom', type: 'textarea', value: nvram.pptpd_custom, style: 'width: 100%; height: 80px;' }
+						{ title: '<a href="http://poptop.sourceforge.net/" target="_new">Poptop</a><br>Custom configuration', name: 'pptpd_custom', type: 'textarea', value: nvram.pptpd_custom, style: 'width: 100%; height: 80px;' },
+						{ title: 'Custom iptables if-up rules', name: 'pptpd_ipup_script', type: 'textarea', value: nvram.pptpd_ipup_script, style: 'width: 100%; height: 80px;' },
+						{ title: 'Custom iptables if-down rules', name: 'pptpd_ipdown_script', type: 'textarea', value: nvram.pptpd_ipdown_script, style: 'width: 100%; height: 80px;' }
 					]);
 				</script>
 

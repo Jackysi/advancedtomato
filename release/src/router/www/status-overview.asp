@@ -7,9 +7,8 @@
 		<meta name="robots" content="noindex,nofollow">
 		<title>[<% ident(); %>]: Home</title>
 
-		<!-- Stylesheets -->
-		<link href="css/reset.css" rel="stylesheet" type="text/css">
-		<link href="css/style.css" rel="stylesheet" type="text/css">
+		<!-- Interface Design -->
+		<link href="css/interface.css" rel="stylesheet">
 		<% css(); %>
 
 		<!-- Load Favicon (icon) -->
@@ -23,30 +22,39 @@
 		<!-- Variables which we keep through whole GUI, also determine Tomato version here -->
 		<script type="text/javascript">
 
+			var wl_ifaces = {};
 			var routerName = '[<% ident(); %>] ';
-			//<% nvram("web_nav,at_update,at_navi,tomatoanon_answer"); %>
+			//<% nvram("at_nav,at_nav_action,at_nav_state,at_update,tomatoanon_answer"); %>
 			//<% anonupdate(); %>
 
-			// Fix for system data display
-			var refTimer, wl_ifaces = {}, ajaxLoadingState = false, gui_version = "<% version(0); %>";
+			// AdvancedTomato related object
+			var gui = {
+				'ajax_state'   : false,
+				'nav_delay'    : null,
+				'nav_action'   : ( ( typeof(nvram.at_nav_action) != 'undefined' && nvram.at_nav_action == 'hover' ) ? 'mouseover' : 'click' ),
+				'refresh_timer': null,
+				'version'      : "<% version(0); %>",
+			};
+
+			// On DOM Ready, parse GUI version and create navigation
 			$( document ).ready( function() {
 
 				// Attempt match
-				match_regex = gui_version.match( /^1\.28\.0000.*?([0-9]{1,3}\.[0-9]{1}\-[0-9]{3}).* ([a-z0-9\-]+)$/i );
+				match_regex = gui.version.match( /^1\.28\.0000.*?([0-9]{1,3}\.[0-9]{1}\-[0-9]{3}).* ([a-z0-9\-]+)$/i );
 
 				// Check matches
 				if ( match_regex == null || match_regex[ 1 ] == null ) {
 
-					gui_version = 'More Info'
+					gui.version = 'More Info'
 
 				} else {
 
-					gui_version = 'v' + match_regex[ 1 ] + ' ' + match_regex[ 2 ];
+					gui.version = 'v' + match_regex[ 1 ] + ' ' + match_regex[ 2 ];
 
 				}
 
 				// Write version & initiate GUI functions & binds
-				$( '#gui-version' ).html( '<i class="icon-info-alt"></i> <span class="nav-collapse-hide">' + gui_version + '</span>' );
+				$( '#gui-version' ).html( '<i class="icon-info-alt"></i> <span class="nav-collapse-hide">' + gui.version + '</span>' );
 				AdvancedTomato();
 
 			});
@@ -60,7 +68,8 @@
 
 				<a href="/">
 					<div class="logo">
-						<svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="26px" height="26px" viewBox="0 0 32 32" xml:space="preserve">
+						<svg version="1.1" id="logo" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+							width="26px" height="26px" viewBox="0 0 32 32" xml:space="preserve">
 							<path fill-rule="evenodd" clip-rule="evenodd" fill="#fff" d="M19.4,10.5C19.4,10.5,19.4,10.5,19.4,10.5c0-0.1,0-0.1,0-0.2
 								C19.4,10.2,19.4,10.5,19.4,10.5z M25.2,5.3c-0.4,0.5-1,0.9-1.7,1.4c1.2,0.9,1.8,2,3.2,1.7c0,0-0.3,1.9-2.5,2.7
 								c-1.7,0.6-3.3,0.4-4.7-0.6c0,1.5-0.5,4.4-0.4,5.8c-0.1,0-4.9-1.4-5.3-5.7c-1.7,1.1-3.4,1.6-6.1,0.8c-1.3-0.4-2.5-2.1-2.4-2.7
@@ -71,10 +80,9 @@
 								c0-2.5,1.1-3.9,1.6-4.2c0.6-0.3,0.2-0.5-0.4-0.4c-1.4,0.3-3.3,3.7-3.3,4.7c-0.2-1.4-2.9-2.1-4-2.1c-1.6,0-2.1-0.7-2.6-1.2
 								C8.6,1.6,7.9,5,14.1,5.4z"/>
 						</svg>
-
 						<h1 class="nav-collapse-hide">Advanced<span>Tomato</span></h1>
-						<h2 class="currentpage nav-collapse-hide">Loading...</h2>
 
+						<h2 class="currentpage nav-collapse-hide">Loading...</h2>
 					</div>
 				</a>
 
@@ -110,17 +118,8 @@
 
 
 			<div class="container">
-				<div class="ajaxwrap">
-
-					<div class="container-center">
-						<div class="spinner spinner-large"></div><br><br>
-						Loading interface, please wait...
-					</div>
-
-				</div>
-
+				<div class="ajaxwrap"></div>
 				<div class="clearfix"></div>
-
 			</div>
 
 		</div>

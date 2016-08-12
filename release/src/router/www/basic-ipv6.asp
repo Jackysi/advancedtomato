@@ -202,7 +202,7 @@ No part of this file may be used without permission.
 				if ( (vis[ a[ i ] ]) && (!v_ip( a[ i ], quiet || !ok )) ) ok = 0;
 
 			// range
-			a = [ [ '_f_ipv6_prefix_length', 3, 64 ], [ '_ipv6_tun_addrlen', 3, 127 ], [ '_ipv6_tun_ttl', 0, 255 ], [ '_ipv6_relay', 1, 254 ] ];
+			a = [ [ '_f_ipv6_prefix_length', 3, 127 ], [ '_ipv6_tun_addrlen', 3, 127 ], [ '_ipv6_tun_ttl', 0, 255 ], [ '_ipv6_relay', 1, 254 ] ];
 			for ( i = a.length - 1; i >= 0; --i ) {
 				b = a[ i ];
 				if ( (vis[ b[ 0 ] ]) && (!v_range( b[ 0 ], quiet || !ok, b[ 1 ], b[ 2 ] )) ) ok = 0;

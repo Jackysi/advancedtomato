@@ -307,7 +307,7 @@ const struct mime_handler mime_handlers[] = {
 	{ "**.svg",			"image/svg+xml",			2,	wi_generic_noid,	do_file,		1 },
 
 // Required mimetype for fonts & icons
-	{ "**.woff",			"application/font-woff",		2,	wi_generic_noid,	do_file,		1 },
+	{ "**.woff",		"application/font-woff",		2,	wi_generic_noid,do_file,		1 },
 	{ "**.eot",			"application/vnd.ms-fontobject",2,	wi_generic_noid,do_file,		1 },
 	{ "**.ttf",			"application/octet-stream",	2,	wi_generic_noid,	do_file,		1 },
 
@@ -1234,13 +1234,15 @@ static const nvset_t nvset_list[] = {
 // admin-tomatoanon
 	{ "tomatoanon_answer",		V_RANGE(0, 1)			},
 	{ "tomatoanon_enable",		V_RANGE(-1, 1)			},
+	{ "tomatoanon_cru",		V_RANGE(1, 12)			},
 	{ "tomatoanon_id",		V_LENGTH(0, 32)			},
-	{ "tomatoanon_notify",		V_01					},
+	{ "tomatoanon_notify",		V_01				},
 		
 // AdvancedTomato
-	{ "at_update",      V_LENGTH(0,32)    },
-	{ "at_navi",        V_LENGTH(0,32)    },
-	{ "web_nav",        V_TEXT(0, 4096)   }, 
+	{ "at_update",      V_LENGTH(0, 32)      },
+	{ "at_nav",         V_TEXT(0, 2048)      },
+	{ "at_nav_state",   V_LENGTH(0, 32)      },
+	{ "at_nav_action",  V_LENGTH(0, 32)      },
 
 // nas-usb - !!TB
 #ifdef TCONFIG_USB

@@ -5,7 +5,7 @@ http://www.polarcloud.com/tomato/
 
 For use with Tomato Firmware only.
 No part of this file may be used without permission.
---><title>Ping</title>
+--><title>Ping Tool</title>
 <content>
 	<style type="text/css">
 		#tp-grid .co1 {

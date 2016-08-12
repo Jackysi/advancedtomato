@@ -2449,10 +2449,12 @@ function navi_icons ($name) {
 	}
 }
 
-function navi()
-{
-	var htmlmenu = '', activeURL = window.location.hash;
-	var menu = {
+function navi() {
+
+	// Navigation configuration && some variables
+	var htmlmenu  = '';
+	var activeURL = window.location.hash || location.hash;
+	var menu      = {
 		'Status': {
 			'Overview':				'status-home.asp',
 			'Device List':			'status-devices.asp',
@@ -2530,7 +2532,7 @@ function navi()
 		},
 
 		/* NGINX-BEGIN */
-		'Web Services': {	
+		'Web Services': {
 			'Web Server': 			'web-nginx.asp',
 			'MySQL Server': 		'web-mysql.asp'
 		},
@@ -2583,29 +2585,36 @@ function navi()
 	};
 
 	// Add custom menu
-	try { $.extend( true, menu, JSON.parse( nvram.web_nav ) ); } catch ( e ) {  /* console.log('Failed to parse custom navigation (might not be set)'); */ }
+	try { $.extend( true, menu, JSON.parse( nvram.at_nav ) ); } catch ( e ) {  /* console.log('Failed to parse custom navigation (might not be set)'); */ }
 
 	// Fix for first UI load
-	if (activeURL == null || activeURL == '') {
-		activeURL = '#status-home.asp';
-	}
+	if ( activeURL == null || activeURL == '' ) activeURL = '#status-home.asp';
 
 	// Loop Through MENU
-	$.each(menu, function (key, linksobj) {
+	$.each( menu, function( key, linksobj ) {
 
-		var category = '';
-		var groupname = '<i class="icon-' + navi_icons(key) + '"></i> <span class="icons-desc">' + key + '</span>';
+		var category  = '';
+		var groupname = '<i class="icon-' + navi_icons( key ) + '"></i> <span class="icons-desc">' + key + '</span>';
+
+		// Fix that will not fail navigation in case of invalid object configuration
+		if ( typeof( linksobj ) !== 'object' ) {
+
+			console.log( "Navigation configuration error! The key \"" + key + "\" is type \"" + typeof( linksobj ) + "\" instead of OBJECT!" );
+			return;
+
+		}
 
 		// Loop Through subcats
-		$.each(linksobj, function(name, link) {
+		$.each( linksobj, function( name, link ) {
 
-			if (/\//i.test(link) === false) { link = '#' + link; } 						// Add location hash for non-root links
-			if (/http(s)?:\/\//i.test(link)) { link = link + '" target="_blank'; }	// If link includes http or https, create new tab/window		
+			if ( /\//i.test( link ) === false ) { link = '#' + link; } 						// Add location hash for non-root links
+			if ( /http(s)?:\/\//i.test( link ) ) { link = link + '" target="_blank'; }	    // If link includes http or https, create new tab/window
 			category += '<li class="' + ((activeURL == link) ? 'active' : '') + '"><a href="' + link + '">' + name + '</a></li>';
 
 		});
 
-		htmlmenu += '<li' + (($(category).filter('.active')[0] == null) ? '' : ' class="active"') + '><a href="#">' + groupname + '</a><ul>' + category + '</ul></li>';
+		// Add links to navigation
+		htmlmenu += '<li' + (($( category ).filter( '.active' )[ 0 ] == null) ? '' : ' class="active"') + '><a href="#">' + groupname + '</a><ul>' + category + '</ul></li>';
 
 	});
 

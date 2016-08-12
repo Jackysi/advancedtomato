@@ -269,7 +269,6 @@ No part of this file may be used without permission.
 
 
 		var ref = new TomatoRefresh('/update.cgi', 'exec=wlscan', 0, 'tools_survey_refresh');
-
 		ref.refresh = function(text)
 		{
 			try {
@@ -289,6 +288,9 @@ No part of this file may be used without permission.
 			sg.recolor();
 			$('#survey-controls .spinner').after('&nbsp; ' + genStdTimeList('expire-time', 'Auto Expire', 1) + genStdTimeList('refresh-time', 'Auto Refresh', 1));
 			ref.initPage();
+
+			// After every thing, first time refresh data
+			ref.start();
 		}
 
 	</script>

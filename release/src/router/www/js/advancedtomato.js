@@ -17,7 +17,7 @@ function AdvancedTomato() {
 
 
 	/* Misc functions, calls, binds
-	************************************************************************************************/
+	 ************************************************************************************************/
 	// Call navigation function in tomato.js to generate navigation
 	navi();
 
@@ -29,11 +29,11 @@ function AdvancedTomato() {
 
 		if ( $( this ).hasClass( 'active' ) ) {
 
-			$( this ).find( 'ul' ).slideDown( '350', 'easeInQuad' );
+			$( this ).find( 'ul' ).slideDown( 250, 'easeOutCirc' );
 
 		} else {
 
-			$( this ).find( 'ul' ).slideUp( 350, 'easeOutBounce' );
+			$( this ).find( 'ul' ).slideUp( 250, 'easeOutCirc' );
 
 		}
 
@@ -41,23 +41,42 @@ function AdvancedTomato() {
 
 
 	/* Click handlers
-	************************************************************************************************/
+	 ************************************************************************************************/
 	// Navigation slides
-	$( '.navigation > ul > li > a' ).on( 'click', function() {
+	$( '.navigation > ul > li > a' ).on( gui.nav_action, function() {
 
-		if ( $( '.navigation' ).hasClass( 'collapsed' ) ) { return; }				// Doesn't work in collapsed state
-		if ( $( this ).parent( 'li' ).hasClass( 'active' ) ) { return false; }      // If already active, ignore click
+		var elm = $( this );
 
-		$( '.navigation > ul > li' ).removeClass( 'active' ).find( 'ul' ).slideUp( '150' );
-		$( this ).parent( 'li' ).addClass( 'active' );
-		$( this ).closest( 'li' ).find( 'ul' ).slideDown( '150' );
+		// This is just temporary function for navigation
+		function reveal_navigation() {
 
-		return false;
+			if ( $( '.navigation' ).hasClass( 'collapsed' ) ) { return; }				// Doesn't work in collapsed state
+			if ( $( elm ).parent( 'li' ).hasClass( 'active' ) ) { return false; }      // If already active, ignore click
+
+			$( '.navigation > ul > li' ).removeClass( 'active' ).find( 'ul' ).slideUp( '100' );
+			$( elm ).parent( 'li' ).addClass( 'active' );
+			$( elm ).closest( 'li' ).find( 'ul' ).slideDown( '100' );
+
+			return false;
+
+		}
+
+		// New since 133 (Allow switch to use navigation as "HOVER" or "CLICK"
+		if ( gui.nav_action == 'mouseover' ) {
+
+			clearTimeout( gui.nav_delay );
+			gui.nav_delay = setTimeout( reveal_navigation, 100 );
+
+		} else {
+
+			reveal_navigation();
+
+		}
 
 	});
 
 	// Close click handler for updates
-	$('.ajaxwrap').on('click', '.alert .close', function() {
+	$( '.ajaxwrap' ).on( 'click', '.alert .close', function() {
 
 		if ( $( this ).attr( 'data-update' ) ) { cookie.set( 'latest-update', $( this ).attr( 'data-update' ) ); }
 		$( this ).parent( '.alert' ).slideUp();
@@ -67,7 +86,7 @@ function AdvancedTomato() {
 	});
 
 	// Handle ajax loading
-	$('.navigation li ul a, .header .links a[href!="#system"]').on('click', function(e) {
+	$( '.navigation li ul a, .header .links a[href!="#system"]' ).on( 'click', function( e ) {
 
 		if ( $( this ).attr( 'target' ) != '_blank' ) {
 
@@ -112,7 +131,7 @@ function AdvancedTomato() {
 
 			$( '#system-ui' ).removeClass( 'active' );
 			$( '.system-ui' ).fadeOut( 250 );
-			clearInterval( window.refTimer );
+			clearInterval( gui.refresh_timer );
 
 		} else {
 
@@ -121,10 +140,17 @@ function AdvancedTomato() {
 
 			// On open
 			$( '.system-ui .datasystem' ).html( '<div class="inner-container row"><div style="margin: 45px auto 35px; width: 26px; height:26px;" class="spinner"></div></div>' ).addClass( 'align center' );
-			window.refTimer = setInterval( systemUI, 1600 );
+			gui.refresh_timer = setInterval( systemUI, 1600 );
 			systemUI();
 
-			$( document ).click( function() { $( '#system-ui' ).removeClass( 'active' ); $( '.system-ui' ).fadeOut( 250 ); clearInterval( window.refTimer ); $( document ).unbind( 'click' ); });
+			$( document ).click( function() {
+
+				$( '#system-ui' ).removeClass( 'active' );
+				$( '.system-ui' ).fadeOut( 250 );
+				clearInterval( gui.refresh_timer );
+				$( document ).unbind( 'click' );
+
+			});
 
 		}
 
@@ -172,9 +198,9 @@ function AdvancedTomato() {
 	}
 
 	// Check for Navigation State NVRAM value
-	if ( typeof nvram.at_navi !== 'undefined' ) {
+	if ( typeof nvram.at_nav_state !== 'undefined' ) {
 
-		if ( nvram.at_navi == 'collapsed' || $(window).width() <= 768 ) {
+		if ( nvram.at_nav_state == 'collapsed' || $( window ).width() <= 768 ) {
 
 			$( '#wrapper' ).find( '.container, .top-header, .navigation' ).addClass( 'collapsed' );
 			$( '#wrapper' ).find( '.nav-collapse-hide' ).hide();
@@ -186,30 +212,30 @@ function AdvancedTomato() {
 }
 
 // Get status of router and fill system-ui with it
-function systemUI () {
+function systemUI() {
 
-	$.ajax({
+	$.ajax(
+		{
+			url   : 'js/status-data.jsx',
+			method: 'POST',
+			data  : { '_http_id': escapeCGI( nvram.http_id ) }
 
-        url    : 'js/status-data.jsx',
-        method : 'POST',
-        data   : { '_http_id': escapeCGI( nvram.http_id ) },
-        success: function( data ) {
+		} ).done( function( data ) {
 
-	        stats = {};
-	        try { eval( data ); } catch ( ex ) { stats = {}; }
+		stats = {};
+		try { eval( data ); } catch ( ex ) { stats = {}; }
 
-	        var wanstatus = '<a title="Go to Status Overview" href="#" onclick="loadPage(\'#status-home.asp\');">' + ( ( stats.wanstatus[ 0 ] == 'Connected' ) ? '<span style="color: green;">' + stats.wanstatus[ 0 ] + '</span>' : stats.wanstatus[ 0 ] ) + '</a>';
-	        $( '.system-ui .datasystem' ).html(
-		        '<div class="router-name">' + nvram.t_model_name + ' <small class="pull-right">(' + stats.uptime + ')</small></div>' +
-		        '<div class="inner-container row">' +
-		        '<div class="desc">CPU:</div><div class="value">' + stats.cpuload + '</div>' +
-		        '<div class="desc">RAM:</div><div class="value">' + stats.memory + '<div class="progress"><div class="bar" style="width: ' + stats.memoryperc + '"></div></div></div>' +
-		        ((nvram.swap != null) ? '<div class="desc">SWAP:</div><div class="value">' + stats.swap + '<div class="progress"><div class="bar" style="width: ' + stats.swapperc + '"></div></div></div>' : '') +
-		        '<div class="desc ">WAN:</div><div class="value">' + wanstatus + ' (' + stats.wanuptime[ 0 ] + ')</div></div>' ).removeClass( 'align center'
-	        );
-        }
+		var wanstatus = '<a title="Go to Status Overview" href="#" onclick="loadPage(\'#status-home.asp\');">' + ( ( stats.wanstatus[ 0 ] == 'Connected' ) ? '<span style="color: green;">' + stats.wanstatus[ 0 ] + '</span>' : stats.wanstatus[ 0 ] ) + '</a>';
+		$( '.system-ui .datasystem' ).html(
+			'<div class="router-name">' + nvram.t_model_name + ' <small class="pull-right">(' + stats.uptime + ')</small></div>' +
+			'<div class="inner-container row">' +
+			'<div class="desc">CPU:</div><div class="value">' + stats.cpuload + '</div>' +
+			'<div class="desc">RAM:</div><div class="value">' + stats.memory + '<div class="progress"><div class="bar" style="width: ' + stats.memoryperc + '"></div></div></div>' +
+			((nvram.swap != null) ? '<div class="desc">SWAP:</div><div class="value">' + stats.swap + '<div class="progress"><div class="bar" style="width: ' + stats.swapperc + '"></div></div></div>' : '') +
+			'<div class="desc ">WAN:</div><div class="value">' + wanstatus + ' (' + stats.wanuptime[ 0 ] + ')</div></div>' ).removeClass( 'align center'
+		);
 
-	}).fail( function() { clearInterval( window.refTimer ); });
+	} ).fail( function() {clearInterval( gui.refresh_timer ); } );
 
 }
 
@@ -241,25 +267,27 @@ function data_boxes() {
 
 				$( parent ).find( '.content' ).stop( true, true ).slideUp( 700, 'easeOutBounce' );
 				$( html ).find( 'i' ).removeClass( 'icon-chevron-down' ).addClass( 'icon-chevron-up' );
-				cookie.set( id + '_visibility', 0 ); status = false;
+				cookie.set( id + '_visibility', 0 );
+				status = false;
 
 			} else {
 
 				$( parent ).find( '.content' ).stop( true, true ).slideDown( 350, 'easeInQuad' );
 				$( html ).find( 'i' ).removeClass( 'icon-chevron-up' ).addClass( 'icon-chevron-down' );
-				cookie.set( id + '_visibility', 1 ); status = true;
+				cookie.set( id + '_visibility', 1 );
+				status = true;
 
 			}
 
 			return false;
 
-		});
+		} );
 
 		$( parent ).find( '.heading' ).prepend( html );
 
 	});
 
-};
+}
 
 // Ajax Function to load pages
 function loadPage( page, is_history ) {
@@ -270,7 +298,11 @@ function loadPage( page, is_history ) {
 	if ( window.ajaxLoadingState ) { return false; } else { window.ajaxLoadingState = true; }
 
 	// Since we use ajax, functions and timers stay in memory/cache. Here we undefine & stop them to prevent issues with other pages.
-	if ( typeof( ref ) != 'undefined') { ref.destroy(); ref=undefined; delete ref; }
+	if ( typeof( ref ) != 'undefined' ) {
+		ref.destroy();
+		ref = undefined;
+		delete ref;
+	}
 	if ( typeof( wdog ) != 'undefined' ) { clearTimeout( wdog ); } // Delayed function that kills our refreshers!
 
 	// Start page pre-loader
@@ -281,81 +313,79 @@ function loadPage( page, is_history ) {
 
 
 	// Switch to JQUERY AJAX function call (doesn't capture errors allowing much easier debugging)
-	$.ajax({
+	$.ajax( { url: page, async: true, cache: false } )
+		.done( function( resp ) {
 
-        url    : page,
-        async  : true,
-        cache  : false,
-        success: function( resp ) {
+			var dom   = $( resp );
+			var title = dom.filter( 'title' ).text();
+			var html  = dom.filter( 'content' ).html();
 
-	        var dom   = $( resp );
-	        var title = dom.filter( 'title' ).text();
-	        var html  = dom.filter( 'content' ).html();
+			// Handle pages without title or content as normal (HTTP Redirect)
+			if ( title == null || html == null ) {
 
-	        // Handle pages without title or content as normal (NO AJAX)
-	        if ( title == null || html == null ) {
-		        window.parent.location.href = page;
-		        return false;
-	        }
+				window.parent.location.href = page;
+				return false;
 
-	        // Set page title, current page title and animate page switch
-	        $( 'title' ).text( window.routerName + title );
-	        $( 'h2.currentpage' ).text( title );
-	        $( '.container .ajaxwrap' ).html( html ).addClass( 'ajax-animation' );
+			}
 
-	        // Push History (First check if using IE9 or not)
-	        if ( history.pushState && is_history !== true ) {
+			// Set page title, current page title and animate page switch
+			$( 'title' ).text( window.routerName + title );
+			$( 'h2.currentpage' ).text( title );
+			$( '.container .ajaxwrap' ).html( html ).addClass( 'ajax-animation' );
 
-		        history.pushState(
-			        {
-				        "html"     : html,
-				        "pageTitle": window.routerName + title
-			        },
-			        window.routerName + title, '#' + page
-		        );
+			// Push History (First check if using IE9 or not)
+			if ( history.pushState && is_history !== true ) {
 
-	        }
+				// IE9+ function that's awesome for AJAX stuff
+				history.pushState(
+					{
+						"html"     : html,
+						"pageTitle": window.routerName + title
+					},
+					window.routerName + title, '#' + page
+				);
 
-	        // Go back to top
-	        $( '.container' ).scrollTop( 0 );
+			}
 
-	        // Handle Navigation
-	        $( '.navigation li ul li' ).removeClass( 'active' ); // Reset all
+			// Go back to top
+			$( '.container' ).scrollTop( 0 );
 
-	        var naviLinks = $( ".navigation a[href='#" + page + "']" );
-	        $( naviLinks ).parent( 'li' ).addClass( 'active' );
+			// Handle Navigation
+			$( '.navigation li ul li' ).removeClass( 'active' ); // Reset all
 
-	        // Bind some functions, scripts etc... (Important: after every page change (ajax load))
-	        $( '[data-toggle="tooltip"]' ).tooltip( { placement: 'top auto', container: 'body' } );
-	        $( "input[type='file']" ).each( function() { $( this ).customFileInput(); } ); // Custom file inputs
-	        data_boxes();
+			var naviLinks = $( ".navigation a[href='#" + page + "']" );
+			$( naviLinks ).parent( 'li' ).addClass( 'active' );
 
-	        // Stop & Remove Pre-loader
-	        $( '#nprogress' ).find( '.bar' ).css( { 'animation': 'none' } ).width( '100%' );
-	        setTimeout( function() { $( '#nprogress .bar' ).remove(); }, 250 );
+			// Bind some functions, scripts etc... (Important: after every page change (ajax load))
+			$( '[data-toggle="tooltip"]' ).tooltip( { placement: 'top auto', container: 'body' } );
+			$( "input[type='file']" ).each( function() { $( this ).customFileInput(); } ); // Custom file inputs
+			data_boxes();
 
-	        // Reset loading state to false.
-	        window.ajaxLoadingState = false;
+			// Stop & Remove Pre-loader
+			$( '#nprogress' ).find( '.bar' ).css( { 'animation': 'none' } ).width( '100%' );
+			setTimeout( function() { $( '#nprogress .bar' ).remove(); }, 250 );
 
-        }
+			// Reset loading state to false.
+			window.ajaxLoadingState = false;
 
-	}).fail( function( jqXHR, textStatus, errorThrown ) {
+		})
+		.fail( function( jqXHR, textStatus, errorThrown ) {
 
-		console.log( jqXHR );
+			console.log( jqXHR );
 
-		$( 'h2.currentpage' ).text( jqXHR.status + ' ERROR' );
-		$( '.container .ajaxwrap' ).html( '<div class="box"><div class="heading">ERROR - ' + jqXHR.status + '</div><div class="content">\
-			<p>Interface was unable to communicate with the router! <br>These issues usually occur when a file is missing, web handler is busy or the router is unavailable.</p>\
-			<a href="/">Refreshing</a> browser window might help.</div></div>' ).addClass( 'ajax-animation' );
+			$( 'h2.currentpage' ).text( jqXHR.status + ' ERROR' );
+			$( '.container .ajaxwrap' ).html( '<div class="box"><div class="heading">ERROR - ' + jqXHR.status + '</div><div class="content">\
+				<p>Interface was unable to communicate with the router! <br>These issues usually occur when a file is missing, web handler is busy or the router is unavailable.</p>\
+				<a href="/">Refreshing</a> browser window might help.</div></div>' ).addClass( 'ajax-animation' );
 
-		// Loaded, clear state
-		window.ajaxLoadingState = false;
+			// Loaded, clear state
+			window.ajaxLoadingState = false;
 
-		// Remove Preloader
-		$( '#nprogress' ).find( '.bar' ).css( { 'animation': 'none' } ).width( '100%' );
-		setTimeout( function() { $( '#nprogress .bar' ).remove(); }, 250 );
+			// Remove Preloader
+			$( '#nprogress' ).find( '.bar' ).css( { 'animation': 'none' } ).width( '100%' );
+			setTimeout( function() { $( '#nprogress .bar' ).remove(); }, 250 );
 
-	});
+		});
 
 }
 
