@@ -16,7 +16,11 @@
 	Jan	2014 by Aaron Finney
 	https://github.com/slash31/TomatoE
 	
-	** Last Updated - FEB 12 2016 - Tvlz **
+	VLAN Port Order by 't_model_name'
+	March 2015 Tvlz
+	https://bitbucket.org/tvlz/tvlz-advanced-vlan/
+
+	** Last Updated - Aug 10 2016 - Tvlz **
 
 	For use with Tomato Firmware only.
 	No part of this file may be used without permission.
@@ -56,7 +60,7 @@
 <script type='text/javascript' src='wireless.jsx?_http_id=<% nv(http_id); %>'></script>
 <script type='text/javascript' src='interfaces.js'></script>
 <script type='text/javascript'>
-<% nvram ("t_model_name,vlan0ports,vlan1ports,vlan2ports,vlan3ports,vlan4ports,vlan5ports,vlan6ports,vlan7ports,vlan8ports,vlan9ports,vlan10ports,vlan11ports,vlan12ports,vlan13ports,vlan14ports,vlan15ports,vlan0hwname,vlan1hwname,vlan2hwname,vlan3hwname,vlan4hwname,vlan5hwname,vlan6hwname,vlan7hwname,vlan8hwname,vlan9hwname,vlan10hwname,vlan11hwname,vlan12hwname,vlan13hwname,vlan14hwname,vlan15hwname,wan_ifnameX,wan2_ifnameX,wan3_ifnameX,wan4_ifnameX,manual_boot_nv,boardtype,boardflags,lan_ifname,lan_ifnames,lan1_ifname,lan1_ifnames,lan2_ifname,lan2_ifnames,lan3_ifname,lan3_ifnames,vlan0tag,vlan0vid,vlan1vid,vlan2vid,vlan3vid,vlan4vid,vlan5vid,vlan6vid,vlan7vid,vlan8vid,vlan9vid,vlan10vid,vlan11vid,vlan12vid,vlan13vid,vlan14vid,vlan15vid");%>
+<% nvram ("t_model_name,vlan0ports,vlan1ports,vlan2ports,vlan3ports,vlan4ports,vlan5ports,vlan6ports,vlan7ports,vlan8ports,vlan9ports,vlan10ports,vlan11ports,vlan12ports,vlan13ports,vlan14ports,vlan15ports,vlan0hwname,vlan1hwname,vlan2hwname,vlan3hwname,vlan4hwname,vlan5hwname,vlan6hwname,vlan7hwname,vlan8hwname,vlan9hwname,vlan10hwname,vlan11hwname,vlan12hwname,vlan13hwname,vlan14hwname,vlan15hwname,wan_ifnameX,wan2_ifnameX,wan3_ifnameX,wan4_ifnameX,manual_boot_nv,boardtype,boardflags,lan_ifname,lan_ifnames,lan1_ifname,lan1_ifnames,lan2_ifname,lan2_ifnames,lan3_ifname,lan3_ifnames,vlan0tag,vlan0vid,vlan1vid,vlan2vid,vlan3vid,vlan4vid,vlan5vid,vlan6vid,vlan7vid,vlan8vid,vlan9vid,vlan10vid,vlan11vid,vlan12vid,vlan13vid,vlan14vid,vlan15vid,model,mwan_num");%>
 
 var port_vlan_supported = 0;
 var trunk_vlan_supported = 1; //Enable on all routers
@@ -77,7 +81,7 @@ if(nvram['boardflags'] & 0x0100) { // BFL_ENETVLAN = this board has vlan capabil
 // http://wiki.openwrt.org/toh/asus/start
 // http://wiki.openwrt.org/toh/linksys/start
 // http://wiki.openwrt.org/toh/start
-switch(nvram['t_model_name']) { //Added by Tvlz, June 2014, ARM March 2015
+switch(nvram['t_model_name']) {
 	case 'vlan-testid0':
 	case 'Asus RT-AC56U':
 	case 'D-Link DIR868L':
@@ -98,7 +102,7 @@ switch(nvram['t_model_name']) { //Added by Tvlz, June 2014, ARM March 2015
 	case 'Asus RT-AC3200':
 	case 'Huawei WS880':
 	case 'Linksys EA6900':
-	case 'Netgear R7000': // newer versions
+	case 'Netgear R7000':
 		COL_P0N = '1';
 		COL_P1N = '2';
 		COL_P2N = '3';
@@ -120,6 +124,13 @@ switch(nvram['t_model_name']) { //Added by Tvlz, June 2014, ARM March 2015
 		COL_P2N = '2';
 		COL_P3N = '1';
 		COL_P4N = '0';
+	break;
+	case 'Xiaomi MiWiFi': //only has 2 Lan Ports
+		COL_P0N = '0';
+		COL_P1N = '2';
+		COL_P2N = '1';
+		COL_P3N = '3';
+		COL_P4N = '4';
 	break;
 	default:
 		COL_P0N = '1';
@@ -191,10 +202,6 @@ function save() {
   fom['lan2_ifnames'].value = '';
   fom['lan3_ifnames'].value = '';
   fom['wan2_ifnameX'].value = '';
-/* MULTIWAN-BEGIN */
-  fom['wan3_ifnameX'].value = '';
-  fom['wan4_ifnameX'].value = '';
-/* MULTIWAN-END */
 
   var v = '';
   var d = vlg.getAllData();
@@ -248,10 +255,6 @@ REMOVE-END */
     fom['lan2_ifnames'].value += (d[i][COL_BRI] == '5') ? 'vlan'+d[i][0] : '';
     fom['lan3_ifnames'].value += (d[i][COL_BRI] == '6') ? 'vlan'+d[i][0] : '';
     fom['wan2_ifnameX'].value += (d[i][COL_BRI] == '7') ? 'vlan'+d[i][0] : '';
-/* MULTIWAN-BEGIN */
-    fom['wan3_ifnameX'].value += (d[i][COL_BRI] == '8') ? 'vlan'+d[i][0] : '';
-    fom['wan4_ifnameX'].value += (d[i][COL_BRI] == '9') ? 'vlan'+d[i][0] : '';
-/* MULTIWAN-END */
   }
 
   for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
@@ -288,15 +291,8 @@ REMOVE-END */
 //        'lan3_ifnames=' + fom['lan3_ifnames'].value);
 REMOVE-END */
 
-// for some models, Tomato checks for a few vital/crucial nvram settings at init time
-// in some cases, if some/any of them are not found, a full nvram reset/clean could be triggered
-// so, to (try to) play it safe, we check for the 1st needed/available/required
-// VLAN for FastE (vlan0 is usually LAN) and GigE routers (vlan1 is usually LAN)
-  if((fom['vlan0ports'].value.length < 1) || (fom['vlan0hwname'].value.length < 1) || 
-     (fom['vlan1ports'].value.length < 1) || (fom['vlan1hwname'].value.length < 1))
-    fom['manual_boot_nv'].value = '1';
-  else
-    fom['manual_boot_nv'].value = nvram['manual_boot_nv'];
+//  fom['manual_boot_nv'].value = nvram['manual_boot_nv']; //Prevent vlan reset to default
+  fom['manual_boot_nv'].value = 1 //Prevent vlan reset to default
 
   var e = E('footer-msg');
 
@@ -360,9 +356,6 @@ if(port_vlan_supported) { // aka if(supported_hardware) block
     { type: 'checkbox', prefix: '<div class="centered">', suffix: '</div>' },
     { type: 'checkbox', prefix: '<div class="centered">', suffix: '</div>' },
     { type: 'select', options: [[1, 'none'],[2, 'WAN'],[3, 'LAN (br0)'],[4, 'LAN1 (br1)'],[5, 'LAN2 (br2)'],[6, 'LAN3 (br3)'],[7, 'WAN2'],
-/* MULTIWAN-BEGIN */
-				[8, 'WAN3'],[9, 'WAN4']
-/* MULTIWAN-END */
 			       ], prefix: '<div class="centered">', suffix: '</div>' }]);
 
     this.headerSet(['VLAN', 'VID', 'Port 1', 'Tagged', 'Port 2', 'Tagged', 'Port 3', 'Tagged', 'Port 4', 'Tagged', 'WAN Port', 'Tagged', 'Default', 'Bridge']);
@@ -411,10 +404,6 @@ REMOVE-END */
 // WAN port
     bridged[parseInt(nvram['wan_ifnameX'].replace('vlan',''))] = '2';
     bridged[parseInt(nvram['wan2_ifnameX'].replace('vlan',''))] = '7';
-/* MULTIWAN-BEGIN */
-    bridged[parseInt(nvram['wan3_ifnameX'].replace('vlan',''))] = '8';
-    bridged[parseInt(nvram['wan4_ifnameX'].replace('vlan',''))] = '9';
-/* MULTIWAN-END */
 
 // go thru all possible VLANs
     for (var i = 0 ; i <= MAX_VLAN_ID ; i++) {
@@ -481,17 +470,6 @@ REMOVE-END */
     return this.countElem(COL_BRI,7);
   }
 
-/* MULTIWAN-BEGIN */
-  vlg.countWan3 = function()
-  {
-    return this.countElem(COL_BRI,8);
-  }
-
-  vlg.countWan4 = function()
-  {
-    return this.countElem(COL_BRI,9);
-  }
-/* MULTIWAN-END */
 
   vlg.countLan = function(l)
   {
@@ -624,21 +602,6 @@ REMOVE-END */
       ferror.clear(f[COL_BRI]);
     }
 
-/* MULTIWAN-BEGIN */
-    if ((this.countWan3() > 0) && (f[COL_BRI].selectedIndex == 7)) {
-      ferror.set(f[COL_BRI],'Only one VID can be used as WAN3 at any time', quiet);
-      valid = 0;
-    } else {
-      ferror.clear(f[COL_BRI]);
-    }
-
-    if ((this.countWan4() > 0) && (f[COL_BRI].selectedIndex == 8)) {
-      ferror.set(f[COL_BRI],'Only one VID can be used as WAN4 at any time', quiet);
-      valid = 0;
-    } else {
-      ferror.clear(f[COL_BRI]);
-    }
-/* MULTIWAN-END */
 
     for(var i=0; i<4; i++) {
       if ((this.countLan(i) > 0) && (f[COL_BRI].selectedIndex == (i+2))) {
@@ -667,9 +630,6 @@ REMOVE-END */
     (data[COL_P4T].toString() != '0') ? 'On' : '',
     (data[COL_VID_DEF].toString() != '0') ? '*' : '',
     ['', 'WAN', 'LAN (br0)', 'LAN1 (br1)', 'LAN2 (br2)', 'LAN3 (br3)', 'WAN2'
-/* MULTIWAN-BEGIN */
-        , 'WAN3', 'WAN4'
-/* MULTIWAN-END
     ][data[COL_BRI] - 1]];
   }
 
@@ -901,10 +861,6 @@ function earlyInit() {
 <input type='hidden' name='vlan15hwname'>
 <input type='hidden' name='wan_ifnameX'>
 <input type='hidden' name='wan2_ifnameX'>
-/* MULTIWAN-BEGIN */
-<input type='hidden' name='wan3_ifnameX'>
-<input type='hidden' name='wan4_ifnameX'>
-/* MULTIWAN-END */
 <input type='hidden' name='manual_boot_nv'>
 <input type='hidden' name='lan_ifnames'>
 <input type='hidden' name='lan1_ifnames'>
@@ -929,10 +885,10 @@ function earlyInit() {
 
 <div style='display:none' id='unknown_router'>
 <div class='section-title'><center>!! Unknown Port Mapping Using Default!!</center></div>
-<div class='fields'><center><a href='http://www.linksysinfo.org/index.php?threads/can-vlan-gui-port-order-be-corrected.70160/#post-247634/'> <b>Please Follow these Instructions to get it corrected.</b></a>
+<div class='fields'><center><a href='http://www.linksysinfo.org/index.php?threads/can-vlan-gui-port-order-be-corrected.70160/#post-247634/'> <b>Please Follow this Link for Instructions to get it corrected.</b></a>
 <br><br> Include Router Brand/Model (<% nv('t_model_name'); %>),
-<br> Results from "robocfg show" - VLANs section only &amp;
-<br> Port Numbers on Router Case (Left -> Right viewed from Front).
+<br> Results from "nvram show | grep vlan1ports" &amp;
+<br> Port Numbers on BACK of Router Case (Left -> Right viewed from Front).
 <br> </center></div>
 <br>
 </div>
@@ -991,6 +947,7 @@ if(port_vlan_supported) vlg.setup();
 <li><b>Wireless</b> - Assignments of wireless interfaces to different LAN briges. You should probably be using and/or check things on <a href=advanced-wlanvifs.asp>Advanced/Virtual Wireless</a> and <a href=basic-network.asp>Basic/Network</a>.</li>
 </ul>
 
+<small>
 <ul>
 <li><b>Other relevant notes/hints:</b>
 <ul>
@@ -1005,6 +962,7 @@ if(trunk_vlan_supported) {
 </ul>
 <br>
 </ul>
+</small>
 </div>
 </div>
 <script type='text/javascript'>
