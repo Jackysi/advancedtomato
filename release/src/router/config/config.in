@@ -5,6 +5,10 @@ config TCONFIG_OPTIMIZE_SHARED_LIBS
 	bool "Optimize shared libraries (remove unused symbols)"
 	default y
 
+config TCONFIG_MIPSR2
+	bool "MIPS R2 flag"
+	default n
+
 config TCONFIG_L2TP
 	bool "L2TP"
 	default y
