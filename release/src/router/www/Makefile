@@ -11,7 +11,6 @@ install:
 	mkdir -p $(INSTALLDIR)/www			
 	mkdir -p $(INSTALLDIR)/www/js
 	mkdir -p $(INSTALLDIR)/www/css
-	mkdir -p $(INSTALLDIR)/www/css/schemes
 
 # Copy files we don't want to modify to new install directory
 	cp *.ico *.html *.php robots.txt $(INSTALLDIR)/www
@@ -313,12 +312,17 @@ else
 endif
 
 #-------------------------------- END COMPILER DIRECTIVES -----------------------------------------------
-# Copy over the directories required for AdvancedTomato GUI (img and fonts), functions affect these files too
+# Images
 	mkdir -p $(INSTALLDIR)/www/img
 	cp -r img/* $(INSTALLDIR)/www/img/.
 
+# Fonts
 	mkdir -p $(INSTALLDIR)/www/css/fonts
 	cp -r css/fonts/* $(INSTALLDIR)/www/css/fonts/.
+	
+# Color schemes
+	mkdir -p $(INSTALLDIR)/www/css/schemes
+	cp -r css/schemes/* $(INSTALLDIR)/www/css/schemes/.
 	
 # clean up compiler directives
 	cd $(INSTALLDIR)/www && \
