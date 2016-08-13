@@ -366,10 +366,11 @@ bsd_select(void)
 			}
 				printf("Reading disklabel of %s at sector %u\n",
 					partname(disk_device, t+1, 0), ss + BSD_LABELSECTOR);
-			if (xbsd_readlabel(xbsd_part) == 0)
+			if (xbsd_readlabel(xbsd_part) == 0) {
 				if (xbsd_create_disklabel() == 0)
 					return;
 				break;
+			}
 		}
 	}
 
@@ -854,7 +855,7 @@ xbsd_initlabel(struct partition *p)
 
 	d->d_magic = BSD_DISKMAGIC;
 
-	if (strncmp(disk_device, "/dev/sd", 7) == 0)
+	if (is_prefixed_with(disk_device, "/dev/sd"))
 		d->d_type = BSD_DTYPE_SCSI;
 	else
 		d->d_type = BSD_DTYPE_ST506;

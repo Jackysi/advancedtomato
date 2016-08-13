@@ -914,6 +914,7 @@ void start_upnp(void)
 					"secure_mode=%s\n"
 					"upnp_forward_chain=upnp\n"
 					"upnp_nat_chain=upnp\n"
+					"upnp_nat_postrouting_chain=pupnp\n"
 					"notify_interval=%d\n"
 					"system_uptime=yes\n"
 					"friendly_name=%s"" Router\n"

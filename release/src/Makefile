@@ -486,6 +486,11 @@ define RouterOptions
 	else \
 		echo "# TCONFIG_RAID is not set" >>$(1); \
 	fi; \
+	if [ "$(MIPS32)" = "r2" ]; then \
+		echo "TCONFIG_MIPSR2=y" >>$(1); \
+	else \
+		echo "# TCONFIG_MIPSR2 is not set" >>$(1); \
+	fi; \
 	if [ "$(USB)" = "USB" ]; then \
 		sed -i "/TCONFIG_USB is not set/d" $(1); \
 		echo "TCONFIG_USB=y" >>$(1); \

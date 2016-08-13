@@ -1,3 +1,16 @@
+20160612:
+    ATTENTION: requires usb-modeswitch version >= 2.4.0 due to appended
+    StandardEject sequence (affects D-Link devices);
+    Added devices: [046d:c261] Logitech G920 Racing Wheel, [05c6:98ff]
+    U901 (LTE modem), [12d1:15c1] Huawei ME906, ME909, [1bbb:025e] Yota
+    4G LTE W8, [2001:a406] D-Link DWM-221, [2001:a407] D-Link DWM-157 C1,
+    [2001:a40a] D-Link DWM-156 A8 (Myanmar), [2001:a40d] D-Link DWR-910,
+    Corrected/updated devices: [05c6:f000] Siptune LM-75 ("LinuxModem"),
+    EWangshikong 4G, [10a9:6080] Pantech LTE Modem, [12d1:1573] Huawei
+    ME909u-521, [12d1:1f1e] Vodafone / Huawei K5160, [19d2:1595] ZTE
+    MF710 (Vietnam) a.o., [2001:a401] D-Link DWM-221 B1;
+    "NoDriverLoading" parameter removed from all configs, with respect
+    to removed feature in usb-modeswitch 2.4.0
 20160112:
     ATTENTION: requires usb-modeswitch version >= 2.3.0 due to new para-
     meter OptionMode (further reducing config file space demand);

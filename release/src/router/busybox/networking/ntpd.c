@@ -1,30 +1,43 @@
 /*
  * NTP client/server, based on OpenNTPD 3.9p1
  *
- * Author: Adam Tkac <vonsch@gmail.com>
+ * Busybox port author: Adam Tkac (C) 2009 <vonsch@gmail.com>
  *
- * Licensed under GPLv2, see file LICENSE in this source tree.
+ * OpenNTPd 3.9p1 copyright holders:
+ *   Copyright (c) 2003, 2004 Henning Brauer <henning@openbsd.org>
+ *   Copyright (c) 2004 Alexander Guy <alexander.guy@andern.org>
+ *
+ * OpenNTPd code is licensed under ISC-style licence:
+ *
+ * Permission to use, copy, modify, and distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF MIND, USE, DATA OR PROFITS, WHETHER
+ * IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
+ * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ ***********************************************************************
  *
  * Parts of OpenNTPD clock syncronization code is replaced by
- * code which is based on ntp-4.2.6, whuch carries the following
+ * code which is based on ntp-4.2.6, which carries the following
  * copyright notice:
  *
- ***********************************************************************
- *                                                                     *
- * Copyright (c) University of Delaware 1992-2009                      *
- *                                                                     *
- * Permission to use, copy, modify, and distribute this software and   *
- * its documentation for any purpose with or without fee is hereby     *
- * granted, provided that the above copyright notice appears in all    *
- * copies and that both the copyright notice and this permission       *
- * notice appear in supporting documentation, and that the name        *
- * University of Delaware not be used in advertising or publicity      *
- * pertaining to distribution of the software without specific,        *
- * written prior permission. The University of Delaware makes no       *
- * representations about the suitability this software for any         *
- * purpose. It is provided "as is" without express or implied          *
- * warranty.                                                           *
- *                                                                     *
+ * Copyright (c) University of Delaware 1992-2009
+ *
+ * Permission to use, copy, modify, and distribute this software and
+ * its documentation for any purpose with or without fee is hereby
+ * granted, provided that the above copyright notice appears in all
+ * copies and that both the copyright notice and this permission
+ * notice appear in supporting documentation, and that the name
+ * University of Delaware not be used in advertising or publicity
+ * pertaining to distribution of the software without specific,
+ * written prior permission. The University of Delaware makes no
+ * representations about the suitability this software for any
+ * purpose. It is provided "as is" without express or implied warranty.
  ***********************************************************************
  */
 
@@ -37,14 +50,15 @@
 //usage:     "\n	-q	Quit after clock is set"
 //usage:     "\n	-N	Run at high priority"
 //usage:     "\n	-w	Do not set time (only query peers), implies -n"
-//usage:	IF_FEATURE_NTPD_SERVER(
-//usage:     "\n	-l	Run as server on port 123"
-//usage:     "\n	-I IFACE Bind server to IFACE, implies -l"
-//usage:	)
 //usage:     "\n	-S PROG	Run PROG after stepping time, stratum change, and every 11 mins"
 //usage:     "\n	-p PEER	Obtain time from PEER (may be repeated)"
 //usage:	IF_FEATURE_NTPD_CONF(
-//usage:     "\n		If -p is not given, read /etc/ntp.conf"
+//usage:     "\n		If -p is not given, 'server HOST' lines"
+//usage:     "\n		from /etc/ntp.conf are used"
+//usage:	)
+//usage:	IF_FEATURE_NTPD_SERVER(
+//usage:     "\n	-l	Also run as server on port 123"
+//usage:     "\n	-I IFACE Bind server to IFACE, implies -l"
 //usage:	)
 
 // -l and -p options are not compatible with "standard" ntpd:
@@ -98,7 +112,7 @@
  *
  * Made some changes to speed up re-syncing after our clock goes bad
  * (tested with suspending my laptop):
- * - if largish offset (>= STEP_THRESHOLD * 8 == 1 sec) is seen
+ * - if largish offset (>= STEP_THRESHOLD == 1 sec) is seen
  *   from a peer, schedule next query for this peer soon
  *   without drastically lowering poll interval for everybody.
  *   This makes us collect enough data for step much faster:
@@ -117,11 +131,14 @@
 #define RESPONSE_INTERVAL 16    /* wait for reply up to N secs */
 
 /* Step threshold (sec). std ntpd uses 0.128.
+ */
+#define STEP_THRESHOLD     1
+/* Slew threshold (sec): adjtimex() won't accept offsets larger than this.
  * Using exact power of 2 (1/8) results in smaller code
  */
-#define STEP_THRESHOLD  0.125
+#define SLEW_THRESHOLD 0.125
 /* Stepout threshold (sec). std ntpd uses 900 (11 mins (!)) */
-#define WATCH_THRESHOLD 128
+#define WATCH_THRESHOLD  128
 /* NB: set WATCH_THRESHOLD to ~60 when debugging to save time) */
 //UNUSED: #define PANIC_THRESHOLD 1000    /* panic threshold (sec) */
 
@@ -129,7 +146,7 @@
  * If we got |offset| > BIGOFF from a peer, cap next query interval
  * for this peer by this many seconds:
  */
-#define BIGOFF          (STEP_THRESHOLD * 8)
+#define BIGOFF          STEP_THRESHOLD
 #define BIGOFF_INTERVAL (1 << 7) /* 128 s */
 
 #define FREQ_TOLERANCE  0.000015 /* frequency tolerance (15 PPM) */
@@ -143,10 +160,10 @@
 #define MAXPOLL         12      /* maximum poll interval (12: 1.1h, 17: 36.4h). std ntpd uses 17 */
 /*
  * Actively lower poll when we see such big offsets.
- * With STEP_THRESHOLD = 0.125, it means we try to sync more aggressively
+ * With SLEW_THRESHOLD = 0.125, it means we try to sync more aggressively
  * if offset increases over ~0.04 sec
  */
-//#define POLLDOWN_OFFSET (STEP_THRESHOLD / 3)
+//#define POLLDOWN_OFFSET (SLEW_THRESHOLD / 3)
 #define MINDISP         0.01    /* minimum dispersion (sec) */
 #define MAXDISP         16      /* maximum dispersion (sec) */
 #define MAXSTRAT        16      /* maximum stratum (infinity metric) */
@@ -275,6 +292,7 @@ typedef struct {
 	datapoint_t      filter_datapoint[NUM_DATAPOINTS];
 	/* last sent packet: */
 	msg_t            p_xmt_msg;
+	char             p_hostname[1];
 } peer_t;
 
 
@@ -363,8 +381,6 @@ struct globals {
 	 */
 #define G_precision_sec  0.002
 	uint8_t  stratum;
-	/* Bool. After set to 1, never goes back to 0: */
-	smallint initial_poll_complete;
 
 #define STATE_NSET      0       /* initial state, "nothing is set" */
 //#define STATE_FSET    1       /* frequency set from file */
@@ -392,8 +408,6 @@ struct globals {
 #endif
 };
 #define G (*ptr_to_globals)
-
-static const int const_IPTOS_LOWDELAY = IPTOS_LOWDELAY;
 
 
 #define VERB1 if (MAX_VERBOSE && G.verbose)
@@ -710,11 +724,11 @@ static void
 reset_peer_stats(peer_t *p, double offset)
 {
 	int i;
-	bool small_ofs = fabs(offset) < 16 * STEP_THRESHOLD;
+	bool small_ofs = fabs(offset) < STEP_THRESHOLD;
 
 	/* Used to set p->filter_datapoint[i].d_dispersion = MAXDISP
 	 * and clear reachable bits, but this proved to be too agressive:
-	 * after step (tested with suspinding laptop for ~30 secs),
+	 * after step (tested with suspending laptop for ~30 secs),
 	 * this caused all previous data to be considered invalid,
 	 * making us needing to collect full ~8 datapoins per peer
 	 * after step in order to start trusting them.
@@ -751,17 +765,58 @@ reset_peer_stats(peer_t *p, double offset)
 }
 
 static void
+resolve_peer_hostname(peer_t *p, int loop_on_fail)
+{
+	len_and_sockaddr *lsa;
+
+ again:
+	lsa = host2sockaddr(p->p_hostname, 123);
+	if (!lsa) {
+		/* error message already emitted by host2sockaddr() */
+		if (!loop_on_fail)
+			return;
+//FIXME: do this to avoid infinite looping on typo in a hostname?
+//well... in which case, what is a good value for loop_on_fail?
+		//if (--loop_on_fail == 0)
+		//	xfunc_die();
+		sleep(5);
+		goto again;
+	}
+	free(p->p_lsa);
+	free(p->p_dotted);
+	p->p_lsa = lsa;
+	p->p_dotted = xmalloc_sockaddr2dotted_noport(&lsa->u.sa);
+}
+
+static void
 add_peers(const char *s)
 {
+	llist_t *item;
 	peer_t *p;
 
-	p = xzalloc(sizeof(*p));
-	p->p_lsa = xhost2sockaddr(s, 123);
-	p->p_dotted = xmalloc_sockaddr2dotted_noport(&p->p_lsa->u.sa);
+	p = xzalloc(sizeof(*p) + strlen(s));
+	strcpy(p->p_hostname, s);
+	resolve_peer_hostname(p, /*loop_on_fail=*/ 1);
+
+	/* Names like N.<country2chars>.pool.ntp.org are randomly resolved
+	 * to a pool of machines. Sometimes different N's resolve to the same IP.
+	 * It is not useful to have two peers with same IP. We skip duplicates.
+	 */
+	for (item = G.ntp_peers; item != NULL; item = item->link) {
+		peer_t *pp = (peer_t *) item->data;
+		if (strcmp(p->p_dotted, pp->p_dotted) == 0) {
+			bb_error_msg("duplicate peer %s (%s)", s, p->p_dotted);
+			free(p->p_lsa);
+			free(p->p_dotted);
+			free(p);
+			return;
+		}
+	}
+
 	p->p_fd = -1;
 	p->p_xmt_msg.m_status = MODE_CLIENT | (NTP_VERSION << 3);
 	p->next_action_time = G.cur_time; /* = set_next(p, 0); */
-	reset_peer_stats(p, 16 * STEP_THRESHOLD);
+	reset_peer_stats(p, STEP_THRESHOLD);
 
 	llist_add_to(&G.ntp_peers, p);
 	G.peer_cnt++;
@@ -825,7 +880,7 @@ send_query_to_peer(peer_t *p)
 #if ENABLE_FEATURE_IPV6
 		if (family == AF_INET)
 #endif
-			setsockopt(fd, IPPROTO_IP, IP_TOS, &const_IPTOS_LOWDELAY, sizeof(const_IPTOS_LOWDELAY));
+			setsockopt_int(fd, IPPROTO_IP, IP_TOS, IPTOS_LOWDELAY);
 		free(local_lsa);
 	}
 
@@ -1071,7 +1126,7 @@ select_and_cluster(void)
 
 	num_points = 0;
 	item = G.ntp_peers;
-	if (G.initial_poll_complete) while (item != NULL) {
+	while (item != NULL) {
 		double rd, offset;
 
 		p = (peer_t *) item->data;
@@ -1485,7 +1540,6 @@ update_local_clock(peer_t *p)
 #endif
 		abs_offset = offset = 0;
 		set_new_values(STATE_SYNC, offset, recv_time);
-
 	} else { /* abs_offset <= STEP_THRESHOLD */
 
 		/* The ratio is calculated before jitter is updated to make
@@ -1629,14 +1683,7 @@ update_local_clock(peer_t *p)
 	tmx.freq = G.discipline_freq_drift * 65536e6;
 #endif
 	tmx.modes = ADJ_OFFSET | ADJ_STATUS | ADJ_TIMECONST;// | ADJ_MAXERROR | ADJ_ESTERROR;
-	tmx.offset = (offset * 1000000); /* usec */
-	tmx.status = STA_PLL;
-	if (G.ntp_status & LI_PLUSSEC)
-		tmx.status |= STA_INS;
-	if (G.ntp_status & LI_MINUSSEC)
-		tmx.status |= STA_DEL;
-
-	tmx.constant = G.poll_exp - 4;
+	tmx.constant = (int)G.poll_exp - 4;
 	/* EXPERIMENTAL.
 	 * The below if statement should be unnecessary, but...
 	 * It looks like Linux kernel's PLL is far too gentle in changing
@@ -1647,8 +1694,27 @@ update_local_clock(peer_t *p)
 	 * To be on a safe side, let's do it only if offset is significantly
 	 * larger than jitter.
 	 */
-	if (tmx.constant > 0 && G.offset_to_jitter_ratio >= TIMECONST_HACK_GATE)
+	if (G.offset_to_jitter_ratio >= TIMECONST_HACK_GATE)
 		tmx.constant--;
+	tmx.offset = (long)(offset * 1000000); /* usec */
+	if (SLEW_THRESHOLD < STEP_THRESHOLD) {
+		if (tmx.offset > (long)(SLEW_THRESHOLD * 1000000)) {
+			tmx.offset = (long)(SLEW_THRESHOLD * 1000000);
+			tmx.constant--;
+		}
+		if (tmx.offset < -(long)(SLEW_THRESHOLD * 1000000)) {
+			tmx.offset = -(long)(SLEW_THRESHOLD * 1000000);
+			tmx.constant--;
+		}
+	}
+	if (tmx.constant < 0)
+		tmx.constant = 0;
+
+	tmx.status = STA_PLL;
+	if (G.ntp_status & LI_PLUSSEC)
+		tmx.status |= STA_INS;
+	if (G.ntp_status & LI_MINUSSEC)
+		tmx.status |= STA_DEL;
 
 	//tmx.esterror = (uint32_t)(clock_jitter * 1e6);
 	//tmx.maxerror = (uint32_t)((sys_rootdelay / 2 + sys_rootdisp) * 1e6);
@@ -1661,8 +1727,14 @@ update_local_clock(peer_t *p)
 	VERB4 bb_error_msg("adjtimex:%d freq:%ld offset:%+ld status:0x%x",
 				rc, tmx.freq, tmx.offset, tmx.status);
 	G.kernel_freq_drift = tmx.freq / 65536;
-	VERB2 bb_error_msg("update from:%s offset:%+f jitter:%f clock drift:%+.3fppm tc:%d",
-			p->p_dotted, offset, G.discipline_jitter, (double)tmx.freq / 65536, (int)tmx.constant);
+	VERB2 bb_error_msg("update from:%s offset:%+f delay:%f jitter:%f clock drift:%+.3fppm tc:%d",
+			p->p_dotted,
+			offset,
+			p->lastpkt_delay,
+			G.discipline_jitter,
+			(double)tmx.freq / 65536,
+			(int)tmx.constant
+	);
 
 	return 1; /* "ok to increase poll interval" */
 }
@@ -1922,6 +1994,9 @@ recv_and_process_peer_pkt(peer_t *p)
  increase_interval:
 			adjust_poll(MINPOLL);
 		} else {
+			VERB3 if (rc > 0)
+				bb_error_msg("want smaller interval: offset/jitter = %u",
+					G.offset_to_jitter_ratio);
 			adjust_poll(-G.poll_exp * 2);
 		}
 	}
@@ -1930,7 +2005,7 @@ recv_and_process_peer_pkt(peer_t *p)
  pick_normal_interval:
 	interval = poll_interval(INT_MAX);
 	if (fabs(offset) >= BIGOFF && interval > BIGOFF_INTERVAL) {
-		/* If we are synced, offsets are less than STEP_THRESHOLD,
+		/* If we are synced, offsets are less than SLEW_THRESHOLD,
 		 * or at the very least not much larger than it.
 		 * Now we see a largish one.
 		 * Either this peer is feeling bad, or packet got corrupted,
@@ -2175,7 +2250,7 @@ static NOINLINE void ntp_init(char **argv)
 				xfunc_die();
 		}
 		socket_want_pktinfo(G_listen_fd);
-		setsockopt(G_listen_fd, IPPROTO_IP, IP_TOS, &const_IPTOS_LOWDELAY, sizeof(const_IPTOS_LOWDELAY));
+		setsockopt_int(G_listen_fd, IPPROTO_IP, IP_TOS, IPTOS_LOWDELAY);
 	}
 #endif
 	if (!(opts & OPT_n)) {
@@ -2272,7 +2347,6 @@ int ntpd_main(int argc UNUSED_PARAM, char **argv)
 						VERB4 bb_error_msg("disabling burst mode");
 						G.polladj_count = 0;
 						G.poll_exp = MINPOLL;
-						G.initial_poll_complete = 1;
 					}
 					send_query_to_peer(p);
 				} else {
@@ -2285,6 +2359,11 @@ int ntpd_main(int argc UNUSED_PARAM, char **argv)
 					timeout = poll_interval(NOREPLY_INTERVAL);
 					bb_error_msg("timed out waiting for %s, reach 0x%02x, next query in %us",
 							p->p_dotted, p->reachable_bits, timeout);
+
+					/* What if don't see it because it changed its IP? */
+					if (p->reachable_bits == 0)
+						resolve_peer_hostname(p, /*loop_on_fail=*/ 0);
+
 					set_next(p, timeout);
 				}
 			}
