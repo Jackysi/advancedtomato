@@ -11,9 +11,10 @@ install:
 	mkdir -p $(INSTALLDIR)/www			
 	mkdir -p $(INSTALLDIR)/www/js
 	mkdir -p $(INSTALLDIR)/www/css
+	mkdir -p $(INSTALLDIR)/www/css/schemes
 
 # Copy files we don't want to modify to new install directory
-	cp *.ico *.html *.php robots.txt $(INSTALLDIR)/www
+	cp *.ico *.html *.php robots.txt tux.png $(INSTALLDIR)/www
 
 # Copy JS files to the installdir and squish files by trimming whitespace
 	for F in $(wildcard js/*.js js/*.jsx *.js *.jsx); do \
@@ -21,7 +22,7 @@ install:
 	done
 
 # Copy CSS files to the installdir and squish files by trimming whitespace
-	for F in $(wildcard css/*.css *.css); do \
+	for F in $(wildcard css/schemes/*.css css/*.css *.css); do \
 		sed '/^\/\*\s*$$/,/\*\//! { s/\s\+/ /g; s/^\s\+//; s/\s\+$$//; /^$$/d }' < $$F > $(INSTALLDIR)/www/$$F; \
 	done
 
@@ -51,13 +52,13 @@ install:
 # Only include Linux 2.6 options if building for Linux 2.6.
 ifneq ($(CONFIG_LINUX26),y)
 	cd $(INSTALLDIR)/www && \
-	for F in $(wildcard *.asp *.js js/*.js); do \
+	for F in $(wildcard *.asp *.js js/*.js js/*.jsx); do \
 		sed -i $$F -e "/LINUX26-BEGIN/,/LINUX26-END/d"; \
 	done
 # But remove some K24 options if building for Linux 2.6.
 else
 	cd $(INSTALLDIR)/www && \
-	for F in $(wildcard *.asp *.js js/*.js); do \
+	for F in $(wildcard *.asp *.js js/*.js js/*.jsx); do \
 		sed -i $$F -e "/LINUX24-BEGIN/,/LINUX24-END/d"; \
 	done
 endif
@@ -65,13 +66,13 @@ endif
 #only include  MultiWAN options if MULTIWAN is configured in.
 ifneq ($(TCONFIG_MULTIWAN),y)
 	cd $(INSTALLDIR)/www && \
-	for F in $(wildcard *.asp *.js *.jsx); do \
+	for F in $(wildcard *.asp *.js *.jsx js/*.js js/*.jsx); do \
 		sed -i $$F -e "/MULTIWAN-BEGIN/,/MULTIWAN-END/d"; \
 	done
 # or remove dualwan options
 else
 	cd $(INSTALLDIR)/www && \
-	for F in $(wildcard *.asp *.js *.jsx); do \
+	for F in $(wildcard *.asp *.js *.jsx js/*.js js/*.jsx); do \
 		sed -i $$F -e "/DUALWAN-BEGIN/,/DUALWAN-END/d"; \
 	done
 endif
@@ -319,11 +320,7 @@ endif
 # Fonts
 	mkdir -p $(INSTALLDIR)/www/css/fonts
 	cp -r css/fonts/* $(INSTALLDIR)/www/css/fonts/.
-	
-# Color schemes
-	mkdir -p $(INSTALLDIR)/www/css/schemes
-	cp -r css/schemes/* $(INSTALLDIR)/www/css/schemes/.
-	
+		
 # clean up compiler directives
 	cd $(INSTALLDIR)/www && \
 	for F in $(wildcard *.asp *.js *.jsx js/*.js js/*.jsx *.html); do \
@@ -381,25 +378,23 @@ endif
 		|| true; \
 	done
 
-# Prepare yuicompressor (will be removed from installdir after execution)
-# Yuicompressor dowloaded from: https://github.com/yui/yuicompressor/releases
-		cp tools/yuicompressor-2.4.8.jar $(INSTALLDIR)/www
+# Copy YUI Compressor into WWW directory
+	cp tools/yuicompressor-2.4.8.jar $(INSTALLDIR)/www
+		
+# Compress JAVASCRIPT files
+	cd $(INSTALLDIR)/www && \
+	for F in $(wildcard js/*.js *.js ); do \
+		[ -f $(INSTALLDIR)/www/$$F ] && java -jar yuicompressor-2.4.8.jar --type js -o $$F $$F || true; \
+	done 
 
-# Compress installed javascript with yui-compressor
-# TODO: jsx files have nvram actions, these are removed with yui-compressor, so these files are excluded!
-		cd $(INSTALLDIR)/www && \
-		for F in $(wildcard js/*.js *.js ); do \
-			[ -f $(INSTALLDIR)/www/$$F ] && java -jar yuicompressor-2.4.8.jar --type js -v -o $$F $$F || true; \
-		done 
-
-# Compress css with yui-compressor
-		cd $(INSTALLDIR)/www && \
-		for F in $(wildcard css/*.css *.css ); do \
-			[ -f $(INSTALLDIR)/www/$$F ] && java -jar yuicompressor-2.4.8.jar --type css -v -o $$F $$F || true; \
-		done 
+# Compress CSS files
+	cd $(INSTALLDIR)/www && \
+	for F in $(wildcard css/schemes/*.css css/*.css *.css ); do \
+			[ -f $(INSTALLDIR)/www/$$F ] && java -jar yuicompressor-2.4.8.jar --type css -o $$F $$F || true; \
+	done 
 
 # Remove yuicompressor
-		rm 	$(INSTALLDIR)/www/yuicompressor-2.4.8.jar
+	rm 	$(INSTALLDIR)/www/yuicompressor-2.4.8.jar
 
 # make sure old and debugging crap is gone
 	@rm -f $(INSTALLDIR)/www/debug.js
@@ -415,3 +410,4 @@ endif
 	for F in $(wildcard js/*.jsx *.jsx); do \
 		[ -f $(INSTALLDIR)/www/$$F ] && $(TOP)/www/remcoms2.sh $(INSTALLDIR)/www/$$F c; \
 	done
+	
