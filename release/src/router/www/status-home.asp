@@ -127,8 +127,8 @@
 			c( 'cpu', stats.cpuload );
 			c( 'uptime', stats.uptime );
 			c( 'time', stats.time );
-			c( 'memory', stats.memory + '<div class="progress"><div class="bar" style="width: ' + stats.memoryperc + ';"></div></div>' );
-			c( 'swap', stats.swap + '<div class="progress"><div class="bar" style="width: ' + stats.swapperc + ';"></div></div>' );
+			c( 'memory', stats.memory + '<div class="progress small"><div class="bar" style="width: ' + stats.memoryperc + ';"></div></div>' );
+			c( 'swap', stats.swap + '<div class="progress small"><div class="bar" style="width: ' + stats.swapperc + ';"></div></div>' );
 			elem.display( 'swap', stats.swap != '' );
 
 /* IPV6-BEGIN */
@@ -258,9 +258,9 @@
 						{ title: 'Time', rid: 'time', text: stats.time },
 						{ title: 'Uptime', rid: 'uptime', text: stats.uptime },
 						{ title: 'CPU Load <small>(1 / 5 / 15 mins)</small>', rid: 'cpu', text: stats.cpuload },
-						{ title: 'Memory Usage', rid: 'memory', text: stats.memory + '<div class="progress"><div class="bar" style="width: ' + stats.memoryperc + ';"></div></div>' },
-						{ title: 'Swap Usage', rid: 'swap', text: stats.swap + '<div class="progress"><div class="bar" style="width: ' + stats.swapperc + ';"></div></div>', hidden: (stats.swap == '') },
-						{ title: 'NVRAM Usage', text: scaleSize(nvstat.size - nvstat.free) + ' <small>/</small> ' + scaleSize(nvstat.size) + ' (' + (a).toFixed(2) + '%) <div class="progress"><div class="bar" style="width: ' + (a).toFixed(2) + '%;"></div></div>' },
+						{ title: 'Memory Usage', rid: 'memory', text: stats.memory + '<div class="progress small"><div class="bar" style="width: ' + stats.memoryperc + ';"></div></div>' },
+						{ title: 'Swap Usage', rid: 'swap', text: stats.swap + '<div class="progress small"><div class="bar" style="width: ' + stats.swapperc + ';"></div></div>', hidden: (stats.swap == '') },
+						{ title: 'NVRAM Usage', text: scaleSize(nvstat.size - nvstat.free) + ' <small>/</small> ' + scaleSize(nvstat.size) + ' (' + (a).toFixed(2) + '%) <div class="progress small"><div class="bar" style="width: ' + (a).toFixed(2) + '%;"></div></div>' },
 						], '#sesdiv_system', 'data-table dataonly');
 				</script>
 			</div>

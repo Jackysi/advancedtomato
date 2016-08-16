@@ -687,7 +687,9 @@ No part of this file may be used without permission.
 				         (data[ COL_P4 ].toString() != '0') ? 'Yes' : '',
 				         (data[ COL_P4T ].toString() != '0') ? 'On' : '',
 				         (data[ COL_VID_DEF ].toString() != '0') ? '*' : '',
-				         [ '', 'WAN', 'LAN (br0)', 'LAN1 (br1)', 'LAN2 (br2)', 'LAN3 (br3)', 'WAN2'/* MULTIWAN-BEGIN */, 'WAN3', 'WAN4'/* MULTIWAN-END */ ][ data[ COL_BRI ] - 1 ] ];
+				         [ '', 'WAN', 'LAN (br0)', 'LAN1 (br1)', 'LAN2 (br2)', 'LAN3 (br3)', 'WAN2'
+					         /* MULTIWAN-BEGIN */, 'WAN3', 'WAN4'/* MULTIWAN-END */
+				         ][ data[ COL_BRI ] - 1 ] ];
 			}
 
 			vlg.dataToFieldValues = function( data ) {
@@ -912,7 +914,7 @@ No part of this file may be used without permission.
 		/* MULTIWAN-BEGIN */
 		<input type="hidden" name="wan3_ifnameX">
 		<input type="hidden" name="wan4_ifnameX">
-		/* MULTIWAN-END
+		/* MULTIWAN-END */
 		<input type="hidden" name="lan_ifnames">
 		<input type="hidden" name="lan1_ifnames">
 		<input type="hidden" name="lan2_ifnames">

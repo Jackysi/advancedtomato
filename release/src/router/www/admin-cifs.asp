@@ -102,7 +102,7 @@ No part of this file may be used without permission.
 						options: [['','Default (NTLM)'],['ntlmi','NTLM and packet signing'],['ntlmv2','NTLMv2'],['ntlmv2i','NTLMv2 and packet signing'],['nontlm','No NTLM'],['lanman','LANMAN'],['none','None']],
 						value: a[7] },
 					{ title: 'CIFS1 Usage', indent: 2, text: cifs1.size ? (scaleSize(cifs1.size - cifs1.free) + ' / ' + scaleSize(cifs1.size)) +
-						' (<span class="txtcifs1"></span>) <div class="progress cifs1"><div class="bar"></div></div>' : '(not mounted)' },
+						' (<span class="txtcifs1"></span>) <div class="progress small cifs1"><div class="bar"></div></div>' : '(not mounted)' },
 				]) + '</div></div>';
 
 				cifs += '<div class="box" data-box="cifs-set-2"><div class="heading">CIFS2 <small>(/cifs2)</small></div><div class="content">' +
@@ -118,7 +118,7 @@ No part of this file may be used without permission.
 						options: [['','Default (NTLM)'],['ntlmi','NTLM and packet signing'],['ntlmv2','NTLMv2'],['ntlmv2i','NTLMv2 and packet signing'],['nontlm','No NTLM'],['lanman','LANMAN'],['none','None']],
 						value: b[7] },
 					{ title: 'CIFS2 Usage', indent: 2, text: cifs2.size ? (scaleSize(cifs2.size - cifs2.free) + ' / ' + scaleSize(cifs2.size)) +
-						' (<span class="txtcifs2"></span>) <div class="progress cifs2"><div class="bar"></div></div>' : '(not mounted)' }
+						' (<span class="txtcifs2"></span>) <div class="progress small cifs2"><div class="bar"></div></div>' : '(not mounted)' }
 				]) + '</div></div>';
 
 				$('#mounties').append(cifs);

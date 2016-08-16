@@ -270,7 +270,7 @@
 					this.insert(-1, e, [
 						e.ifname, b, (e.ip == '-') ? '' : e.ip + '<br />' + e.name,
 						(e.rssi != 0) ? e.rssi + ' <small>dBm</small>' : '-',
-						(e.qual < 0) ? '-' : '<small>' + e.qual + '%</small> <div class="progress"><div title="' + e.qual + '%" class="bar ' + bar + '" style="width: ' + e.qual + '%;"></div></div>',
+						(e.qual < 0) ? '-' : '<small>' + e.qual + '%</small> <div class="progress small"><div title="' + e.qual + '%" class="bar ' + bar + '" style="width: ' + e.qual + '%;"></div></div>',
 						e.txrx,	e.lease], false);
 				}
 			}

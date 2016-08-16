@@ -238,7 +238,7 @@ No part of this file may be used without permission.
 					mac,
 					(e.rssi == -999) ? '' : (e.rssi + ' <small>dBm</small>'),
 					(e.noise == -999) ? '' : (e.noise + ' <small>dBm</small>'),
-					'<small>' + e.qual + '</small></b> <div class="progress"><div class="bar ' + bar + '" style="width:' + e.qual + '%;"></div></div>',
+					'<small>' + e.qual + '</small></b> <div class="progress small"><div class="bar ' + bar + '" style="width:' + e.qual + '%;"></div></div>',
 					'' + e.channel,
 					'' + e.cap,
 					'' + e.rates], false);
