@@ -48,10 +48,7 @@ PROGRAMS = \
 	udevsettle			\
 	udevcontrol			\
 	udevmonitor			\
-	udevinfo			\
-	udevtest			\
-	test-udev			\
-	udevstart
+	udevinfo
 
 HEADERS = \
 	udev.h				\
@@ -83,9 +80,7 @@ MAN_PAGES = \
 	udevd.8				\
 	udevtrigger.8			\
 	udevsettle.8			\
-	udevtest.8			\
-	udevinfo.8			\
-	udevstart.8
+	udevinfo.8
 
 GEN_HEADERS = \
 	udev_version.h
@@ -243,7 +238,6 @@ install-config:
 install-man:
 	$(INSTALL_DATA) -D udev.7 $(DESTDIR)$(mandir)/man7/udev.7
 	$(INSTALL_DATA) -D udevinfo.8 $(DESTDIR)$(mandir)/man8/udevinfo.8
-	$(INSTALL_DATA) -D udevtest.8 $(DESTDIR)$(mandir)/man8/udevtest.8
 	$(INSTALL_DATA) -D udevd.8 $(DESTDIR)$(mandir)/man8/udevd.8
 	$(INSTALL_DATA) -D udevtrigger.8 $(DESTDIR)$(mandir)/man8/udevtrigger.8
 	$(INSTALL_DATA) -D udevsettle.8 $(DESTDIR)$(mandir)/man8/udevsettle.8
@@ -257,7 +251,6 @@ install-man:
 uninstall-man:
 	- rm -f $(DESTDIR)$(mandir)/man7/udev.7
 	- rm -f $(DESTDIR)$(mandir)/man8/udevinfo.8
-	- rm -f $(DESTDIR)$(mandir)/man8/udevtest.8
 	- rm -f $(DESTDIR)$(mandir)/man8/udevd.8
 	- rm -f $(DESTDIR)$(mandir)/man8/udevtrigger.8
 	- rm -f $(DESTDIR)$(mandir)/man8/udevsettle.8
@@ -281,7 +274,6 @@ install-bin:
 	$(INSTALL_PROGRAM) -D udevcontrol $(DESTDIR)$(sbindir)/udevcontrol
 	$(INSTALL_PROGRAM) -D udevmonitor $(DESTDIR)$(usrsbindir)/udevmonitor
 	$(INSTALL_PROGRAM) -D udevinfo $(DESTDIR)$(usrbindir)/udevinfo
-	$(INSTALL_PROGRAM) -D udevtest $(DESTDIR)$(usrbindir)/udevtest
 	@extras="$(EXTRAS)"; for target in $$extras; do \
 		$(MAKE) -C $$target $@ || exit 1; \
 	done;
@@ -299,7 +291,6 @@ uninstall-bin:
 	- rm -f $(DESTDIR)$(sbindir)/udevcontrol
 	- rm -f $(DESTDIR)$(usrsbindir)/udevmonitor
 	- rm -f $(DESTDIR)$(usrbindir)/udevinfo
-	- rm -f $(DESTDIR)$(usrbindir)/udevtest
 ifndef DESTDIR
 	- killall udevd
 	- rm -rf /dev/.udev
@@ -314,15 +305,6 @@ install: all install-bin
 
 uninstall: uninstall-bin uninstall-man
 .PHONY: uninstall
-
-test tests: all
-	@ cd test && ./udev-test.pl
-	@ cd test && ./udevstart-test.pl
-.PHONY: test tests
-
-buildtest:
-	test/simple-build-check.sh
-.PHONY: buildtest
 
 ChangeLog:
 	head -1 $@ | grep -q "to v$(shell echo $$(($(VERSION) - 1)))"
