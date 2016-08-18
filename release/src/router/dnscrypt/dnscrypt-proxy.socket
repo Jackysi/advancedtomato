@@ -1,6 +1,5 @@
 [Unit]
 Description=dnscrypt-proxy listening socket
-After=network.target
 
 [Socket]
 ListenStream=127.0.0.1:53

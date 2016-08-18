@@ -1,5 +1,5 @@
 /****************************************************************************
- * Copyright (c) 2006-2008,2010 Free Software Foundation, Inc.              *
+ * Copyright (c) 2006-2012,2014 Free Software Foundation, Inc.              *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -26,7 +26,7 @@
  * authorization.                                                           *
  ****************************************************************************/
 /*
- * $Id: echochar.c,v 1.8 2010/11/14 01:00:44 tom Exp $
+ * $Id: echochar.c,v 1.10 2014/08/09 22:35:51 tom Exp $
  *
  * Demonstrate the echochar function (compare to dots.c).
  * Thomas Dickey - 2006/11/4

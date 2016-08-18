@@ -51,9 +51,6 @@ function save()
 /* LINUX26-BEGIN */
 	if (fom.f_nr_hotplug2.checked) a.push('hotplug2');
 /* LINUX26-END */
-/* IPV6-BEGIN */
-	if (fom.f_nr_radvd.checked) a.push('radvd');
-/* IPV6-END */
 	if (fom.f_nr_igmprt.checked) a.push('igmprt');
 	fom.debug_norestart.value = a.join(',');
 
@@ -104,9 +101,6 @@ createFieldTable('', [
 /* LINUX26-BEGIN */
 		{ name: 'f_nr_hotplug2', type: 'checkbox', suffix: ' hotplug2<br>', value: (nvram.debug_norestart.indexOf('hotplug2') != -1) },
 /* LINUX26-END */
-/* IPV6-BEGIN */
-		{ name: 'f_nr_radvd', type: 'checkbox', suffix: ' radvd<br>', value: (nvram.debug_norestart.indexOf('radvd') != -1) },
-/* IPV6-END */
 		{ name: 'f_nr_igmprt', type: 'checkbox', suffix: ' igmprt<br>', value: (nvram.debug_norestart.indexOf('igmprt') != -1) }
 	] }
 ]);

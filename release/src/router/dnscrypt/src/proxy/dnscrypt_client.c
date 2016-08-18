@@ -199,8 +199,10 @@ dnscrypt_client_init_resolver_publickey(DNSCryptClient * const client,
 # error crypto_box_BEFORENMBYTES != crypto_box_PUBLICKEYBYTES
 #endif
     if (client->ephemeral_keys == 0) {
-        crypto_box_beforenm(client->nmkey, resolver_publickey,
-                            client->secretkey);
+        if (crypto_box_beforenm(client->nmkey, resolver_publickey,
+                                client->secretkey) != 0) {
+            return -1;
+        }
     } else {
         memcpy(client->publickey, resolver_publickey, sizeof client->publickey);
     }

@@ -5,11 +5,11 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2014, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2015, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
- * are also available at http://curl.haxx.se/docs/copyright.html.
+ * are also available at https://curl.haxx.se/docs/copyright.html.
  *
  * You may opt to use, copy, modify, merge, publish, distribute and/or sell
  * copies of the Software, and permit persons to whom the Software is
@@ -29,14 +29,9 @@
 #  include <fcntl.h>
 #endif
 
-#ifdef USE_SSLEAY
-#  ifdef USE_OPENSSL
-#    include <openssl/md5.h>
-#    include <openssl/sha.h>
-#  else
-#    include <md5.h>
-#    include <sha.h>
-#  endif
+#ifdef USE_OPENSSL
+#  include <openssl/md5.h>
+#  include <openssl/sha.h>
 #elif defined(USE_GNUTLS_NETTLE)
 #  include <nettle/md5.h>
 #  include <nettle/sha.h>
@@ -55,6 +50,13 @@
 #  define SHA_CTX    void *
 #  define SHA256_CTX void *
    static NSSInitContext *nss_context;
+#elif defined(USE_POLARSSL)
+#  include <polarssl/md5.h>
+#  include <polarssl/sha1.h>
+#  include <polarssl/sha256.h>
+#  define MD5_CTX    md5_context
+#  define SHA_CTX    sha1_context
+#  define SHA256_CTX sha256_context
 #elif (defined(__MAC_OS_X_VERSION_MAX_ALLOWED) && \
               (__MAC_OS_X_VERSION_MAX_ALLOWED >= 1040)) || \
       (defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && \
@@ -318,7 +320,63 @@ static void SHA256_Final(unsigned char digest[32], SHA256_CTX *pctx)
   nss_hash_final(pctx, digest, 32);
 }
 
-#elif defined(_WIN32) && !defined(USE_SSLEAY)
+#elif defined(USE_POLARSSL)
+
+static int MD5_Init(MD5_CTX *ctx)
+{
+  md5_starts(ctx);
+  return 1;
+}
+
+static void MD5_Update(MD5_CTX *ctx,
+                       const unsigned char *input,
+                       unsigned int inputLen)
+{
+  md5_update(ctx, input, inputLen);
+}
+
+static void MD5_Final(unsigned char digest[16], MD5_CTX *ctx)
+{
+  md5_finish(ctx, digest);
+}
+
+static int SHA1_Init(SHA_CTX *ctx)
+{
+  sha1_starts(ctx);
+  return 1;
+}
+
+static void SHA1_Update(SHA_CTX *ctx,
+                        const unsigned char *input,
+                        unsigned int inputLen)
+{
+  sha1_update(ctx, input, inputLen);
+}
+
+static void SHA1_Final(unsigned char digest[20], SHA_CTX *ctx)
+{
+  sha1_finish(ctx, digest);
+}
+
+static int SHA256_Init(SHA256_CTX *ctx)
+{
+  sha256_starts(ctx, 0); /* 0 = sha256 */
+  return 1;
+}
+
+static void SHA256_Update(SHA256_CTX *ctx,
+                          const unsigned char *input,
+                          unsigned int inputLen)
+{
+  sha256_update(ctx, input, inputLen);
+}
+
+static void SHA256_Final(unsigned char digest[32], SHA256_CTX *ctx)
+{
+  sha256_finish(ctx, digest);
+}
+
+#elif defined(_WIN32) && !defined(USE_OPENSSL)
 
 static void win32_crypto_final(struct win32_crypto_hash *ctx,
                                unsigned char *digest,
@@ -563,6 +621,10 @@ static int check_hash(const char *filename,
   }
 
   result = malloc(digest_def->dparams->digest_resultlen);
+  if(!result) {
+    close(fd);
+    return -1;
+  }
   while(1) {
     unsigned char buf[4096];
     ssize_t len = read(fd, buf, sizeof(buf));
@@ -618,12 +680,17 @@ static metalink_checksum *new_metalink_checksum_from_hex_digest
   size_t i;
   size_t len = strlen(hex_digest);
   digest = malloc(len/2);
+  if(!digest)
+    return 0;
+
   for(i = 0; i < len; i += 2) {
     digest[i/2] = hex_to_uint(hex_digest+i);
   }
   chksum = malloc(sizeof(metalink_checksum));
-  chksum->digest_def = digest_def;
-  chksum->digest = digest;
+  if(chksum) {
+    chksum->digest_def = digest_def;
+    chksum->digest = digest;
+  }
   return chksum;
 }
 
@@ -631,8 +698,14 @@ static metalink_resource *new_metalink_resource(const char *url)
 {
   metalink_resource *res;
   res = malloc(sizeof(metalink_resource));
-  res->next = NULL;
-  res->url = strdup(url);
+  if(res) {
+    res->next = NULL;
+    res->url = strdup(url);
+    if(!res->url) {
+      free(res);
+      return NULL;
+    }
+  }
   return res;
 }
 
@@ -657,8 +730,15 @@ static metalinkfile *new_metalinkfile(metalink_file_t *fileinfo)
 {
   metalinkfile *f;
   f = (metalinkfile*)malloc(sizeof(metalinkfile));
+  if(!f)
+    return NULL;
+
   f->next = NULL;
   f->filename = strdup(fileinfo->name);
+  if(!f->filename) {
+    free(f);
+    return NULL;
+  }
   f->checksum = NULL;
   f->resource = NULL;
   if(fileinfo->checksums) {
@@ -759,8 +839,10 @@ int parse_metalink(struct OperationConfig *config, struct OutStruct *outs,
       url = new_getout(config);
 
     if(url) {
-      metalinkfile *mlfile;
-      mlfile = new_metalinkfile(*files);
+      metalinkfile *mlfile = new_metalinkfile(*files);
+      if(!mlfile)
+        break;
+
       if(!mlfile->checksum) {
         warnings = TRUE;
         fprintf(config->global->errors,

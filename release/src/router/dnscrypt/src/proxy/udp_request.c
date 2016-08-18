@@ -148,8 +148,8 @@ resolver_to_proxy_cb(evutil_socket_t proxy_resolver_handle, short ev_flags,
             udp_request->client_nonce, dns_reply, &uncurved_len) != 0) {
         DNSCRYPT_PROXY_REQUEST_UNCURVE_ERROR(udp_request);
         DNSCRYPT_PROXY_REQUEST_UDP_PROXY_RESOLVER_GOT_INVALID_REPLY(udp_request);
-        logger_noformat(udp_request->proxy_context, LOG_WARNING,
-                        "Received a suspicious reply from the resolver");
+        logger_noformat(udp_request->proxy_context, LOG_INFO,
+                        "Received a corrupted reply from the resolver");
         udp_request_kill(udp_request);
         return;
     }
@@ -333,7 +333,7 @@ client_to_proxy_cb(evutil_socket_t client_proxy_handle, short ev_flags,
     if (nread < (ssize_t) 0) {
         const int err = evutil_socket_geterror(client_proxy_handle);
         if (!EVUTIL_ERR_RW_RETRIABLE(err)) {
-            logger(proxy_context, LOG_WARNING,
+            logger(proxy_context, LOG_DEBUG,
                    "recvfrom(client): [%s]", evutil_socket_error_to_string(err));
         }
         DNSCRYPT_PROXY_REQUEST_UDP_NETWORK_ERROR(udp_request);
@@ -385,9 +385,11 @@ client_to_proxy_cb(evutil_socket_t client_proxy_handle, short ev_flags,
     }
 #ifdef PLUGINS
     size_t max_query_size_for_filter = dns_query_len;
-    if (max_query_size > DNSCRYPT_MAX_PADDING + dnscrypt_query_header_size()) {
+    const size_t header_size = dnscrypt_query_header_size();
+    if (max_query_size > DNSCRYPT_MAX_PADDING + header_size &&
+        max_query_size - (DNSCRYPT_MAX_PADDING + header_size) > dns_query_len) {
         max_query_size_for_filter = max_query_size -
-            (DNSCRYPT_MAX_PADDING + dnscrypt_query_header_size());
+            (DNSCRYPT_MAX_PADDING + header_size);
     }
     DCPluginDNSPacket dcp_packet = {
         .client_sockaddr = &udp_request->client_sockaddr,
@@ -481,6 +483,7 @@ udp_listener_kill_oldest_request(ProxyContext * const proxy_context)
 int
 udp_listener_bind(ProxyContext * const proxy_context)
 {
+    int optval = 1;
     if (proxy_context->udp_listener_handle == -1) {
         if ((proxy_context->udp_listener_handle = socket
              (proxy_context->local_sockaddr.ss_family,
@@ -489,6 +492,9 @@ udp_listener_bind(ProxyContext * const proxy_context)
                             "Unable to create a socket (UDP)");
             return -1;
         }
+#if defined(__linux__) && defined(SO_REUSEPORT)
+        setsockopt(proxy_context->udp_listener_handle, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
+#endif
         if (bind(proxy_context->udp_listener_handle,
                  (struct sockaddr *) &proxy_context->local_sockaddr,
                  proxy_context->local_sockaddr_len) != 0) {
@@ -555,6 +561,9 @@ udp_listener_start(ProxyContext * const proxy_context)
 void
 udp_listener_stop(ProxyContext * const proxy_context)
 {
+    if (proxy_context->udp_proxy_resolver_event == NULL) {
+        return;
+    }
     event_free(proxy_context->udp_proxy_resolver_event);
     proxy_context->udp_proxy_resolver_event = NULL;
     while (udp_listener_kill_oldest_request(proxy_context) != 0) { }

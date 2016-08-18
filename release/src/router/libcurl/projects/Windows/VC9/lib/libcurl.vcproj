@@ -43,7 +43,6 @@
 				Name="VCMIDLTool"
 				PreprocessorDefinitions="_DEBUG"
 				MkTypLibCompatible="true"
-				SuppressStartupBanner="true"
 				TargetEnvironment="1"
 				TypeLibraryName="$(OutDir)\$(ProjectName).tlb"
 				HeaderFileName=""
@@ -52,12 +51,11 @@
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				AdditionalIncludeDirectories="..\..\..\..\include;..\..\..\..\lib"
-				PreprocessorDefinitions="WIN32;_DEBUG;BUILDING_LIBCURL"
+				PreprocessorDefinitions="_DEBUG;BUILDING_LIBCURL;DEBUGBUILD"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
-				WarningLevel="3"
-				SuppressStartupBanner="true"
+				WarningLevel="4"
 				DebugInformationFormat="3"
 			/>
 			<Tool
@@ -76,14 +74,11 @@
 				AdditionalDependencies="ws2_32.lib wldap32.lib"
 				OutputFile="$(OutDir)\$(ProjectName)d.dll"
 				LinkIncremental="1"
-				SuppressStartupBanner="true"
 				AdditionalLibraryDirectories=""
 				ManifestFile="$(IntDir)\$(TargetFileName).intermediate.manifest"
 				GenerateDebugInformation="true"
-				ProgramDatabaseFile="$(OutDir)\$(ProjectName)d.pdb"
-				RandomizedBaseAddress="1"
-				DataExecutionPrevention="0"
-				ImportLibrary="$(OutDir)\$(ProjectName)d.lib"
+				ProgramDatabaseFile="$(TargetDir)$(TargetName).pdb"
+				ImportLibrary="$(TargetDir)$(TargetName).lib"
 				TargetMachine="1"
 			/>
 			<Tool
@@ -97,8 +92,6 @@
 			/>
 			<Tool
 				Name="VCBscMakeTool"
-				SuppressStartupBanner="true"
-				OutputFile="$(OutDir)\$(ProjectName).bsc"
 			/>
 			<Tool
 				Name="VCFxCopTool"
@@ -135,7 +128,6 @@
 				Name="VCMIDLTool"
 				PreprocessorDefinitions="_DEBUG"
 				MkTypLibCompatible="true"
-				SuppressStartupBanner="true"
 				TargetEnvironment="3"
 				TypeLibraryName="$(OutDir)\$(ProjectName).tlb"
 				HeaderFileName=""
@@ -144,12 +136,11 @@
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				AdditionalIncludeDirectories="..\..\..\..\include;..\..\..\..\lib"
-				PreprocessorDefinitions="WIN64;_DEBUG;BUILDING_LIBCURL"
+				PreprocessorDefinitions="_DEBUG;BUILDING_LIBCURL;DEBUGBUILD"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
-				WarningLevel="3"
-				SuppressStartupBanner="true"
+				WarningLevel="4"
 				DebugInformationFormat="3"
 			/>
 			<Tool
@@ -168,13 +159,10 @@
 				AdditionalDependencies="ws2_32.lib wldap32.lib"
 				OutputFile="$(OutDir)\$(ProjectName)d.dll"
 				LinkIncremental="1"
-				SuppressStartupBanner="true"
 				AdditionalLibraryDirectories=""
 				GenerateDebugInformation="true"
-				ProgramDatabaseFile="$(OutDir)\$(ProjectName)d.pdb"
-				RandomizedBaseAddress="1"
-				DataExecutionPrevention="0"
-				ImportLibrary="$(OutDir)\$(ProjectName)d.lib"
+				ProgramDatabaseFile="$(TargetDir)$(TargetName).pdb"
+				ImportLibrary="$(TargetDir)$(TargetName).lib"
 				TargetMachine="17"
 			/>
 			<Tool
@@ -188,8 +176,6 @@
 			/>
 			<Tool
 				Name="VCBscMakeTool"
-				SuppressStartupBanner="true"
-				OutputFile="$(OutDir)\$(ProjectName).bsc"
 			/>
 			<Tool
 				Name="VCFxCopTool"
@@ -226,7 +212,6 @@
 				Name="VCMIDLTool"
 				PreprocessorDefinitions="NDEBUG"
 				MkTypLibCompatible="true"
-				SuppressStartupBanner="true"
 				TargetEnvironment="1"
 				TypeLibraryName="$(OutDir)\$(ProjectName).tlb"
 				HeaderFileName=""
@@ -236,12 +221,11 @@
 				Optimization="2"
 				InlineFunctionExpansion="1"
 				AdditionalIncludeDirectories="..\..\..\..\include;..\..\..\..\lib"
-				PreprocessorDefinitions="WIN32;NDEBUG;BUILDING_LIBCURL"
+				PreprocessorDefinitions="NDEBUG;BUILDING_LIBCURL"
 				StringPooling="true"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="true"
-				WarningLevel="3"
-				SuppressStartupBanner="true"
+				WarningLevel="4"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -259,12 +243,9 @@
 				AdditionalDependencies="ws2_32.lib wldap32.lib"
 				OutputFile="$(OutDir)\$(ProjectName).dll"
 				LinkIncremental="1"
-				SuppressStartupBanner="true"
 				AdditionalLibraryDirectories=""
 				ManifestFile="$(IntDir)\$(TargetFileName).intermediate.manifest"
-				RandomizedBaseAddress="1"
-				DataExecutionPrevention="0"
-				ImportLibrary="$(OutDir)\$(ProjectName).lib"
+				ImportLibrary="$(TargetDir)$(TargetName).lib"
 				TargetMachine="1"
 			/>
 			<Tool
@@ -278,8 +259,6 @@
 			/>
 			<Tool
 				Name="VCBscMakeTool"
-				SuppressStartupBanner="true"
-				OutputFile="$(OutDir)\$(ProjectName).bsc"
 			/>
 			<Tool
 				Name="VCFxCopTool"
@@ -316,7 +295,6 @@
 				Name="VCMIDLTool"
 				PreprocessorDefinitions="NDEBUG"
 				MkTypLibCompatible="true"
-				SuppressStartupBanner="true"
 				TargetEnvironment="3"
 				TypeLibraryName="$(OutDir)\$(ProjectName).tlb"
 				HeaderFileName=""
@@ -326,12 +304,11 @@
 				Optimization="2"
 				InlineFunctionExpansion="1"
 				AdditionalIncludeDirectories="..\..\..\..\include;..\..\..\..\lib"
-				PreprocessorDefinitions="WIN64;NDEBUG;BUILDING_LIBCURL"
+				PreprocessorDefinitions="NDEBUG;BUILDING_LIBCURL"
 				StringPooling="true"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="true"
-				WarningLevel="3"
-				SuppressStartupBanner="true"
+				WarningLevel="4"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -349,11 +326,8 @@
 				AdditionalDependencies="ws2_32.lib wldap32.lib"
 				OutputFile="$(OutDir)\$(ProjectName).dll"
 				LinkIncremental="1"
-				SuppressStartupBanner="true"
 				AdditionalLibraryDirectories=""
-				RandomizedBaseAddress="1"
-				DataExecutionPrevention="0"
-				ImportLibrary="$(OutDir)\$(ProjectName).lib"
+				ImportLibrary="$(TargetDir)$(TargetName).lib"
 				TargetMachine="17"
 			/>
 			<Tool
@@ -367,8 +341,6 @@
 			/>
 			<Tool
 				Name="VCBscMakeTool"
-				SuppressStartupBanner="true"
-				OutputFile="$(OutDir)\$(ProjectName).bsc"
 			/>
 			<Tool
 				Name="VCFxCopTool"
@@ -408,12 +380,11 @@
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				AdditionalIncludeDirectories="..\..\..\..\include;..\..\..\..\lib"
-				PreprocessorDefinitions="WIN32;_DEBUG;BUILDING_LIBCURL;CURL_STATICLIB"
+				PreprocessorDefinitions="_DEBUG;BUILDING_LIBCURL;DEBUGBUILD;CURL_STATICLIB"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
-				WarningLevel="3"
-				SuppressStartupBanner="true"
+				WarningLevel="4"
 				DebugInformationFormat="3"
 			/>
 			<Tool
@@ -430,7 +401,6 @@
 			<Tool
 				Name="VCLibrarianTool"
 				OutputFile="$(OutDir)\$(ProjectName)d.lib"
-				SuppressStartupBanner="true"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -440,8 +410,6 @@
 			/>
 			<Tool
 				Name="VCBscMakeTool"
-				SuppressStartupBanner="true"
-				OutputFile="$(OutDir)\$(ProjectName).bsc"
 			/>
 			<Tool
 				Name="VCFxCopTool"
@@ -479,12 +447,11 @@
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				AdditionalIncludeDirectories="..\..\..\..\include;..\..\..\..\lib"
-				PreprocessorDefinitions="WIN64;_DEBUG;BUILDING_LIBCURL;CURL_STATICLIB"
+				PreprocessorDefinitions="_DEBUG;BUILDING_LIBCURL;DEBUGBUILD;CURL_STATICLIB"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
-				WarningLevel="3"
-				SuppressStartupBanner="true"
+				WarningLevel="4"
 				DebugInformationFormat="3"
 			/>
 			<Tool
@@ -501,7 +468,6 @@
 			<Tool
 				Name="VCLibrarianTool"
 				OutputFile="$(OutDir)\$(ProjectName)d.lib"
-				SuppressStartupBanner="true"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -511,8 +477,6 @@
 			/>
 			<Tool
 				Name="VCBscMakeTool"
-				SuppressStartupBanner="true"
-				OutputFile="$(OutDir)\$(ProjectName).bsc"
 			/>
 			<Tool
 				Name="VCFxCopTool"
@@ -550,12 +514,11 @@
 				Optimization="2"
 				InlineFunctionExpansion="1"
 				AdditionalIncludeDirectories="..\..\..\..\include;..\..\..\..\lib"
-				PreprocessorDefinitions="WIN32;NDEBUG;BUILDING_LIBCURL;CURL_STATICLIB"
+				PreprocessorDefinitions="NDEBUG;BUILDING_LIBCURL;CURL_STATICLIB"
 				StringPooling="true"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="true"
-				WarningLevel="3"
-				SuppressStartupBanner="true"
+				WarningLevel="4"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -571,7 +534,6 @@
 			<Tool
 				Name="VCLibrarianTool"
 				OutputFile="$(OutDir)\$(ProjectName).lib"
-				SuppressStartupBanner="true"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -581,8 +543,6 @@
 			/>
 			<Tool
 				Name="VCBscMakeTool"
-				SuppressStartupBanner="true"
-				OutputFile="$(OutDir)\$(ProjectName).bsc"
 			/>
 			<Tool
 				Name="VCFxCopTool"
@@ -621,12 +581,11 @@
 				Optimization="2"
 				InlineFunctionExpansion="1"
 				AdditionalIncludeDirectories="..\..\..\..\include;..\..\..\..\lib"
-				PreprocessorDefinitions="WIN64;NDEBUG;BUILDING_LIBCURL;CURL_STATICLIB"
+				PreprocessorDefinitions="NDEBUG;BUILDING_LIBCURL;CURL_STATICLIB"
 				StringPooling="true"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="true"
-				WarningLevel="3"
-				SuppressStartupBanner="true"
+				WarningLevel="4"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -642,7 +601,6 @@
 			<Tool
 				Name="VCLibrarianTool"
 				OutputFile="$(OutDir)\$(ProjectName).lib"
-				SuppressStartupBanner="true"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -652,8 +610,6 @@
 			/>
 			<Tool
 				Name="VCBscMakeTool"
-				SuppressStartupBanner="true"
-				OutputFile="$(OutDir)\$(ProjectName).bsc"
 			/>
 			<Tool
 				Name="VCFxCopTool"
@@ -687,7 +643,6 @@
 				Name="VCMIDLTool"
 				PreprocessorDefinitions="_DEBUG"
 				MkTypLibCompatible="true"
-				SuppressStartupBanner="true"
 				TargetEnvironment="1"
 				TypeLibraryName="$(OutDir)\$(ProjectName).tlb"
 				HeaderFileName=""
@@ -696,12 +651,11 @@
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				AdditionalIncludeDirectories="..\..\..\..\include;..\..\..\..\lib;..\..\..\..\..\openssl\inc32"
-				PreprocessorDefinitions="WIN32;_DEBUG;BUILDING_LIBCURL;USE_SSLEAY;USE_OPENSSL"
+				PreprocessorDefinitions="_DEBUG;BUILDING_LIBCURL;DEBUGBUILD;USE_OPENSSL"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
-				WarningLevel="3"
-				SuppressStartupBanner="true"
+				WarningLevel="4"
 				DebugInformationFormat="3"
 			/>
 			<Tool
@@ -720,14 +674,11 @@
 				AdditionalDependencies="ws2_32.lib wldap32.lib libeay32.lib ssleay32.lib"
 				OutputFile="$(OutDir)\$(ProjectName)d.dll"
 				LinkIncremental="1"
-				SuppressStartupBanner="true"
 				AdditionalLibraryDirectories="..\..\..\..\..\openssl\build\Win32\VC9\DLL Debug"
 				ManifestFile="$(IntDir)\$(TargetFileName).intermediate.manifest"
 				GenerateDebugInformation="true"
-				ProgramDatabaseFile="$(OutDir)\$(ProjectName)d.pdb"
-				RandomizedBaseAddress="1"
-				DataExecutionPrevention="0"
-				ImportLibrary="$(OutDir)\$(ProjectName)d.lib"
+				ProgramDatabaseFile="$(TargetDir)$(TargetName).pdb"
+				ImportLibrary="$(TargetDir)$(TargetName).lib"
 				TargetMachine="1"
 			/>
 			<Tool
@@ -741,8 +692,6 @@
 			/>
 			<Tool
 				Name="VCBscMakeTool"
-				SuppressStartupBanner="true"
-				OutputFile="$(OutDir)\$(ProjectName).bsc"
 			/>
 			<Tool
 				Name="VCFxCopTool"
@@ -779,7 +728,6 @@
 				Name="VCMIDLTool"
 				PreprocessorDefinitions="_DEBUG"
 				MkTypLibCompatible="true"
-				SuppressStartupBanner="true"
 				TargetEnvironment="3"
 				TypeLibraryName="$(OutDir)\$(ProjectName).tlb"
 				HeaderFileName=""
@@ -788,12 +736,11 @@
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				AdditionalIncludeDirectories="..\..\..\..\include;..\..\..\..\lib;..\..\..\..\..\openssl\inc32"
-				PreprocessorDefinitions="WIN64;_DEBUG;BUILDING_LIBCURL;USE_SSLEAY;USE_OPENSSL"
+				PreprocessorDefinitions="_DEBUG;BUILDING_LIBCURL;DEBUGBUILD;USE_OPENSSL"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
-				WarningLevel="3"
-				SuppressStartupBanner="true"
+				WarningLevel="4"
 				DebugInformationFormat="3"
 			/>
 			<Tool
@@ -812,13 +759,10 @@
 				AdditionalDependencies="ws2_32.lib wldap32.lib libeay32.lib ssleay32.lib"
 				OutputFile="$(OutDir)\$(ProjectName)d.dll"
 				LinkIncremental="1"
-				SuppressStartupBanner="true"
 				AdditionalLibraryDirectories="..\..\..\..\..\openssl\build\Win64\VC9\DLL Debug"
 				GenerateDebugInformation="true"
-				ProgramDatabaseFile="$(OutDir)\$(ProjectName)d.pdb"
-				RandomizedBaseAddress="1"
-				DataExecutionPrevention="0"
-				ImportLibrary="$(OutDir)\$(ProjectName)d.lib"
+				ProgramDatabaseFile="$(TargetDir)$(TargetName).pdb"
+				ImportLibrary="$(TargetDir)$(TargetName).lib"
 				TargetMachine="17"
 			/>
 			<Tool
@@ -832,8 +776,6 @@
 			/>
 			<Tool
 				Name="VCBscMakeTool"
-				SuppressStartupBanner="true"
-				OutputFile="$(OutDir)\$(ProjectName).bsc"
 			/>
 			<Tool
 				Name="VCFxCopTool"
@@ -870,7 +812,6 @@
 				Name="VCMIDLTool"
 				PreprocessorDefinitions="NDEBUG"
 				MkTypLibCompatible="true"
-				SuppressStartupBanner="true"
 				TargetEnvironment="1"
 				TypeLibraryName="$(OutDir)\$(ProjectName).tlb"
 				HeaderFileName=""
@@ -880,12 +821,11 @@
 				Optimization="2"
 				InlineFunctionExpansion="1"
 				AdditionalIncludeDirectories="..\..\..\..\include;..\..\..\..\lib;..\..\..\..\..\openssl\inc32"
-				PreprocessorDefinitions="WIN32;NDEBUG;BUILDING_LIBCURL;USE_SSLEAY;USE_OPENSSL"
+				PreprocessorDefinitions="NDEBUG;BUILDING_LIBCURL;USE_OPENSSL"
 				StringPooling="true"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="true"
-				WarningLevel="3"
-				SuppressStartupBanner="true"
+				WarningLevel="4"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -903,12 +843,9 @@
 				AdditionalDependencies="ws2_32.lib wldap32.lib libeay32.lib ssleay32.lib"
 				OutputFile="$(OutDir)\$(ProjectName).dll"
 				LinkIncremental="1"
-				SuppressStartupBanner="true"
 				AdditionalLibraryDirectories="..\..\..\..\..\openssl\build\Win32\VC9\DLL Release"
 				ManifestFile="$(IntDir)\$(TargetFileName).intermediate.manifest"
-				RandomizedBaseAddress="1"
-				DataExecutionPrevention="0"
-				ImportLibrary="$(OutDir)\$(ProjectName).lib"
+				ImportLibrary="$(TargetDir)$(TargetName).lib"
 				TargetMachine="1"
 			/>
 			<Tool
@@ -922,8 +859,6 @@
 			/>
 			<Tool
 				Name="VCBscMakeTool"
-				SuppressStartupBanner="true"
-				OutputFile="$(OutDir)\$(ProjectName).bsc"
 			/>
 			<Tool
 				Name="VCFxCopTool"
@@ -960,7 +895,6 @@
 				Name="VCMIDLTool"
 				PreprocessorDefinitions="NDEBUG"
 				MkTypLibCompatible="true"
-				SuppressStartupBanner="true"
 				TargetEnvironment="3"
 				TypeLibraryName="$(OutDir)\$(ProjectName).tlb"
 				HeaderFileName=""
@@ -970,12 +904,11 @@
 				Optimization="2"
 				InlineFunctionExpansion="1"
 				AdditionalIncludeDirectories="..\..\..\..\include;..\..\..\..\lib;..\..\..\..\..\openssl\inc32"
-				PreprocessorDefinitions="WIN64;NDEBUG;BUILDING_LIBCURL;USE_SSLEAY;USE_OPENSSL"
+				PreprocessorDefinitions="NDEBUG;BUILDING_LIBCURL;USE_OPENSSL"
 				StringPooling="true"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="true"
-				WarningLevel="3"
-				SuppressStartupBanner="true"
+				WarningLevel="4"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -993,11 +926,8 @@
 				AdditionalDependencies="ws2_32.lib wldap32.lib libeay32.lib ssleay32.lib"
 				OutputFile="$(OutDir)\$(ProjectName).dll"
 				LinkIncremental="1"
-				SuppressStartupBanner="true"
 				AdditionalLibraryDirectories="..\..\..\..\..\openssl\build\Win64\VC9\DLL Release"
-				RandomizedBaseAddress="1"
-				DataExecutionPrevention="0"
-				ImportLibrary="$(OutDir)\$(ProjectName).lib"
+				ImportLibrary="$(TargetDir)$(TargetName).lib"
 				TargetMachine="17"
 			/>
 			<Tool
@@ -1011,8 +941,6 @@
 			/>
 			<Tool
 				Name="VCBscMakeTool"
-				SuppressStartupBanner="true"
-				OutputFile="$(OutDir)\$(ProjectName).bsc"
 			/>
 			<Tool
 				Name="VCFxCopTool"
@@ -1049,7 +977,6 @@
 				Name="VCMIDLTool"
 				PreprocessorDefinitions="_DEBUG"
 				MkTypLibCompatible="true"
-				SuppressStartupBanner="true"
 				TargetEnvironment="1"
 				TypeLibraryName="$(OutDir)\$(ProjectName).tlb"
 				HeaderFileName=""
@@ -1058,12 +985,11 @@
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				AdditionalIncludeDirectories="..\..\..\..\include;..\..\..\..\lib"
-				PreprocessorDefinitions="WIN32;_DEBUG;BUILDING_LIBCURL;USE_WINDOWS_SSPI;USE_SCHANNEL"
+				PreprocessorDefinitions="_DEBUG;BUILDING_LIBCURL;DEBUGBUILD;USE_WINDOWS_SSPI;USE_SCHANNEL"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
-				WarningLevel="3"
-				SuppressStartupBanner="true"
+				WarningLevel="4"
 				DebugInformationFormat="3"
 			/>
 			<Tool
@@ -1082,14 +1008,11 @@
 				AdditionalDependencies="ws2_32.lib wldap32.lib"
 				OutputFile="$(OutDir)\$(ProjectName)d.dll"
 				LinkIncremental="1"
-				SuppressStartupBanner="true"
 				AdditionalLibraryDirectories=""
 				ManifestFile="$(IntDir)\$(TargetFileName).intermediate.manifest"
 				GenerateDebugInformation="true"
-				ProgramDatabaseFile="$(OutDir)\$(ProjectName)d.pdb"
-				RandomizedBaseAddress="1"
-				DataExecutionPrevention="0"
-				ImportLibrary="$(OutDir)\$(ProjectName)d.lib"
+				ProgramDatabaseFile="$(TargetDir)$(TargetName).pdb"
+				ImportLibrary="$(TargetDir)$(TargetName).lib"
 				TargetMachine="1"
 			/>
 			<Tool
@@ -1103,8 +1026,6 @@
 			/>
 			<Tool
 				Name="VCBscMakeTool"
-				SuppressStartupBanner="true"
-				OutputFile="$(OutDir)\$(ProjectName).bsc"
 			/>
 			<Tool
 				Name="VCFxCopTool"
@@ -1141,7 +1062,6 @@
 				Name="VCMIDLTool"
 				PreprocessorDefinitions="_DEBUG"
 				MkTypLibCompatible="true"
-				SuppressStartupBanner="true"
 				TargetEnvironment="3"
 				TypeLibraryName="$(OutDir)\$(ProjectName).tlb"
 				HeaderFileName=""
@@ -1150,12 +1070,11 @@
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				AdditionalIncludeDirectories="..\..\..\..\include;..\..\..\..\lib"
-				PreprocessorDefinitions="WIN64;_DEBUG;BUILDING_LIBCURL;USE_WINDOWS_SSPI;USE_SCHANNEL"
+				PreprocessorDefinitions="_DEBUG;BUILDING_LIBCURL;DEBUGBUILD;USE_WINDOWS_SSPI;USE_SCHANNEL"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
-				WarningLevel="3"
-				SuppressStartupBanner="true"
+				WarningLevel="4"
 				DebugInformationFormat="3"
 			/>
 			<Tool
@@ -1174,13 +1093,10 @@
 				AdditionalDependencies="ws2_32.lib wldap32.lib"
 				OutputFile="$(OutDir)\$(ProjectName)d.dll"
 				LinkIncremental="1"
-				SuppressStartupBanner="true"
 				AdditionalLibraryDirectories=""
 				GenerateDebugInformation="true"
-				ProgramDatabaseFile="$(OutDir)\$(ProjectName)d.pdb"
-				RandomizedBaseAddress="1"
-				DataExecutionPrevention="0"
-				ImportLibrary="$(OutDir)\$(ProjectName)d.lib"
+				ProgramDatabaseFile="$(TargetDir)$(TargetName).pdb"
+				ImportLibrary="$(TargetDir)$(TargetName).lib"
 				TargetMachine="17"
 			/>
 			<Tool
@@ -1194,8 +1110,6 @@
 			/>
 			<Tool
 				Name="VCBscMakeTool"
-				SuppressStartupBanner="true"
-				OutputFile="$(OutDir)\$(ProjectName).bsc"
 			/>
 			<Tool
 				Name="VCFxCopTool"
@@ -1232,7 +1146,6 @@
 				Name="VCMIDLTool"
 				PreprocessorDefinitions="NDEBUG"
 				MkTypLibCompatible="true"
-				SuppressStartupBanner="true"
 				TargetEnvironment="1"
 				TypeLibraryName="$(OutDir)\$(ProjectName).tlb"
 				HeaderFileName=""
@@ -1242,12 +1155,11 @@
 				Optimization="2"
 				InlineFunctionExpansion="1"
 				AdditionalIncludeDirectories="..\..\..\..\include;..\..\..\..\lib"
-				PreprocessorDefinitions="WIN32;NDEBUG;BUILDING_LIBCURL;USE_WINDOWS_SSPI;USE_SCHANNEL"
+				PreprocessorDefinitions="NDEBUG;BUILDING_LIBCURL;USE_WINDOWS_SSPI;USE_SCHANNEL"
 				StringPooling="true"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="true"
-				WarningLevel="3"
-				SuppressStartupBanner="true"
+				WarningLevel="4"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -1265,12 +1177,9 @@
 				AdditionalDependencies="ws2_32.lib wldap32.lib"
 				OutputFile="$(OutDir)\$(ProjectName).dll"
 				LinkIncremental="1"
-				SuppressStartupBanner="true"
 				AdditionalLibraryDirectories=""
 				ManifestFile="$(IntDir)\$(TargetFileName).intermediate.manifest"
-				RandomizedBaseAddress="1"
-				DataExecutionPrevention="0"
-				ImportLibrary="$(OutDir)\$(ProjectName).lib"
+				ImportLibrary="$(TargetDir)$(TargetName).lib"
 				TargetMachine="1"
 			/>
 			<Tool
@@ -1284,8 +1193,6 @@
 			/>
 			<Tool
 				Name="VCBscMakeTool"
-				SuppressStartupBanner="true"
-				OutputFile="$(OutDir)\$(ProjectName).bsc"
 			/>
 			<Tool
 				Name="VCFxCopTool"
@@ -1322,7 +1229,6 @@
 				Name="VCMIDLTool"
 				PreprocessorDefinitions="NDEBUG"
 				MkTypLibCompatible="true"
-				SuppressStartupBanner="true"
 				TargetEnvironment="3"
 				TypeLibraryName="$(OutDir)\$(ProjectName).tlb"
 				HeaderFileName=""
@@ -1332,12 +1238,11 @@
 				Optimization="2"
 				InlineFunctionExpansion="1"
 				AdditionalIncludeDirectories="..\..\..\..\include;..\..\..\..\lib"
-				PreprocessorDefinitions="WIN64;NDEBUG;BUILDING_LIBCURL;USE_WINDOWS_SSPI;USE_SCHANNEL"
+				PreprocessorDefinitions="NDEBUG;BUILDING_LIBCURL;USE_WINDOWS_SSPI;USE_SCHANNEL"
 				StringPooling="true"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="true"
-				WarningLevel="3"
-				SuppressStartupBanner="true"
+				WarningLevel="4"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -1355,11 +1260,8 @@
 				AdditionalDependencies="ws2_32.lib wldap32.lib"
 				OutputFile="$(OutDir)\$(ProjectName).dll"
 				LinkIncremental="1"
-				SuppressStartupBanner="true"
 				AdditionalLibraryDirectories=""
-				RandomizedBaseAddress="1"
-				DataExecutionPrevention="0"
-				ImportLibrary="$(OutDir)\$(ProjectName).lib"
+				ImportLibrary="$(TargetDir)$(TargetName).lib"
 				TargetMachine="17"
 			/>
 			<Tool
@@ -1373,8 +1275,6 @@
 			/>
 			<Tool
 				Name="VCBscMakeTool"
-				SuppressStartupBanner="true"
-				OutputFile="$(OutDir)\$(ProjectName).bsc"
 			/>
 			<Tool
 				Name="VCFxCopTool"
@@ -1411,7 +1311,6 @@
 				Name="VCMIDLTool"
 				PreprocessorDefinitions="_DEBUG"
 				MkTypLibCompatible="true"
-				SuppressStartupBanner="true"
 				TargetEnvironment="1"
 				TypeLibraryName="$(OutDir)\$(ProjectName).tlb"
 				HeaderFileName=""
@@ -1420,12 +1319,11 @@
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				AdditionalIncludeDirectories="..\..\..\..\include;..\..\..\..\lib;..\..\..\..\..\openssl\inc32;..\..\..\..\..\libssh2\include"
-				PreprocessorDefinitions="WIN32;_DEBUG;BUILDING_LIBCURL;USE_SSLEAY;USE_OPENSSL;USE_LIBSSH2;HAVE_LIBSSH2_H"
+				PreprocessorDefinitions="_DEBUG;BUILDING_LIBCURL;DEBUGBUILD;USE_OPENSSL;USE_LIBSSH2;HAVE_LIBSSH2_H"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
-				WarningLevel="3"
-				SuppressStartupBanner="true"
+				WarningLevel="4"
 				DebugInformationFormat="3"
 			/>
 			<Tool
@@ -1444,14 +1342,11 @@
 				AdditionalDependencies="ws2_32.lib wldap32.lib libeay32.lib ssleay32.lib libssh2d.lib"
 				OutputFile="$(OutDir)\$(ProjectName)d.dll"
 				LinkIncremental="1"
-				SuppressStartupBanner="true"
 				AdditionalLibraryDirectories="..\..\..\..\..\openssl\build\Win32\VC9\DLL Debug;..\..\..\..\..\libssh2\build\Win32\VC9\DLL Debug"
 				ManifestFile="$(IntDir)\$(TargetFileName).intermediate.manifest"
 				GenerateDebugInformation="true"
-				ProgramDatabaseFile="$(OutDir)\$(ProjectName)d.pdb"
-				RandomizedBaseAddress="1"
-				DataExecutionPrevention="0"
-				ImportLibrary="$(OutDir)\$(ProjectName)d.lib"
+				ProgramDatabaseFile="$(TargetDir)$(TargetName).pdb"
+				ImportLibrary="$(TargetDir)$(TargetName).lib"
 				TargetMachine="1"
 			/>
 			<Tool
@@ -1465,8 +1360,6 @@
 			/>
 			<Tool
 				Name="VCBscMakeTool"
-				SuppressStartupBanner="true"
-				OutputFile="$(OutDir)\$(ProjectName).bsc"
 			/>
 			<Tool
 				Name="VCFxCopTool"
@@ -1503,7 +1396,6 @@
 				Name="VCMIDLTool"
 				PreprocessorDefinitions="_DEBUG"
 				MkTypLibCompatible="true"
-				SuppressStartupBanner="true"
 				TargetEnvironment="3"
 				TypeLibraryName="$(OutDir)\$(ProjectName).tlb"
 				HeaderFileName=""
@@ -1512,12 +1404,11 @@
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				AdditionalIncludeDirectories="..\..\..\..\include;..\..\..\..\lib;..\..\..\..\..\openssl\inc32;..\..\..\..\..\libssh2\include"
-				PreprocessorDefinitions="WIN64;_DEBUG;BUILDING_LIBCURL;USE_SSLEAY;USE_OPENSSL;USE_LIBSSH2;HAVE_LIBSSH2_H"
+				PreprocessorDefinitions="_DEBUG;BUILDING_LIBCURL;DEBUGBUILD;USE_OPENSSL;USE_LIBSSH2;HAVE_LIBSSH2_H"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
-				WarningLevel="3"
-				SuppressStartupBanner="true"
+				WarningLevel="4"
 				DebugInformationFormat="3"
 			/>
 			<Tool
@@ -1536,13 +1427,10 @@
 				AdditionalDependencies="ws2_32.lib wldap32.lib libeay32.lib ssleay32.lib libssh2d.lib"
 				OutputFile="$(OutDir)\$(ProjectName)d.dll"
 				LinkIncremental="1"
-				SuppressStartupBanner="true"
 				AdditionalLibraryDirectories="..\..\..\..\..\openssl\build\Win64\VC9\DLL Debug;..\..\..\..\..\libssh2\build\Win64\VC9\DLL Debug"
 				GenerateDebugInformation="true"
-				ProgramDatabaseFile="$(OutDir)\$(ProjectName)d.pdb"
-				RandomizedBaseAddress="1"
-				DataExecutionPrevention="0"
-				ImportLibrary="$(OutDir)\$(ProjectName)d.lib"
+				ProgramDatabaseFile="$(TargetDir)$(TargetName).pdb"
+				ImportLibrary="$(TargetDir)$(TargetName).lib"
 				TargetMachine="17"
 			/>
 			<Tool
@@ -1556,8 +1444,6 @@
 			/>
 			<Tool
 				Name="VCBscMakeTool"
-				SuppressStartupBanner="true"
-				OutputFile="$(OutDir)\$(ProjectName).bsc"
 			/>
 			<Tool
 				Name="VCFxCopTool"
@@ -1594,7 +1480,6 @@
 				Name="VCMIDLTool"
 				PreprocessorDefinitions="NDEBUG"
 				MkTypLibCompatible="true"
-				SuppressStartupBanner="true"
 				TargetEnvironment="1"
 				TypeLibraryName="$(OutDir)\$(ProjectName).tlb"
 				HeaderFileName=""
@@ -1604,12 +1489,11 @@
 				Optimization="2"
 				InlineFunctionExpansion="1"
 				AdditionalIncludeDirectories="..\..\..\..\include;..\..\..\..\lib;..\..\..\..\..\openssl\inc32;..\..\..\..\..\libssh2\include"
-				PreprocessorDefinitions="WIN32;NDEBUG;BUILDING_LIBCURL;USE_SSLEAY;USE_OPENSSL;USE_LIBSSH2;HAVE_LIBSSH2_H"
+				PreprocessorDefinitions="NDEBUG;BUILDING_LIBCURL;USE_OPENSSL;USE_LIBSSH2;HAVE_LIBSSH2_H"
 				StringPooling="true"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="true"
-				WarningLevel="3"
-				SuppressStartupBanner="true"
+				WarningLevel="4"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -1627,12 +1511,9 @@
 				AdditionalDependencies="ws2_32.lib wldap32.lib libeay32.lib ssleay32.lib libssh2.lib"
 				OutputFile="$(OutDir)\$(ProjectName).dll"
 				LinkIncremental="1"
-				SuppressStartupBanner="true"
 				AdditionalLibraryDirectories="..\..\..\..\..\openssl\build\Win32\VC9\DLL Release;..\..\..\..\..\libssh2\build\Win32\VC9\DLL Release"
 				ManifestFile="$(IntDir)\$(TargetFileName).intermediate.manifest"
-				RandomizedBaseAddress="1"
-				DataExecutionPrevention="0"
-				ImportLibrary="$(OutDir)\$(ProjectName).lib"
+				ImportLibrary="$(TargetDir)$(TargetName).lib"
 				TargetMachine="1"
 			/>
 			<Tool
@@ -1646,8 +1527,6 @@
 			/>
 			<Tool
 				Name="VCBscMakeTool"
-				SuppressStartupBanner="true"
-				OutputFile="$(OutDir)\$(ProjectName).bsc"
 			/>
 			<Tool
 				Name="VCFxCopTool"
@@ -1684,7 +1563,6 @@
 				Name="VCMIDLTool"
 				PreprocessorDefinitions="NDEBUG"
 				MkTypLibCompatible="true"
-				SuppressStartupBanner="true"
 				TargetEnvironment="3"
 				TypeLibraryName="$(OutDir)\$(ProjectName).tlb"
 				HeaderFileName=""
@@ -1694,12 +1572,11 @@
 				Optimization="2"
 				InlineFunctionExpansion="1"
 				AdditionalIncludeDirectories="..\..\..\..\include;..\..\..\..\lib;..\..\..\..\..\openssl\inc32;..\..\..\..\..\libssh2\include"
-				PreprocessorDefinitions="WIN64;NDEBUG;BUILDING_LIBCURL;USE_SSLEAY;USE_OPENSSL;USE_LIBSSH2;HAVE_LIBSSH2_H"
+				PreprocessorDefinitions="NDEBUG;BUILDING_LIBCURL;USE_OPENSSL;USE_LIBSSH2;HAVE_LIBSSH2_H"
 				StringPooling="true"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="true"
-				WarningLevel="3"
-				SuppressStartupBanner="true"
+				WarningLevel="4"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -1717,11 +1594,8 @@
 				AdditionalDependencies="ws2_32.lib wldap32.lib libeay32.lib ssleay32.lib libssh2.lib"
 				OutputFile="$(OutDir)\$(ProjectName).dll"
 				LinkIncremental="1"
-				SuppressStartupBanner="true"
 				AdditionalLibraryDirectories="..\..\..\..\..\openssl\build\Win64\VC9\DLL Release;..\..\..\..\..\libssh2\build\Win64\VC9\DLL Release"
-				RandomizedBaseAddress="1"
-				DataExecutionPrevention="0"
-				ImportLibrary="$(OutDir)\$(ProjectName).lib"
+				ImportLibrary="$(TargetDir)$(TargetName).lib"
 				TargetMachine="17"
 			/>
 			<Tool
@@ -1735,8 +1609,6 @@
 			/>
 			<Tool
 				Name="VCBscMakeTool"
-				SuppressStartupBanner="true"
-				OutputFile="$(OutDir)\$(ProjectName).bsc"
 			/>
 			<Tool
 				Name="VCFxCopTool"
@@ -1776,12 +1648,11 @@
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				AdditionalIncludeDirectories="..\..\..\..\include;..\..\..\..\lib;..\..\..\..\..\openssl\inc32"
-				PreprocessorDefinitions="WIN32;_DEBUG;BUILDING_LIBCURL;CURL_STATICLIB;USE_SSLEAY;USE_OPENSSL"
+				PreprocessorDefinitions="_DEBUG;BUILDING_LIBCURL;DEBUGBUILD;CURL_STATICLIB;USE_OPENSSL"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
-				WarningLevel="3"
-				SuppressStartupBanner="true"
+				WarningLevel="4"
 				DebugInformationFormat="3"
 			/>
 			<Tool
@@ -1798,7 +1669,6 @@
 			<Tool
 				Name="VCLibrarianTool"
 				OutputFile="$(OutDir)\$(ProjectName)d.lib"
-				SuppressStartupBanner="true"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -1808,8 +1678,6 @@
 			/>
 			<Tool
 				Name="VCBscMakeTool"
-				SuppressStartupBanner="true"
-				OutputFile="$(OutDir)\$(ProjectName).bsc"
 			/>
 			<Tool
 				Name="VCFxCopTool"
@@ -1847,12 +1715,11 @@
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				AdditionalIncludeDirectories="..\..\..\..\include;..\..\..\..\lib;..\..\..\..\..\openssl\inc32"
-				PreprocessorDefinitions="WIN64;_DEBUG;BUILDING_LIBCURL;CURL_STATICLIB;USE_SSLEAY;USE_OPENSSL"
+				PreprocessorDefinitions="_DEBUG;BUILDING_LIBCURL;DEBUGBUILD;CURL_STATICLIB;USE_OPENSSL"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
-				WarningLevel="3"
-				SuppressStartupBanner="true"
+				WarningLevel="4"
 				DebugInformationFormat="3"
 			/>
 			<Tool
@@ -1869,7 +1736,6 @@
 			<Tool
 				Name="VCLibrarianTool"
 				OutputFile="$(OutDir)\$(ProjectName)d.lib"
-				SuppressStartupBanner="true"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -1879,8 +1745,6 @@
 			/>
 			<Tool
 				Name="VCBscMakeTool"
-				SuppressStartupBanner="true"
-				OutputFile="$(OutDir)\$(ProjectName).bsc"
 			/>
 			<Tool
 				Name="VCFxCopTool"
@@ -1917,12 +1781,11 @@
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				AdditionalIncludeDirectories="..\..\..\..\include;..\..\..\..\lib;..\..\..\..\..\openssl\inc32;..\..\..\..\..\libssh2\include"
-				PreprocessorDefinitions="WIN32;_DEBUG;BUILDING_LIBCURL;CURL_STATICLIB;USE_SSLEAY;USE_OPENSSL;USE_LIBSSH2;HAVE_LIBSSH2_H"
+				PreprocessorDefinitions="_DEBUG;BUILDING_LIBCURL;DEBUGBUILD;CURL_STATICLIB;USE_OPENSSL;USE_LIBSSH2;HAVE_LIBSSH2_H"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
-				WarningLevel="3"
-				SuppressStartupBanner="true"
+				WarningLevel="4"
 				DebugInformationFormat="3"
 			/>
 			<Tool
@@ -1939,7 +1802,6 @@
 			<Tool
 				Name="VCLibrarianTool"
 				OutputFile="$(OutDir)\$(ProjectName)d.lib"
-				SuppressStartupBanner="true"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -1949,8 +1811,6 @@
 			/>
 			<Tool
 				Name="VCBscMakeTool"
-				SuppressStartupBanner="true"
-				OutputFile="$(OutDir)\$(ProjectName).bsc"
 			/>
 			<Tool
 				Name="VCFxCopTool"
@@ -1988,12 +1848,11 @@
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				AdditionalIncludeDirectories="..\..\..\..\include;..\..\..\..\lib;..\..\..\..\..\openssl\inc32;..\..\..\..\..\libssh2\include"
-				PreprocessorDefinitions="WIN64;_DEBUG;BUILDING_LIBCURL;CURL_STATICLIB;USE_SSLEAY;USE_OPENSSL;USE_LIBSSH2;HAVE_LIBSSH2_H"
+				PreprocessorDefinitions="_DEBUG;BUILDING_LIBCURL;DEBUGBUILD;CURL_STATICLIB;USE_OPENSSL;USE_LIBSSH2;HAVE_LIBSSH2_H"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
-				WarningLevel="3"
-				SuppressStartupBanner="true"
+				WarningLevel="4"
 				DebugInformationFormat="3"
 			/>
 			<Tool
@@ -2010,7 +1869,6 @@
 			<Tool
 				Name="VCLibrarianTool"
 				OutputFile="$(OutDir)\$(ProjectName)d.lib"
-				SuppressStartupBanner="true"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -2020,8 +1878,6 @@
 			/>
 			<Tool
 				Name="VCBscMakeTool"
-				SuppressStartupBanner="true"
-				OutputFile="$(OutDir)\$(ProjectName).bsc"
 			/>
 			<Tool
 				Name="VCFxCopTool"
@@ -2058,12 +1914,11 @@
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				AdditionalIncludeDirectories="..\..\..\..\include;..\..\..\..\lib"
-				PreprocessorDefinitions="WIN32;_DEBUG;BUILDING_LIBCURL;CURL_STATICLIB;USE_WINDOWS_SSPI;USE_SCHANNEL"
+				PreprocessorDefinitions="_DEBUG;BUILDING_LIBCURL;DEBUGBUILD;CURL_STATICLIB;USE_WINDOWS_SSPI;USE_SCHANNEL"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
-				WarningLevel="3"
-				SuppressStartupBanner="true"
+				WarningLevel="4"
 				DebugInformationFormat="3"
 			/>
 			<Tool
@@ -2080,7 +1935,6 @@
 			<Tool
 				Name="VCLibrarianTool"
 				OutputFile="$(OutDir)\$(ProjectName)d.lib"
-				SuppressStartupBanner="true"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -2090,8 +1944,6 @@
 			/>
 			<Tool
 				Name="VCBscMakeTool"
-				SuppressStartupBanner="true"
-				OutputFile="$(OutDir)\$(ProjectName).bsc"
 			/>
 			<Tool
 				Name="VCFxCopTool"
@@ -2129,12 +1981,11 @@
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				AdditionalIncludeDirectories="..\..\..\..\include;..\..\..\..\lib"
-				PreprocessorDefinitions="WIN64;_DEBUG;BUILDING_LIBCURL;CURL_STATICLIB;USE_WINDOWS_SSPI;USE_SCHANNEL"
+				PreprocessorDefinitions="_DEBUG;BUILDING_LIBCURL;DEBUGBUILD;CURL_STATICLIB;USE_WINDOWS_SSPI;USE_SCHANNEL"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
-				WarningLevel="3"
-				SuppressStartupBanner="true"
+				WarningLevel="4"
 				DebugInformationFormat="3"
 			/>
 			<Tool
@@ -2151,7 +2002,6 @@
 			<Tool
 				Name="VCLibrarianTool"
 				OutputFile="$(OutDir)\$(ProjectName)d.lib"
-				SuppressStartupBanner="true"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -2161,8 +2011,6 @@
 			/>
 			<Tool
 				Name="VCBscMakeTool"
-				SuppressStartupBanner="true"
-				OutputFile="$(OutDir)\$(ProjectName).bsc"
 			/>
 			<Tool
 				Name="VCFxCopTool"
@@ -2199,12 +2047,11 @@
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				AdditionalIncludeDirectories="..\..\..\..\include;..\..\..\..\lib;..\..\..\..\..\openssl\inc32"
-				PreprocessorDefinitions="WIN32;_DEBUG;BUILDING_LIBCURL;CURL_STATICLIB;USE_SSLEAY;USE_OPENSSL"
+				PreprocessorDefinitions="_DEBUG;BUILDING_LIBCURL;DEBUGBUILD;CURL_STATICLIB;USE_OPENSSL"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
-				WarningLevel="3"
-				SuppressStartupBanner="true"
+				WarningLevel="4"
 				DebugInformationFormat="3"
 			/>
 			<Tool
@@ -2221,7 +2068,6 @@
 			<Tool
 				Name="VCLibrarianTool"
 				OutputFile="$(OutDir)\$(ProjectName)d.lib"
-				SuppressStartupBanner="true"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -2231,8 +2077,6 @@
 			/>
 			<Tool
 				Name="VCBscMakeTool"
-				SuppressStartupBanner="true"
-				OutputFile="$(OutDir)\$(ProjectName).bsc"
 			/>
 			<Tool
 				Name="VCFxCopTool"
@@ -2270,12 +2114,11 @@
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				AdditionalIncludeDirectories="..\..\..\..\include;..\..\..\..\lib;..\..\..\..\..\openssl\inc32"
-				PreprocessorDefinitions="WIN64;_DEBUG;BUILDING_LIBCURL;CURL_STATICLIB;USE_SSLEAY;USE_OPENSSL"
+				PreprocessorDefinitions="_DEBUG;BUILDING_LIBCURL;DEBUGBUILD;CURL_STATICLIB;USE_OPENSSL"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
-				WarningLevel="3"
-				SuppressStartupBanner="true"
+				WarningLevel="4"
 				DebugInformationFormat="3"
 			/>
 			<Tool
@@ -2292,7 +2135,6 @@
 			<Tool
 				Name="VCLibrarianTool"
 				OutputFile="$(OutDir)\$(ProjectName)d.lib"
-				SuppressStartupBanner="true"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -2302,8 +2144,6 @@
 			/>
 			<Tool
 				Name="VCBscMakeTool"
-				SuppressStartupBanner="true"
-				OutputFile="$(OutDir)\$(ProjectName).bsc"
 			/>
 			<Tool
 				Name="VCFxCopTool"
@@ -2340,12 +2180,11 @@
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				AdditionalIncludeDirectories="..\..\..\..\include;..\..\..\..\lib;..\..\..\..\..\openssl\inc32;..\..\..\..\..\libssh2\include"
-				PreprocessorDefinitions="WIN32;_DEBUG;BUILDING_LIBCURL;CURL_STATICLIB;USE_SSLEAY;USE_OPENSSL;USE_LIBSSH2;HAVE_LIBSSH2_H"
+				PreprocessorDefinitions="_DEBUG;BUILDING_LIBCURL;DEBUGBUILD;CURL_STATICLIB;USE_OPENSSL;USE_LIBSSH2;HAVE_LIBSSH2_H"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
-				WarningLevel="3"
-				SuppressStartupBanner="true"
+				WarningLevel="4"
 				DebugInformationFormat="3"
 			/>
 			<Tool
@@ -2362,7 +2201,6 @@
 			<Tool
 				Name="VCLibrarianTool"
 				OutputFile="$(OutDir)\$(ProjectName)d.lib"
-				SuppressStartupBanner="true"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -2372,8 +2210,6 @@
 			/>
 			<Tool
 				Name="VCBscMakeTool"
-				SuppressStartupBanner="true"
-				OutputFile="$(OutDir)\$(ProjectName).bsc"
 			/>
 			<Tool
 				Name="VCFxCopTool"
@@ -2411,12 +2247,11 @@
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				AdditionalIncludeDirectories="..\..\..\..\include;..\..\..\..\lib;..\..\..\..\..\openssl\inc32;..\..\..\..\..\libssh2\include"
-				PreprocessorDefinitions="WIN64;_DEBUG;BUILDING_LIBCURL;CURL_STATICLIB;USE_SSLEAY;USE_OPENSSL;USE_LIBSSH2;HAVE_LIBSSH2_H"
+				PreprocessorDefinitions="_DEBUG;BUILDING_LIBCURL;DEBUGBUILD;CURL_STATICLIB;USE_OPENSSL;USE_LIBSSH2;HAVE_LIBSSH2_H"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
-				WarningLevel="3"
-				SuppressStartupBanner="true"
+				WarningLevel="4"
 				DebugInformationFormat="3"
 			/>
 			<Tool
@@ -2433,7 +2268,6 @@
 			<Tool
 				Name="VCLibrarianTool"
 				OutputFile="$(OutDir)\$(ProjectName)d.lib"
-				SuppressStartupBanner="true"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -2443,8 +2277,6 @@
 			/>
 			<Tool
 				Name="VCBscMakeTool"
-				SuppressStartupBanner="true"
-				OutputFile="$(OutDir)\$(ProjectName).bsc"
 			/>
 			<Tool
 				Name="VCFxCopTool"
@@ -2482,12 +2314,11 @@
 				Optimization="2"
 				InlineFunctionExpansion="1"
 				AdditionalIncludeDirectories="..\..\..\..\include;..\..\..\..\lib;..\..\..\..\..\openssl\inc32"
-				PreprocessorDefinitions="WIN32;NDEBUG;BUILDING_LIBCURL;CURL_STATICLIB;USE_SSLEAY;USE_OPENSSL"
+				PreprocessorDefinitions="NDEBUG;BUILDING_LIBCURL;CURL_STATICLIB;USE_OPENSSL"
 				StringPooling="true"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="true"
-				WarningLevel="3"
-				SuppressStartupBanner="true"
+				WarningLevel="4"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -2503,7 +2334,6 @@
 			<Tool
 				Name="VCLibrarianTool"
 				OutputFile="$(OutDir)\$(ProjectName).lib"
-				SuppressStartupBanner="true"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -2513,8 +2343,6 @@
 			/>
 			<Tool
 				Name="VCBscMakeTool"
-				SuppressStartupBanner="true"
-				OutputFile="$(OutDir)\$(ProjectName).bsc"
 			/>
 			<Tool
 				Name="VCFxCopTool"
@@ -2553,12 +2381,11 @@
 				Optimization="2"
 				InlineFunctionExpansion="1"
 				AdditionalIncludeDirectories="..\..\..\..\include;..\..\..\..\lib;..\..\..\..\..\openssl\inc32"
-				PreprocessorDefinitions="WIN64;NDEBUG;BUILDING_LIBCURL;CURL_STATICLIB;USE_SSLEAY;USE_OPENSSL"
+				PreprocessorDefinitions="NDEBUG;BUILDING_LIBCURL;CURL_STATICLIB;USE_OPENSSL"
 				StringPooling="true"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="true"
-				WarningLevel="3"
-				SuppressStartupBanner="true"
+				WarningLevel="4"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -2574,7 +2401,6 @@
 			<Tool
 				Name="VCLibrarianTool"
 				OutputFile="$(OutDir)\$(ProjectName).lib"
-				SuppressStartupBanner="true"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -2584,8 +2410,6 @@
 			/>
 			<Tool
 				Name="VCBscMakeTool"
-				SuppressStartupBanner="true"
-				OutputFile="$(OutDir)\$(ProjectName).bsc"
 			/>
 			<Tool
 				Name="VCFxCopTool"
@@ -2623,12 +2447,11 @@
 				Optimization="2"
 				InlineFunctionExpansion="1"
 				AdditionalIncludeDirectories="..\..\..\..\include;..\..\..\..\lib;..\..\..\..\..\openssl\inc32;..\..\..\..\..\libssh2\include"
-				PreprocessorDefinitions="WIN32;NDEBUG;BUILDING_LIBCURL;CURL_STATICLIB;USE_SSLEAY;USE_OPENSSL;USE_LIBSSH2;HAVE_LIBSSH2_H"
+				PreprocessorDefinitions="NDEBUG;BUILDING_LIBCURL;CURL_STATICLIB;USE_OPENSSL;USE_LIBSSH2;HAVE_LIBSSH2_H"
 				StringPooling="true"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="true"
-				WarningLevel="3"
-				SuppressStartupBanner="true"
+				WarningLevel="4"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -2644,7 +2467,6 @@
 			<Tool
 				Name="VCLibrarianTool"
 				OutputFile="$(OutDir)\$(ProjectName).lib"
-				SuppressStartupBanner="true"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -2654,8 +2476,6 @@
 			/>
 			<Tool
 				Name="VCBscMakeTool"
-				SuppressStartupBanner="true"
-				OutputFile="$(OutDir)\$(ProjectName).bsc"
 			/>
 			<Tool
 				Name="VCFxCopTool"
@@ -2694,12 +2514,11 @@
 				Optimization="2"
 				InlineFunctionExpansion="1"
 				AdditionalIncludeDirectories="..\..\..\..\include;..\..\..\..\lib;..\..\..\..\..\openssl\inc32;..\..\..\..\..\libssh2\include"
-				PreprocessorDefinitions="WIN64;NDEBUG;BUILDING_LIBCURL;CURL_STATICLIB;USE_SSLEAY;USE_OPENSSL;USE_LIBSSH2;HAVE_LIBSSH2_H"
+				PreprocessorDefinitions="NDEBUG;BUILDING_LIBCURL;CURL_STATICLIB;USE_OPENSSL;USE_LIBSSH2;HAVE_LIBSSH2_H"
 				StringPooling="true"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="true"
-				WarningLevel="3"
-				SuppressStartupBanner="true"
+				WarningLevel="4"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -2715,7 +2534,6 @@
 			<Tool
 				Name="VCLibrarianTool"
 				OutputFile="$(OutDir)\$(ProjectName).lib"
-				SuppressStartupBanner="true"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -2725,8 +2543,6 @@
 			/>
 			<Tool
 				Name="VCBscMakeTool"
-				SuppressStartupBanner="true"
-				OutputFile="$(OutDir)\$(ProjectName).bsc"
 			/>
 			<Tool
 				Name="VCFxCopTool"
@@ -2764,12 +2580,11 @@
 				Optimization="2"
 				InlineFunctionExpansion="1"
 				AdditionalIncludeDirectories="..\..\..\..\include;..\..\..\..\lib"
-				PreprocessorDefinitions="WIN32;NDEBUG;BUILDING_LIBCURL;CURL_STATICLIB;USE_WINDOWS_SSPI;USE_SCHANNEL"
+				PreprocessorDefinitions="NDEBUG;BUILDING_LIBCURL;CURL_STATICLIB;USE_WINDOWS_SSPI;USE_SCHANNEL"
 				StringPooling="true"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="true"
-				WarningLevel="3"
-				SuppressStartupBanner="true"
+				WarningLevel="4"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -2785,7 +2600,6 @@
 			<Tool
 				Name="VCLibrarianTool"
 				OutputFile="$(OutDir)\$(ProjectName).lib"
-				SuppressStartupBanner="true"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -2795,8 +2609,6 @@
 			/>
 			<Tool
 				Name="VCBscMakeTool"
-				SuppressStartupBanner="true"
-				OutputFile="$(OutDir)\$(ProjectName).bsc"
 			/>
 			<Tool
 				Name="VCFxCopTool"
@@ -2835,12 +2647,11 @@
 				Optimization="2"
 				InlineFunctionExpansion="1"
 				AdditionalIncludeDirectories="..\..\..\..\include;..\..\..\..\lib"
-				PreprocessorDefinitions="WIN64;NDEBUG;BUILDING_LIBCURL;CURL_STATICLIB;USE_WINDOWS_SSPI;USE_SCHANNEL"
+				PreprocessorDefinitions="NDEBUG;BUILDING_LIBCURL;CURL_STATICLIB;USE_WINDOWS_SSPI;USE_SCHANNEL"
 				StringPooling="true"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="true"
-				WarningLevel="3"
-				SuppressStartupBanner="true"
+				WarningLevel="4"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -2856,7 +2667,6 @@
 			<Tool
 				Name="VCLibrarianTool"
 				OutputFile="$(OutDir)\$(ProjectName).lib"
-				SuppressStartupBanner="true"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -2866,8 +2676,6 @@
 			/>
 			<Tool
 				Name="VCBscMakeTool"
-				SuppressStartupBanner="true"
-				OutputFile="$(OutDir)\$(ProjectName).bsc"
 			/>
 			<Tool
 				Name="VCFxCopTool"
@@ -2905,12 +2713,11 @@
 				Optimization="2"
 				InlineFunctionExpansion="1"
 				AdditionalIncludeDirectories="..\..\..\..\include;..\..\..\..\lib;..\..\..\..\..\openssl\inc32"
-				PreprocessorDefinitions="WIN32;NDEBUG;BUILDING_LIBCURL;CURL_STATICLIB;USE_SSLEAY;USE_OPENSSL"
+				PreprocessorDefinitions="NDEBUG;BUILDING_LIBCURL;CURL_STATICLIB;USE_OPENSSL"
 				StringPooling="true"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="true"
-				WarningLevel="3"
-				SuppressStartupBanner="true"
+				WarningLevel="4"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -2926,7 +2733,6 @@
 			<Tool
 				Name="VCLibrarianTool"
 				OutputFile="$(OutDir)\$(ProjectName).lib"
-				SuppressStartupBanner="true"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -2936,8 +2742,6 @@
 			/>
 			<Tool
 				Name="VCBscMakeTool"
-				SuppressStartupBanner="true"
-				OutputFile="$(OutDir)\$(ProjectName).bsc"
 			/>
 			<Tool
 				Name="VCFxCopTool"
@@ -2976,12 +2780,11 @@
 				Optimization="2"
 				InlineFunctionExpansion="1"
 				AdditionalIncludeDirectories="..\..\..\..\include;..\..\..\..\lib;..\..\..\..\..\openssl\inc32"
-				PreprocessorDefinitions="WIN64;NDEBUG;BUILDING_LIBCURL;CURL_STATICLIB;USE_SSLEAY;USE_OPENSSL"
+				PreprocessorDefinitions="NDEBUG;BUILDING_LIBCURL;CURL_STATICLIB;USE_OPENSSL"
 				StringPooling="true"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="true"
-				WarningLevel="3"
-				SuppressStartupBanner="true"
+				WarningLevel="4"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -2997,7 +2800,6 @@
 			<Tool
 				Name="VCLibrarianTool"
 				OutputFile="$(OutDir)\$(ProjectName).lib"
-				SuppressStartupBanner="true"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -3007,8 +2809,6 @@
 			/>
 			<Tool
 				Name="VCBscMakeTool"
-				SuppressStartupBanner="true"
-				OutputFile="$(OutDir)\$(ProjectName).bsc"
 			/>
 			<Tool
 				Name="VCFxCopTool"
@@ -3046,12 +2846,11 @@
 				Optimization="2"
 				InlineFunctionExpansion="1"
 				AdditionalIncludeDirectories="..\..\..\..\include;..\..\..\..\lib;..\..\..\..\..\openssl\inc32;..\..\..\..\..\libssh2\include"
-				PreprocessorDefinitions="WIN32;NDEBUG;BUILDING_LIBCURL;CURL_STATICLIB;USE_SSLEAY;USE_OPENSSL;USE_LIBSSH2;HAVE_LIBSSH2_H"
+				PreprocessorDefinitions="NDEBUG;BUILDING_LIBCURL;CURL_STATICLIB;USE_OPENSSL;USE_LIBSSH2;HAVE_LIBSSH2_H"
 				StringPooling="true"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="true"
-				WarningLevel="3"
-				SuppressStartupBanner="true"
+				WarningLevel="4"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -3067,7 +2866,6 @@
 			<Tool
 				Name="VCLibrarianTool"
 				OutputFile="$(OutDir)\$(ProjectName).lib"
-				SuppressStartupBanner="true"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -3077,8 +2875,6 @@
 			/>
 			<Tool
 				Name="VCBscMakeTool"
-				SuppressStartupBanner="true"
-				OutputFile="$(OutDir)\$(ProjectName).bsc"
 			/>
 			<Tool
 				Name="VCFxCopTool"
@@ -3117,12 +2913,11 @@
 				Optimization="2"
 				InlineFunctionExpansion="1"
 				AdditionalIncludeDirectories="..\..\..\..\include;..\..\..\..\lib;..\..\..\..\..\openssl\inc32;..\..\..\..\..\libssh2\include"
-				PreprocessorDefinitions="WIN64;NDEBUG;BUILDING_LIBCURL;CURL_STATICLIB;USE_SSLEAY;USE_OPENSSL;USE_LIBSSH2;HAVE_LIBSSH2_H"
+				PreprocessorDefinitions="NDEBUG;BUILDING_LIBCURL;CURL_STATICLIB;USE_OPENSSL;USE_LIBSSH2;HAVE_LIBSSH2_H"
 				StringPooling="true"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="true"
-				WarningLevel="3"
-				SuppressStartupBanner="true"
+				WarningLevel="4"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -3138,7 +2933,6 @@
 			<Tool
 				Name="VCLibrarianTool"
 				OutputFile="$(OutDir)\$(ProjectName).lib"
-				SuppressStartupBanner="true"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -3148,8 +2942,606 @@
 			/>
 			<Tool
 				Name="VCBscMakeTool"
-				SuppressStartupBanner="true"
-				OutputFile="$(OutDir)\$(ProjectName).bsc"
+			/>
+			<Tool
+				Name="VCFxCopTool"
+			/>
+			<Tool
+				Name="VCPostBuildEventTool"
+			/>
+		</Configuration>
+		<Configuration
+			Name="DLL Debug - DLL Windows SSPI - DLL WinIDN|Win32"
+			OutputDirectory="..\..\..\..\build\Win32\VC9\$(ConfigurationName)"
+			IntermediateDirectory="$(OutDir)\lib"
+			ConfigurationType="2"
+			UseOfMFC="0"
+			ATLMinimizesCRunTimeLibraryUsage="false"
+			CharacterSet="2"
+			>
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool
+				Name="VCCustomBuildTool"
+			/>
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+				PreprocessorDefinitions="_DEBUG"
+				MkTypLibCompatible="true"
+				TargetEnvironment="1"
+				TypeLibraryName="$(OutDir)\$(ProjectName).tlb"
+				HeaderFileName=""
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				Optimization="0"
+				AdditionalIncludeDirectories="..\..\..\..\include;..\..\..\..\lib"
+				PreprocessorDefinitions="_DEBUG;BUILDING_LIBCURL;DEBUGBUILD;USE_WINDOWS_SSPI;USE_SCHANNEL;USE_WIN32_IDN;WANT_IDN_PROTOTYPES"
+				MinimalRebuild="true"
+				BasicRuntimeChecks="3"
+				RuntimeLibrary="3"
+				WarningLevel="4"
+				DebugInformationFormat="3"
+			/>
+			<Tool
+				Name="VCManagedResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="_DEBUG"
+				Culture="1033"
+			/>
+			<Tool
+				Name="VCPreLinkEventTool"
+			/>
+			<Tool
+				Name="VCLinkerTool"
+				AdditionalDependencies="ws2_32.lib wldap32.lib normaliz.lib"
+				OutputFile="$(OutDir)\$(ProjectName)d.dll"
+				LinkIncremental="1"
+				AdditionalLibraryDirectories=""
+				ManifestFile="$(IntDir)\$(TargetFileName).intermediate.manifest"
+				GenerateDebugInformation="true"
+				ProgramDatabaseFile="$(TargetDir)$(TargetName).pdb"
+				ImportLibrary="$(TargetDir)$(TargetName).lib"
+				TargetMachine="1"
+			/>
+			<Tool
+				Name="VCALinkTool"
+			/>
+			<Tool
+				Name="VCManifestTool"
+			/>
+			<Tool
+				Name="VCXDCMakeTool"
+			/>
+			<Tool
+				Name="VCBscMakeTool"
+			/>
+			<Tool
+				Name="VCFxCopTool"
+			/>
+			<Tool
+				Name="VCAppVerifierTool"
+			/>
+			<Tool
+				Name="VCPostBuildEventTool"
+			/>
+		</Configuration>
+		<Configuration
+			Name="DLL Debug - DLL Windows SSPI - DLL WinIDN|x64"
+			OutputDirectory="..\..\..\..\build\Win64\VC9\$(ConfigurationName)"
+			IntermediateDirectory="$(OutDir)\lib"
+			ConfigurationType="2"
+			UseOfMFC="0"
+			ATLMinimizesCRunTimeLibraryUsage="false"
+			CharacterSet="2"
+			>
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool
+				Name="VCCustomBuildTool"
+			/>
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+				PreprocessorDefinitions="_DEBUG"
+				MkTypLibCompatible="true"
+				TargetEnvironment="3"
+				TypeLibraryName="$(OutDir)\$(ProjectName).tlb"
+				HeaderFileName=""
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				Optimization="0"
+				AdditionalIncludeDirectories="..\..\..\..\include;..\..\..\..\lib"
+				PreprocessorDefinitions="_DEBUG;BUILDING_LIBCURL;DEBUGBUILD;USE_WINDOWS_SSPI;USE_SCHANNEL;USE_WIN32_IDN;WANT_IDN_PROTOTYPES"
+				MinimalRebuild="true"
+				BasicRuntimeChecks="3"
+				RuntimeLibrary="3"
+				WarningLevel="4"
+				DebugInformationFormat="3"
+			/>
+			<Tool
+				Name="VCManagedResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="_DEBUG"
+				Culture="1033"
+			/>
+			<Tool
+				Name="VCPreLinkEventTool"
+			/>
+			<Tool
+				Name="VCLinkerTool"
+				AdditionalDependencies="ws2_32.lib wldap32.lib normaliz.lib"
+				OutputFile="$(OutDir)\$(ProjectName)d.dll"
+				LinkIncremental="1"
+				AdditionalLibraryDirectories=""
+				GenerateDebugInformation="true"
+				ProgramDatabaseFile="$(TargetDir)$(TargetName).pdb"
+				ImportLibrary="$(TargetDir)$(TargetName).lib"
+				TargetMachine="17"
+			/>
+			<Tool
+				Name="VCALinkTool"
+			/>
+			<Tool
+				Name="VCManifestTool"
+			/>
+			<Tool
+				Name="VCXDCMakeTool"
+			/>
+			<Tool
+				Name="VCBscMakeTool"
+			/>
+			<Tool
+				Name="VCFxCopTool"
+			/>
+			<Tool
+				Name="VCAppVerifierTool"
+			/>
+			<Tool
+				Name="VCPostBuildEventTool"
+			/>
+		</Configuration>
+		<Configuration
+			Name="DLL Release - DLL Windows SSPI - DLL WinIDN|Win32"
+			OutputDirectory="..\..\..\..\build\Win32\VC9\$(ConfigurationName)"
+			IntermediateDirectory="$(OutDir)\lib"
+			ConfigurationType="2"
+			UseOfMFC="0"
+			ATLMinimizesCRunTimeLibraryUsage="false"
+			CharacterSet="2"
+			>
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool
+				Name="VCCustomBuildTool"
+			/>
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+				PreprocessorDefinitions="NDEBUG"
+				MkTypLibCompatible="true"
+				TargetEnvironment="1"
+				TypeLibraryName="$(OutDir)\$(ProjectName).tlb"
+				HeaderFileName=""
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				Optimization="2"
+				InlineFunctionExpansion="1"
+				AdditionalIncludeDirectories="..\..\..\..\include;..\..\..\..\lib"
+				PreprocessorDefinitions="NDEBUG;BUILDING_LIBCURL;USE_WINDOWS_SSPI;USE_SCHANNEL;USE_WIN32_IDN;WANT_IDN_PROTOTYPES"
+				StringPooling="true"
+				RuntimeLibrary="2"
+				EnableFunctionLevelLinking="true"
+				WarningLevel="4"
+			/>
+			<Tool
+				Name="VCManagedResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="NDEBUG"
+				Culture="1033"
+			/>
+			<Tool
+				Name="VCPreLinkEventTool"
+			/>
+			<Tool
+				Name="VCLinkerTool"
+				AdditionalDependencies="ws2_32.lib wldap32.lib normaliz.lib"
+				OutputFile="$(OutDir)\$(ProjectName).dll"
+				LinkIncremental="1"
+				AdditionalLibraryDirectories=""
+				ManifestFile="$(IntDir)\$(TargetFileName).intermediate.manifest"
+				ImportLibrary="$(TargetDir)$(TargetName).lib"
+				TargetMachine="1"
+			/>
+			<Tool
+				Name="VCALinkTool"
+			/>
+			<Tool
+				Name="VCManifestTool"
+			/>
+			<Tool
+				Name="VCXDCMakeTool"
+			/>
+			<Tool
+				Name="VCBscMakeTool"
+			/>
+			<Tool
+				Name="VCFxCopTool"
+			/>
+			<Tool
+				Name="VCAppVerifierTool"
+			/>
+			<Tool
+				Name="VCPostBuildEventTool"
+			/>
+		</Configuration>
+		<Configuration
+			Name="DLL Release - DLL Windows SSPI - DLL WinIDN|x64"
+			OutputDirectory="..\..\..\..\build\Win64\VC9\$(ConfigurationName)"
+			IntermediateDirectory="$(OutDir)\lib"
+			ConfigurationType="2"
+			UseOfMFC="0"
+			ATLMinimizesCRunTimeLibraryUsage="false"
+			CharacterSet="2"
+			>
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool
+				Name="VCCustomBuildTool"
+			/>
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+				PreprocessorDefinitions="NDEBUG"
+				MkTypLibCompatible="true"
+				TargetEnvironment="3"
+				TypeLibraryName="$(OutDir)\$(ProjectName).tlb"
+				HeaderFileName=""
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				Optimization="2"
+				InlineFunctionExpansion="1"
+				AdditionalIncludeDirectories="..\..\..\..\include;..\..\..\..\lib"
+				PreprocessorDefinitions="NDEBUG;BUILDING_LIBCURL;USE_WINDOWS_SSPI;USE_SCHANNEL;USE_WIN32_IDN;WANT_IDN_PROTOTYPES"
+				StringPooling="true"
+				RuntimeLibrary="2"
+				EnableFunctionLevelLinking="true"
+				WarningLevel="4"
+			/>
+			<Tool
+				Name="VCManagedResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="NDEBUG"
+				Culture="1033"
+			/>
+			<Tool
+				Name="VCPreLinkEventTool"
+			/>
+			<Tool
+				Name="VCLinkerTool"
+				AdditionalDependencies="ws2_32.lib wldap32.lib normaliz.lib"
+				OutputFile="$(OutDir)\$(ProjectName).dll"
+				LinkIncremental="1"
+				AdditionalLibraryDirectories=""
+				ImportLibrary="$(TargetDir)$(TargetName).lib"
+				TargetMachine="17"
+			/>
+			<Tool
+				Name="VCALinkTool"
+			/>
+			<Tool
+				Name="VCManifestTool"
+			/>
+			<Tool
+				Name="VCXDCMakeTool"
+			/>
+			<Tool
+				Name="VCBscMakeTool"
+			/>
+			<Tool
+				Name="VCFxCopTool"
+			/>
+			<Tool
+				Name="VCAppVerifierTool"
+			/>
+			<Tool
+				Name="VCPostBuildEventTool"
+			/>
+		</Configuration>
+		<Configuration
+			Name="LIB Debug - DLL Windows SSPI - DLL WinIDN|Win32"
+			OutputDirectory="..\..\..\..\build\Win32\VC9\$(ConfigurationName)"
+			IntermediateDirectory="$(OutDir)\lib"
+			ConfigurationType="4"
+			UseOfMFC="0"
+			ATLMinimizesCRunTimeLibraryUsage="false"
+			CharacterSet="2"
+			>
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool
+				Name="VCCustomBuildTool"
+			/>
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				Optimization="0"
+				AdditionalIncludeDirectories="..\..\..\..\include;..\..\..\..\lib"
+				PreprocessorDefinitions="_DEBUG;BUILDING_LIBCURL;DEBUGBUILD;CURL_STATICLIB;USE_WINDOWS_SSPI;USE_SCHANNEL;USE_WIN32_IDN;WANT_IDN_PROTOTYPES"
+				MinimalRebuild="true"
+				BasicRuntimeChecks="3"
+				RuntimeLibrary="3"
+				WarningLevel="4"
+				DebugInformationFormat="3"
+			/>
+			<Tool
+				Name="VCManagedResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="_DEBUG"
+				Culture="1033"
+			/>
+			<Tool
+				Name="VCPreLinkEventTool"
+			/>
+			<Tool
+				Name="VCLibrarianTool"
+				OutputFile="$(OutDir)\$(ProjectName)d.lib"
+			/>
+			<Tool
+				Name="VCALinkTool"
+			/>
+			<Tool
+				Name="VCXDCMakeTool"
+			/>
+			<Tool
+				Name="VCBscMakeTool"
+			/>
+			<Tool
+				Name="VCFxCopTool"
+			/>
+			<Tool
+				Name="VCPostBuildEventTool"
+			/>
+		</Configuration>
+		<Configuration
+			Name="LIB Debug - DLL Windows SSPI - DLL WinIDN|x64"
+			OutputDirectory="..\..\..\..\build\Win64\VC9\$(ConfigurationName)"
+			IntermediateDirectory="$(OutDir)\lib"
+			ConfigurationType="4"
+			UseOfMFC="0"
+			ATLMinimizesCRunTimeLibraryUsage="false"
+			CharacterSet="2"
+			>
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool
+				Name="VCCustomBuildTool"
+			/>
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+				TargetEnvironment="3"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				Optimization="0"
+				AdditionalIncludeDirectories="..\..\..\..\include;..\..\..\..\lib"
+				PreprocessorDefinitions="_DEBUG;BUILDING_LIBCURL;DEBUGBUILD;CURL_STATICLIB;USE_WINDOWS_SSPI;USE_SCHANNEL;USE_WIN32_IDN;WANT_IDN_PROTOTYPES"
+				MinimalRebuild="true"
+				BasicRuntimeChecks="3"
+				RuntimeLibrary="3"
+				WarningLevel="4"
+				DebugInformationFormat="3"
+			/>
+			<Tool
+				Name="VCManagedResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="_DEBUG"
+				Culture="1033"
+			/>
+			<Tool
+				Name="VCPreLinkEventTool"
+			/>
+			<Tool
+				Name="VCLibrarianTool"
+				OutputFile="$(OutDir)\$(ProjectName)d.lib"
+			/>
+			<Tool
+				Name="VCALinkTool"
+			/>
+			<Tool
+				Name="VCXDCMakeTool"
+			/>
+			<Tool
+				Name="VCBscMakeTool"
+			/>
+			<Tool
+				Name="VCFxCopTool"
+			/>
+			<Tool
+				Name="VCPostBuildEventTool"
+			/>
+		</Configuration>
+		<Configuration
+			Name="LIB Release - DLL Windows SSPI - DLL WinIDN|Win32"
+			OutputDirectory="..\..\..\..\build\Win32\VC9\$(ConfigurationName)"
+			IntermediateDirectory="$(OutDir)\lib"
+			ConfigurationType="4"
+			UseOfMFC="0"
+			ATLMinimizesCRunTimeLibraryUsage="false"
+			CharacterSet="2"
+			>
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool
+				Name="VCCustomBuildTool"
+			/>
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				Optimization="2"
+				InlineFunctionExpansion="1"
+				AdditionalIncludeDirectories="..\..\..\..\include;..\..\..\..\lib"
+				PreprocessorDefinitions="NDEBUG;BUILDING_LIBCURL;CURL_STATICLIB;USE_WINDOWS_SSPI;USE_SCHANNEL;USE_WIN32_IDN;WANT_IDN_PROTOTYPES"
+				StringPooling="true"
+				RuntimeLibrary="2"
+				EnableFunctionLevelLinking="true"
+				WarningLevel="4"
+			/>
+			<Tool
+				Name="VCManagedResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="NDEBUG"
+				Culture="1033"
+			/>
+			<Tool
+				Name="VCPreLinkEventTool"
+			/>
+			<Tool
+				Name="VCLibrarianTool"
+				OutputFile="$(OutDir)\$(ProjectName).lib"
+			/>
+			<Tool
+				Name="VCALinkTool"
+			/>
+			<Tool
+				Name="VCXDCMakeTool"
+			/>
+			<Tool
+				Name="VCBscMakeTool"
+			/>
+			<Tool
+				Name="VCFxCopTool"
+			/>
+			<Tool
+				Name="VCPostBuildEventTool"
+			/>
+		</Configuration>
+		<Configuration
+			Name="LIB Release - DLL Windows SSPI - DLL WinIDN|x64"
+			OutputDirectory="..\..\..\..\build\Win64\VC9\$(ConfigurationName)"
+			IntermediateDirectory="$(OutDir)\lib"
+			ConfigurationType="4"
+			UseOfMFC="0"
+			ATLMinimizesCRunTimeLibraryUsage="false"
+			CharacterSet="2"
+			>
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool
+				Name="VCCustomBuildTool"
+			/>
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+				TargetEnvironment="3"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				Optimization="2"
+				InlineFunctionExpansion="1"
+				AdditionalIncludeDirectories="..\..\..\..\include;..\..\..\..\lib"
+				PreprocessorDefinitions="NDEBUG;BUILDING_LIBCURL;CURL_STATICLIB;USE_WINDOWS_SSPI;USE_SCHANNEL;USE_WIN32_IDN;WANT_IDN_PROTOTYPES"
+				StringPooling="true"
+				RuntimeLibrary="2"
+				EnableFunctionLevelLinking="true"
+				WarningLevel="4"
+			/>
+			<Tool
+				Name="VCManagedResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="NDEBUG"
+				Culture="1033"
+			/>
+			<Tool
+				Name="VCPreLinkEventTool"
+			/>
+			<Tool
+				Name="VCLibrarianTool"
+				OutputFile="$(OutDir)\$(ProjectName).lib"
+			/>
+			<Tool
+				Name="VCALinkTool"
+			/>
+			<Tool
+				Name="VCXDCMakeTool"
+			/>
+			<Tool
+				Name="VCBscMakeTool"
 			/>
 			<Tool
 				Name="VCFxCopTool"
@@ -3182,10 +3574,6 @@
 			>
 			</File>
 			<File
-				RelativePath="..\..\..\..\lib\bundles.c"
-			>
-			</File>
-			<File
 				RelativePath="..\..\..\..\lib\conncache.c"
 			>
 			</File>
@@ -3203,6 +3591,14 @@
 			</File>
 			<File
 				RelativePath="..\..\..\..\lib\curl_addrinfo.c"
+			>
+			</File>
+			<File
+				RelativePath="..\..\..\..\lib\curl_des.c"
+			>
+			</File>
+			<File
+				RelativePath="..\..\..\..\lib\curl_endian.c"
 			>
 			</File>
 			<File
@@ -3226,15 +3622,7 @@
 			>
 			</File>
 			<File
-				RelativePath="..\..\..\..\lib\curl_ntlm.c"
-			>
-			</File>
-			<File
 				RelativePath="..\..\..\..\lib\curl_ntlm_core.c"
-			>
-			</File>
-			<File
-				RelativePath="..\..\..\..\lib\curl_ntlm_msgs.c"
 			>
 			</File>
 			<File
@@ -3247,10 +3635,6 @@
 			</File>
 			<File
 				RelativePath="..\..\..\..\lib\curl_sasl.c"
-			>
-			</File>
-			<File
-				RelativePath="..\..\..\..\lib\curl_sasl_sspi.c"
 			>
 			</File>
 			<File
@@ -3362,7 +3746,7 @@
 			>
 			</File>
 			<File
-				RelativePath="..\..\..\..\lib\http_negotiate_sspi.c"
+				RelativePath="..\..\..\..\lib\http_ntlm.c"
 			>
 			</File>
 			<File
@@ -3486,6 +3870,10 @@
 			>
 			</File>
 			<File
+				RelativePath="..\..\..\..\lib\smb.c"
+			>
+			</File>
+			<File
 				RelativePath="..\..\..\..\lib\smtp.c"
 			>
 			</File>
@@ -3531,6 +3919,10 @@
 			</File>
 			<File
 				RelativePath="..\..\..\..\lib\strtoofft.c"
+			>
+			</File>
+			<File
+				RelativePath="..\..\..\..\lib\system_win32.c"
 			>
 			</File>
 			<File
@@ -3586,10 +3978,6 @@
 			>
 			</File>
 			<File
-				RelativePath="..\..\..\..\lib\bundles.h"
-			>
-			</File>
-			<File
 				RelativePath="..\..\..\..\lib\config-win32.h"
 			>
 			</File>
@@ -3615,6 +4003,14 @@
 			</File>
 			<File
 				RelativePath="..\..\..\..\lib\curl_base64.h"
+			>
+			</File>
+			<File
+				RelativePath="..\..\..\..\lib\curl_des.h"
+			>
+			</File>
+			<File
+				RelativePath="..\..\..\..\lib\curl_endian.h"
 			>
 			</File>
 			<File
@@ -3662,15 +4058,11 @@
 			>
 			</File>
 			<File
-				RelativePath="..\..\..\..\lib\curl_ntlm.h"
-			>
-			</File>
-			<File
-				RelativePath="..\..\..\..\lib\curl_ntlm_msgs.h"
-			>
-			</File>
-			<File
 				RelativePath="..\..\..\..\lib\curl_ntlm_wb.h"
+			>
+			</File>
+			<File
+				RelativePath="..\..\..\..\lib\curl_printf.h"
 			>
 			</File>
 			<File
@@ -3782,6 +4174,10 @@
 			>
 			</File>
 			<File
+				RelativePath="..\..\..\..\lib\http_ntlm.h"
+			>
+			</File>
+			<File
 				RelativePath="..\..\..\..\lib\http_proxy.h"
 			>
 			</File>
@@ -3882,6 +4278,10 @@
 			>
 			</File>
 			<File
+				RelativePath="..\..\..\..\lib\smb.h"
+			>
+			</File>
+			<File
 				RelativePath="..\..\..\..\lib\smtp.h"
 			>
 			</File>
@@ -3923,6 +4323,10 @@
 			</File>
 			<File
 				RelativePath="..\..\..\..\lib\strtoofft.h"
+			>
+			</File>
+			<File
+				RelativePath="..\..\..\..\lib\system_win32.h"
 			>
 			</File>
 			<File
@@ -3971,6 +4375,78 @@
 			</File>
 		</Filter>
 		<Filter
+			Name="vauth"
+			>
+			<Filter
+				Name="Source Files"
+				>
+				<File
+					RelativePath="..\..\..\..\lib\vauth\cleartext.c"
+				>
+				</File>
+				<File
+					RelativePath="..\..\..\..\lib\vauth\cram.c"
+				>
+				</File>
+				<File
+					RelativePath="..\..\..\..\lib\vauth\digest.c"
+				>
+				</File>
+				<File
+					RelativePath="..\..\..\..\lib\vauth\digest_sspi.c"
+				>
+				</File>
+				<File
+					RelativePath="..\..\..\..\lib\vauth\krb5_gssapi.c"
+				>
+				</File>
+				<File
+					RelativePath="..\..\..\..\lib\vauth\krb5_sspi.c"
+				>
+				</File>
+				<File
+					RelativePath="..\..\..\..\lib\vauth\ntlm.c"
+				>
+				</File>
+				<File
+					RelativePath="..\..\..\..\lib\vauth\ntlm_sspi.c"
+				>
+				</File>
+				<File
+					RelativePath="..\..\..\..\lib\vauth\oauth2.c"
+				>
+				</File>
+				<File
+					RelativePath="..\..\..\..\lib\vauth\spnego_gssapi.c"
+				>
+				</File>
+				<File
+					RelativePath="..\..\..\..\lib\vauth\spnego_sspi.c"
+				>
+				</File>
+				<File
+					RelativePath="..\..\..\..\lib\vauth\vauth.c"
+				>
+				</File>
+			</Filter>
+			<Filter
+				Name="Header Files"
+				>
+				<File
+					RelativePath="..\..\..\..\lib\vauth\digest.h"
+				>
+				</File>
+				<File
+					RelativePath="..\..\..\..\lib\vauth\ntlm.h"
+				>
+				</File>
+				<File
+					RelativePath="..\..\..\..\lib\vauth\vauth.h"
+				>
+				</File>
+			</Filter>
+		</Filter>
+		<Filter
 			Name="vtls"
 			>
 			<Filter
@@ -3981,15 +4457,11 @@
 				>
 				</File>
 				<File
-					RelativePath="..\..\..\..\lib\vtls\curl_darwinssl.c"
-				>
-				</File>
-				<File
-					RelativePath="..\..\..\..\lib\vtls\curl_schannel.c"
-				>
-				</File>
-				<File
 					RelativePath="..\..\..\..\lib\vtls\cyassl.c"
+				>
+				</File>
+				<File
+					RelativePath="..\..\..\..\lib\vtls\darwinssl.c"
 				>
 				</File>
 				<File
@@ -3998,6 +4470,10 @@
 				</File>
 				<File
 					RelativePath="..\..\..\..\lib\vtls\gtls.c"
+				>
+				</File>
+				<File
+					RelativePath="..\..\..\..\lib\vtls\mbedtls.c"
 				>
 				</File>
 				<File
@@ -4017,7 +4493,7 @@
 				>
 				</File>
 				<File
-					RelativePath="..\..\..\..\lib\vtls\qssl.c"
+					RelativePath="..\..\..\..\lib\vtls\schannel.c"
 				>
 				</File>
 				<File
@@ -4033,15 +4509,11 @@
 				>
 				</File>
 				<File
-					RelativePath="..\..\..\..\lib\vtls\curl_darwinssl.h"
-				>
-				</File>
-				<File
-					RelativePath="..\..\..\..\lib\vtls\curl_schannel.h"
-				>
-				</File>
-				<File
 					RelativePath="..\..\..\..\lib\vtls\cyassl.h"
+				>
+				</File>
+				<File
+					RelativePath="..\..\..\..\lib\vtls\darwinssl.h"
 				>
 				</File>
 				<File
@@ -4050,6 +4522,10 @@
 				</File>
 				<File
 					RelativePath="..\..\..\..\lib\vtls\gtls.h"
+				>
+				</File>
+				<File
+					RelativePath="..\..\..\..\lib\vtls\mbedtls.h"
 				>
 				</File>
 				<File
@@ -4069,7 +4545,7 @@
 				>
 				</File>
 				<File
-					RelativePath="..\..\..\..\lib\vtls\qssl.h"
+					RelativePath="..\..\..\..\lib\vtls\schannel.h"
 				>
 				</File>
 				<File

@@ -1,5 +1,5 @@
 /****************************************************************************
- * Copyright (c) 1998-2004,2009 Free Software Foundation, Inc.              *
+ * Copyright (c) 1998-2013,2014 Free Software Foundation, Inc.              *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -30,10 +30,11 @@
  *   Author:  Juergen Pfeifer, 1995,1997                                    *
  ****************************************************************************/
 
-/* $Id: form.h,v 0.21 2009/11/07 19:31:11 tom Exp $ */
+/* $Id: form.h,v 0.24 2014/07/26 20:52:28 tom Exp $ */
 
 #ifndef FORM_H
 #define FORM_H
+/* *INDENT-OFF*/
 
 #include <curses.h>
 #include <eti.h>
@@ -203,6 +204,7 @@ typedef void (*Form_Hook)(FORM *);
 #define O_NULLOK		(0x0080U)
 #define O_PASSOK		(0x0100U)
 #define O_STATIC		(0x0200U)
+#define O_DYNAMIC_JUSTIFY	(0x0400U)	/* ncurses extension	*/
 
 /* form options */
 #define O_NL_OVERLOAD		(0x0001U)
@@ -396,6 +398,9 @@ extern NCURSES_EXPORT(int)	post_form (FORM *);
 extern NCURSES_EXPORT(int)	unpost_form (FORM *);
 extern NCURSES_EXPORT(int)	pos_form_cursor (FORM *);
 extern NCURSES_EXPORT(int)	form_driver (FORM *,int);
+# if NCURSES_WIDECHAR
+extern NCURSES_EXPORT(int)	form_driver_w (FORM *,int,wchar_t);
+# endif
 extern NCURSES_EXPORT(int)	set_form_userptr (FORM *,void *);
 extern NCURSES_EXPORT(int)	set_form_opts (FORM *,Form_Options);
 extern NCURSES_EXPORT(int)	form_opts_on (FORM *,Form_Options);
@@ -418,5 +423,6 @@ extern NCURSES_EXPORT(FORM *)	NCURSES_SP_NAME(new_form) (SCREEN*, FIELD **);
 #ifdef __cplusplus
   }
 #endif
+/* *INDENT-ON*/
 
-#endif	/* FORM_H */
+#endif /* FORM_H */

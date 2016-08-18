@@ -1,0 +1,51 @@
+# /etc/apparmor.d/abstractions/spawn-fcgi
+#
+# a (nested) spawn-fcgi profile should include this abstraction
+# and a rule to execute the FastCGI application itself
+#
+# Example for runit (or daemontools) service "foo" starting php:
+#
+# #include <tunables/global>
+# /etc/sv/foo/run {
+#   #include <abstractions/base>
+#   /bin/dash ix,
+#   /etc/sv/foo/run r,
+#
+#   # spawn-fcgi + alternatives handling in debian
+#   /usr/bin/spawn-fcgi* px -> /etc/sv/foo/run//spawn-fcgi,
+#
+#   profile spawn-fcgi {
+#     #include <abstractions/spawn-fcgi>
+#     /usr/bin/php5-cgi px -> /etc/sv/foo/run//php,
+#   }
+#
+#   profile php {
+#     #include <abstractions/base>
+#     #include <abstractions/php5>
+#     /var/www/** r,
+#   }
+# }
+
+
+#include <abstractions/base>
+#include <abstractions/nameservice>
+
+capability net_bind_service,
+capability setgid,
+capability setuid,
+capability chown,
+capability dac_override,
+
+network inet  stream,
+network inet6 stream,
+network inet  dgram,
+network inet6 dgram,
+
+# if the binary is compiled with hardening options it might try to make a
+# previously writable mmapped area readonly (RELRO, mprotect PROT_READ), which
+# requires additional permissions in AppArmor.
+# more permissions -> more secure, obviously.
+# again match standard location + debian alternatives:
+/usr/bin/spawn-fcgi* r,
+
+/{,var/}run/*.sock rw,

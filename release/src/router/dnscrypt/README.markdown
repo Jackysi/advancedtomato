@@ -1,7 +1,7 @@
 [![Build Status](https://travis-ci.org/jedisct1/dnscrypt-proxy.png?branch=master)](https://travis-ci.org/jedisct1/dnscrypt-proxy?branch=master)
 
-[DNSCrypt](http://dnscrypt.org)
-===============================
+[![DNSCrypt](https://raw.github.com/jedisct1/dnscrypt-proxy/master/dnscrypt-small.png)](https://dnscrypt.org)
+============
 
 A protocol for securing communications between a client and a DNS resolver.
 
@@ -29,7 +29,7 @@ your local resolver or as a DNS forwarder, authenticating requests
 using the DNSCrypt protocol and passing them to an upstream server.
 
 The DNSCrypt protocol uses high-speed high-security elliptic-curve
-cryptography and is very similar to [DNSCurve](http://dnscurve.org/),
+cryptography and is very similar to [DNSCurve](https://dnscurve.org/),
 but focuses on securing communications between a client and its first-level
 resolver.
 
@@ -41,26 +41,23 @@ Download and integrity check
 ----------------------------
 
 dnscrypt-proxy can be downloaded here:
-[dnscrypt-proxy download](http://download.dnscrypt.org/dnscrypt-proxy/)
+[dnscrypt-proxy download](https://download.dnscrypt.org/dnscrypt-proxy/)
 
-Note: dnscrypt.org is now blocked by the Great Firewall of China. But
-the site can be accessed at dnscrypt.bit instead (requires a resolver
-with Namecoin support). Or if your current DNS resolver doesn't
-support Namecoin yet, the source code can also be downloaded on
-Github, in the "releases" section.
+Note: dnscrypt.org is now blocked by the Great Firewall of China. But the
+source code can also be downloaded on Github, in the "releases" section.
 
 After having downloaded a file, compute its SHA256 digest. For example:
 
-    $ openssl dgst -sha256 dnscrypt-proxy-1.5.0.tar.bz2
+    $ openssl dgst -sha256 dnscrypt-proxy-1.6.1.tar.bz2
 
 Verify this digest against the expected one, that can be retrieved
 using a simple DNS query:
 
-    $ drill -D TXT dnscrypt-proxy-1.5.0.tar.bz2.download.dnscrypt.org
+    $ drill -D TXT dnscrypt-proxy-1.6.1.tar.bz2.download.dnscrypt.org
 
 or
 
-    $ dig +dnssec TXT dnscrypt-proxy-1.5.0.tar.bz2.download.dnscrypt.org
+    $ dig +dnssec TXT dnscrypt-proxy-1.6.1.tar.bz2.download.dnscrypt.org
 
 If the content of the TXT record doesn't match the SHA256 digest you
 computed, please file a bug report on Github as soon as possible and
@@ -121,7 +118,7 @@ Easily enable/disable DNSCrypt on multiple adapters. Supports
 different ports and protocols, IPv6, parental controls and the proxy
 can act as a gateway service. Windows only, written in .NET.
 
-- [DNSCrypt Windows Service Manager](http://simonclausen.dk/projects/dnscrypt-winservicemgr/):
+- [DNSCrypt Windows Service Manager](https://simonclausen.dk/projects/dnscrypt-winservicemgr/):
 Assists in setting up DNSCrypt as a service, configure it and change network adapter DNS
 settings to use DNSCrypt. It includes the option to use TCP/UDP protocol, IPV4/IPV6
 connectivity, choice of network adapter to configure, as well as configurations for currently
@@ -130,7 +127,7 @@ available DNSCrypt providers.
 - [DNSCrypt OSXClient](https://github.com/alterstep/dnscrypt-osxclient):
 Mac OSX application to control the DNSCrypt Proxy.
 
-- [DNSCrypt Tools for Linux](http://opendesktop.org/content/show.php/DNScrypt+Tools?content=164488):
+- [DNSCrypt Tools for Linux](https://opendesktop.org/content/show.php/DNScrypt+Tools?content=164488):
 A set of tools for `dnscrypt-proxy`. Features a start and stop button as well as options to enable
 or disable from startup. Developed for Porteus Linux.
 
@@ -239,7 +236,7 @@ queries will **not** be cached and every single query will require a
 round-trip to the upstream resolver.
 
 For optimal performance, the recommended way of running DNSCrypt is to
-run it as a forwarder for a local DNS cache, like `unbound` or
+run it as a forwarder for a local DNS cache, such as `unbound` or
 `powerdns-recursor`.
 
 Both can safely run on the same machine as long as they are listening
@@ -324,7 +321,7 @@ known by the DNS service provider.
 
 Versions 1 and 2 of the DNSCrypt protocol use Curve25519 keys, and the
 format of this file for Curve25519 keys is a hexadecimal string, with
-optional :, [space] and - delimiters, decoding to 34 bytes:
+optional `:`, `[space]` and `-` delimiters, decoding to 34 bytes:
 
     01 01 || 32-byte Curve25519 secret key
 
@@ -350,7 +347,11 @@ default, a conservative payload size of 1252 bytes is advertised.
 
 This size can be made larger by starting the proxy with the
 `--edns-payload-size=<bytes>` command-line switch. Values up to 4096
-are usually safe.
+are usually safe, but some routers/firewall/NAT boxes block IP fragments.
+
+If you can resolve `test-tcp.dnscrypt.org`, increasing the maximum
+payload size is probably fine. If you can't, or just to stay on the
+safe side, do not tweak this; stick to the default value.
 
 A value below or equal to 512 will disable this mechanism, unless a
 client sends a packet with an OPT section providing a payload size.

@@ -4,7 +4,7 @@
  *******************************************************************/
 
 #ifndef DROPBEAR_VERSION
-#define DROPBEAR_VERSION "2016.73"
+#define DROPBEAR_VERSION "2016.74"
 #endif
 
 #define LOCAL_IDENT "SSH-2.0-dropbear_" DROPBEAR_VERSION
@@ -272,7 +272,7 @@
  * Currently server is enabled but client is disabled by default until there
  * is further compatibility testing */
 #ifdef __linux__
-#define DROPBEAR_SERVER_TCP_FAST_OPEN
+/* #define DROPBEAR_SERVER_TCP_FAST_OPEN */
 /* #define DROPBEAR_CLIENT_TCP_FAST_OPEN */
 #endif
 
