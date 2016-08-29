@@ -478,7 +478,7 @@ struct nvram_tuple router_defaults[] = {
 
 // advanced-wireless
 	{ "wl_txant",			"3"				, 0 },
-	{ "wl_txpwr",			"42"				, 0 },
+	{ "wl_txpwr",			"0"				, 0 },
 	{ "wl_maxassoc",		"128"				, 0 },	// Max associations driver could support
 	{ "wl_bss_maxassoc",		"128"				, 0 },
 	{ "wl_distance",		""				, 0 },
