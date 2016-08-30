@@ -20,7 +20,7 @@
 	March 2015 Tvlz
 	https://bitbucket.org/tvlz/tvlz-advanced-vlan/
 
-	** Last Updated - Aug 10 2016 - Tvlz **
+	** Last Updated - Aug 16 2016 - Tvlz **
 
 	For use with Tomato Firmware only.
 	No part of this file may be used without permission.
@@ -102,6 +102,7 @@ switch(nvram['t_model_name']) {
 	case 'Asus RT-AC3200':
 	case 'Huawei WS880':
 	case 'Linksys EA6900':
+	case 'Netgear R6400':
 	case 'Netgear R7000':
 		COL_P0N = '1';
 		COL_P1N = '2';
@@ -291,7 +292,6 @@ REMOVE-END */
 //        'lan3_ifnames=' + fom['lan3_ifnames'].value);
 REMOVE-END */
 
-//  fom['manual_boot_nv'].value = nvram['manual_boot_nv']; //Prevent vlan reset to default
   fom['manual_boot_nv'].value = 1 //Prevent vlan reset to default
 
   var e = E('footer-msg');
@@ -470,7 +470,6 @@ REMOVE-END */
     return this.countElem(COL_BRI,7);
   }
 
-
   vlg.countLan = function(l)
   {
     return this.countElem(COL_BRI,l+3);
@@ -601,7 +600,6 @@ REMOVE-END */
     } else {
       ferror.clear(f[COL_BRI]);
     }
-
 
     for(var i=0; i<4; i++) {
       if ((this.countLan(i) > 0) && (f[COL_BRI].selectedIndex == (i+2))) {
