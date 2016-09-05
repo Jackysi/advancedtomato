@@ -64,7 +64,7 @@ static struct VifDesc {
 ** returns: - 0 if the functions succeeds     
 **          - the errno value for non-fatal failure condition
 */
-int enableMRouter(void)
+int enableMRouter()
 {
     int Va = 1;
 
@@ -82,7 +82,7 @@ int enableMRouter(void)
 ** Diables the mrouted API and relases by this the lock.
 **          
 */
-void disableMRouter(void)
+void disableMRouter()
 {
     if ( setsockopt( MRouterFD, IPPROTO_IP, MRT_DONE, NULL, 0 ) 
          || close( MRouterFD )
@@ -95,28 +95,6 @@ void disableMRouter(void)
 }
 
 /*
- * aimwang: delVIF()
- */
-void delVIF( struct IfDesc *IfDp )
-{
-    struct vifctl VifCtl;
-
-	if (-1 == IfDp->index)
-		return;
-
-    VifCtl.vifc_vifi = IfDp->index;
-    
-    my_log( LOG_NOTICE, 0, "removing VIF, Ix %d Fl 0x%x IP 0x%08x %s, Threshold: %d, Ratelimit: %d", 
-         IfDp->index, IfDp->Flags, IfDp->InAdr.s_addr, IfDp->Name, IfDp->threshold, IfDp->ratelimit);
-
-    if ( setsockopt( MRouterFD, IPPROTO_IP, MRT_DEL_VIF,
-                     (char *)&VifCtl, sizeof( VifCtl ) ) )
-        my_log( LOG_WARNING, errno, "MRT_DEL_VIF" );
-}
-
-
-
-/*
 ** Adds the interface '*IfDp' as virtual interface to the mrouted API
 ** 
 */
@@ -125,10 +103,10 @@ void addVIF( struct IfDesc *IfDp )
     struct vifctl VifCtl;
     struct VifDesc *VifDp;
 
-    /* search free (aimwang: or exist) VifDesc
+    /* search free VifDesc
      */
     for ( VifDp = VifDescVc; VifDp < VCEP( VifDescVc ); VifDp++ ) {
-        if ( ! VifDp->IfDp || VifDp->IfDp == IfDp)
+        if ( ! VifDp->IfDp )
             break;
     }
 

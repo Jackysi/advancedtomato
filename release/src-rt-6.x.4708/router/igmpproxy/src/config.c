@@ -61,14 +61,14 @@ struct vifconfig*   vifconf;
 static struct Config commonConfig;
 
 // Prototypes...
-struct vifconfig *parsePhyintToken(void);
+struct vifconfig *parsePhyintToken();
 struct SubnetList *parseSubnetAddress(char *addrstr);
 
 
 /**
 *   Initializes common config..
 */
-static void initCommonConfig(void) {
+void initCommonConfig() {
     commonConfig.robustnessValue = DEFAULT_ROBUSTNESS;
     commonConfig.queryInterval = INTERVAL_QUERY;
     commonConfig.queryResponseInterval = INTERVAL_QUERY_RESPONSE;
@@ -83,17 +83,13 @@ static void initCommonConfig(void) {
 
     // If 1, a leave message is sent upstream on leave messages from downstream.
     commonConfig.fastUpstreamLeave = 0;
-    
-    // aimwang: default value
-    commonConfig.defaultInterfaceState = IF_STATE_DISABLED;
-    commonConfig.rescanVif = 0;
 
 }
 
 /**
 *   Returns a pointer to the common config...
 */
-struct Config *getCommonConfig(void) {
+struct Config *getCommonConfig() {
     return &commonConfig;
 }
 
@@ -154,24 +150,6 @@ int loadConfig(char *configFile) {
             // Read next token...
             token = nextConfigToken();
             continue;
-        }
-        else if(strcmp("defaultdown", token)==0) {
-	    // Got a defaultdown token...
-	    my_log(LOG_DEBUG, 0, "Config: interface Default as down stream.");
-	    commonConfig.defaultInterfaceState = IF_STATE_DOWNSTREAM;
-
-            // Read next token...
-            token = nextConfigToken();
-            continue;
-        }
-        else if(strcmp("rescanvif", token)==0) {
-	    // Got a defaultdown token...
-	    my_log(LOG_DEBUG, 0, "Config: Need detect new interace.");
-	    commonConfig.rescanVif = 1;
-
-            // Read next token...
-            token = nextConfigToken();
-            continue;
         } else {
             // Unparsable token... Exit...
             closeConfigFile();
@@ -191,7 +169,7 @@ int loadConfig(char *configFile) {
 /**
 *   Appends extra VIF configuration from config file.
 */
-void configureVifs(void) {
+void configureVifs() {
     unsigned Ix;
     struct IfDesc *Dp;
     struct vifconfig *confPtr;
@@ -240,7 +218,7 @@ void configureVifs(void) {
 /**
 *   Internal function to parse phyint config
 */
-struct vifconfig *parsePhyintToken(void) {
+struct vifconfig *parsePhyintToken() {
     struct vifconfig  *tmpPtr;
     struct SubnetList **anetPtr, **agrpPtr;
     char *token;
@@ -264,7 +242,7 @@ struct vifconfig *parsePhyintToken(void) {
     tmpPtr->next = NULL;    // Important to avoid seg fault...
     tmpPtr->ratelimit = 0;
     tmpPtr->threshold = 1;
-    tmpPtr->state = commonConfig.defaultInterfaceState;
+    tmpPtr->state = IF_STATE_DOWNSTREAM;
     tmpPtr->allowednets = NULL;
     tmpPtr->allowedgroups = NULL;
 
@@ -385,10 +363,10 @@ struct SubnetList *parseSubnetAddress(char *addrstr) {
             return NULL;
         }
 
-        if (bitcnt == 0)
-            mask = 0;
-        else
-            mask <<= (32 - bitcnt);
+	if (bitcnt == 0)
+	    mask = 0;
+	else
+    	    mask <<= (32 - bitcnt);
     }
 
     if(addr == -1) {

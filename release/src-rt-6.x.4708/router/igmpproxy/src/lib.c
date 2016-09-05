@@ -61,9 +61,9 @@ char *fmtInAdr( char *St, struct in_addr InAdr ) {
  * Convert an IP address in u_long (network) format into a printable string.
  */
 char *inetFmt(uint32_t addr, char *s) {
-    register unsigned char *a;
+    register u_char *a;
 
-    a = (unsigned char *)&addr;
+    a = (u_char *)&addr;
     sprintf(s, "%u.%u.%u.%u", a[0], a[1], a[2], a[3]);
     return(s);
 }
@@ -74,15 +74,15 @@ char *inetFmt(uint32_t addr, char *s) {
  * string including the netmask as a number of bits.
  */
 char *inetFmts(uint32_t addr, uint32_t mask, char *s) {
-    register unsigned char *a, *m;
+    register u_char *a, *m;
     int bits;
 
     if ((addr == 0) && (mask == 0)) {
         sprintf(s, "default");
         return(s);
     }
-    a = (unsigned char *)&addr;
-    m = (unsigned char *)&mask;
+    a = (u_char *)&addr;
+    m = (u_char *)&mask;
     bits = 33 - ffs(ntohl(mask));
 
     if (m[3] != 0) sprintf(s, "%u.%u.%u.%u/%d", a[0], a[1], a[2], a[3],
