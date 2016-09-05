@@ -52,14 +52,14 @@ static void debugQueue(void);
 /**
 *   Initializes the callout queue
 */
-void callout_init(void) {
+void callout_init() {
     queue = NULL;
 }
 
 /**
 *   Clears all scheduled timeouts...
 */
-void free_all_callouts(void) {
+void free_all_callouts() {
     struct timeOutQueue *p;
 
     while (queue) {
@@ -111,7 +111,7 @@ void age_callout_queue(int elapsed_time) {
  * Return in how many seconds age_callout_queue() would like to be called.
  * Return -1 if there are no events pending.
  */
-int timer_nextTimer(void) {
+int timer_nextTimer() {
     if (queue) {
         if (queue->time < 0) {
             my_log(LOG_WARNING, 0, "timer_nextTimer top of queue says %d", 
@@ -259,7 +259,7 @@ int timer_clearTimer(int  timer_id) {
 /**
  * debugging utility
  */
-static void debugQueue(void) {
+static void debugQueue() {
     struct timeOutQueue  *ptr;
 
     for (ptr = queue; ptr; ptr = ptr->next) {

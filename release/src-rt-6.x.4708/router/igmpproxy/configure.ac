@@ -7,11 +7,10 @@ AC_PROG_CC_C99
 
 AC_CANONICAL_HOST
 case $host_os in
-	linux*|uclinux*) os=linux;;
+	linux*) os=linux;;
 	freebsd*) os=freebsd;;
 	netbsd*) os=netbsd;;
 	openbsd*) os=openbsd;;
-	nto*) os=qnxnto;;
 	dragonfly*) os=dragonfly;;
 	*) AC_MSG_ERROR([OS $host_os is not supported]);;
 esac
@@ -25,10 +24,6 @@ AC_CHECK_MEMBERS([struct sockaddr_in.sin_len], [], [], [[
 #include <sys/types.h>
 #include <netinet/in.h>
 ]])
-
-AC_SEARCH_LIBS(socket, socket)
-
-AC_SEARCH_LIBS([clock_gettime],[rt])
 
 AC_CONFIG_FILES([
 	Makefile
