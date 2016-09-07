@@ -497,7 +497,7 @@ const defaults_t defaults[] = {
 
 // advanced-wireless
 	{ "wl_txant",			"3"				},
-	{ "wl_txpwr",			"42"			},
+	{ "wl_txpwr",			"0"			},
 	{ "wl_maxassoc",		"128"			},	// Max associations driver could support
 	{ "wl_bss_maxassoc",		"128"			},
 	{ "wl_distance",		""				},

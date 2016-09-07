@@ -1049,6 +1049,14 @@ else
 	@$(MAKE) bin OPENVPN=y USERPPTP=y PPTPD=y BBEXTRAS=y USBEXTRAS=y NTFS=y B=E BUILD_DESC="VPN" USB="USB" SNMP=y TCPDUMP="$(TCPDUMP)"
 endif
 
+## Make the "small + VPN" build
+es:
+ifeq ($(CONFIG_LINUX26),y)
+	@$(MAKE) bin OPENVPN=y USERPPTP=y PPTPD=y MEDIASRV=y IPV6SUPP=y B=ES BUILD_DESC="SmallVPN" USB="USB"
+else
+	@$(MAKE) bin OPENVPN=y USERPPTP=y PPTPD=y B=ES BUILD_DESC="SmallVPN" USB="USB"
+endif
+
 ## Make the "Mini: no USB, no CIFS, no Zebra" build - targeted for Netgear routers
 f:
 	@$(MAKE) bin JFFSv1=y NO_CIFS=y NO_SSH=y NO_ZEBRA=y SLIM=y B=F BUILD_DESC="Mini" USB=""
@@ -1146,6 +1154,9 @@ r2d:
 r2e:
 	@$(MAKE) e MIPS32=r2
 
+r2es:
+	@$(MAKE) es MIPS32=r2
+
 r2f:
 	@$(MAKE) f MIPS32=r2
 
@@ -1170,8 +1181,11 @@ r2n:
 r2nc:
 	@$(MAKE) nc MIPS32=r2
 
-r2r:
-	@$(MAKE) r MIPS32=r2
+r2ncm:
+	@$(MAKE) ncm MIPS32=r2
+
+r2ncs:
+	@$(MAKE) ncs MIPS32=r2
 
 r2s:
 	@$(MAKE) s MIPS32=r2
@@ -1425,9 +1439,13 @@ ifeq ($(CONFIG_LINUX26),y)
 	@echo "r2c          MIPS Release 2 C build (standard minus CIFS)"
 	@echo "r2d          MIPS Release 2 D build (standard minus Samba server)"
 	@echo "r2e          MIPS Release 2 E build (standard plus VPN and extras)"
+	@echo "r2es         MIPS Release 2 E build (small plus VPN)"
 	@echo "r2f          MIPS Release 2 F build (no USB support minus CIFS, RIPv1/2)"
 	@echo "r2fs         MIPS Release 2 FS build (no USB support minus JFFS, CIFS, RIPv1/2, Zebra)"
 	@echo "r2i          MIPS Release 2 I build (IPv6 with no USB support minus CIFS and RIPv1/2)"
+	@echo "r2f          MIPS Release 2 F build (no USB minus CIFS, RIPv1/2)"
+	@echo "r2fs         MIPS Release 2 FS build (no USB minus JFFS, CIFS, RIPv1/2, Zebra) + F5D8235v3, F7D301/2, F7D4302"
+	@echo "r2i          MIPS Release 2 I build (IPv6 no USB minus CIFS and RIPv1/2)"
 	@echo "r2m          MIPS Release 2 M build (standard plus extras)"
 	@echo "r2nc         MIPS Release 2 NC build (standard plus VPN, extras and NOCAT)"
 	@echo "r2ncm        MIPS Release 2 NCM build (no USB support, plus NOCAT)"
