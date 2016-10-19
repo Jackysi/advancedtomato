@@ -196,10 +196,6 @@ function save() {
   fom['lan2_ifnames'].value = '';
   fom['lan3_ifnames'].value = '';
   fom['wan2_ifnameX'].value = '';
-/* MULTIWAN-BEGIN */
-  fom['wan3_ifnameX'].value = '';
-  fom['wan4_ifnameX'].value = '';
-/* MULTIWAN-END */
 
   var v = '';
   var d = vlg.getAllData();
@@ -249,10 +245,6 @@ REMOVE-END */
     fom['lan2_ifnames'].value += (d[i][COL_BRI] == '5') ? 'vlan'+d[i][0] : '';
     fom['lan3_ifnames'].value += (d[i][COL_BRI] == '6') ? 'vlan'+d[i][0] : '';
     fom['wan2_ifnameX'].value += (d[i][COL_BRI] == '7') ? 'vlan'+d[i][0] : '';
-/* MULTIWAN-BEGIN */
-    fom['wan3_ifnameX'].value += (d[i][COL_BRI] == '8') ? 'vlan'+d[i][0] : '';
-    fom['wan4_ifnameX'].value += (d[i][COL_BRI] == '9') ? 'vlan'+d[i][0] : '';
-/* MULTIWAN-END */
   }
 
   for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
@@ -353,9 +345,6 @@ if(port_vlan_supported) { // aka if(supported_hardware) block
     { type: 'checkbox', prefix: '<div class="centered">', suffix: '</div>' },
     { type: 'checkbox', prefix: '<div class="centered">', suffix: '</div>' },
     { type: 'select', options: [[1, 'none'],[2, 'WAN'],[3, 'LAN (br0)'],[4, 'LAN1 (br1)'],[5, 'LAN2 (br2)'],[6, 'LAN3 (br3)'],[7, 'WAN2'],
-/* MULTIWAN-BEGIN */
-				[8, 'WAN3'],[9, 'WAN4']
-/* MULTIWAN-END */
 			       ], prefix: '<div class="centered">', suffix: '</div>' }]);
 
     this.headerSet(['VLAN', 'VID', 'Port 1', 'Tagged', 'Port 2', 'Tagged', 'Port 3', 'Tagged', 'Port 4', 'Tagged', 'WAN Port', 'Tagged', 'Default', 'Bridge']);
@@ -404,10 +393,6 @@ REMOVE-END */
 // WAN port
     bridged[parseInt(nvram['wan_ifnameX'].replace('vlan',''))] = '2';
     bridged[parseInt(nvram['wan2_ifnameX'].replace('vlan',''))] = '7';
-/* MULTIWAN-BEGIN */
-    bridged[parseInt(nvram['wan3_ifnameX'].replace('vlan',''))] = '8';
-    bridged[parseInt(nvram['wan4_ifnameX'].replace('vlan',''))] = '9';
-/* MULTIWAN-END */
 
 // go thru all possible VLANs
     for (var i = 0 ; i <= MAX_VLAN_ID ; i++) {
@@ -474,17 +459,6 @@ REMOVE-END */
     return this.countElem(COL_BRI,7);
   }
 
-/* MULTIWAN-BEGIN */
-  vlg.countWan3 = function()
-  {
-    return this.countElem(COL_BRI,8);
-  }
-
-  vlg.countWan4 = function()
-  {
-    return this.countElem(COL_BRI,9);
-  }
-/* MULTIWAN-END */
 
   vlg.countLan = function(l)
   {
@@ -616,22 +590,6 @@ REMOVE-END */
       ferror.clear(f[COL_BRI]);
     }
 
-/* MULTIWAN-BEGIN */
-    if ((this.countWan3() > 0) && (f[COL_BRI].selectedIndex == 7)) {
-      ferror.set(f[COL_BRI],'Only one VID can be used as WAN3 at any time', quiet);
-      valid = 0;
-    } else {
-      ferror.clear(f[COL_BRI]);
-    }
-
-    if ((this.countWan4() > 0) && (f[COL_BRI].selectedIndex == 8)) {
-      ferror.set(f[COL_BRI],'Only one VID can be used as WAN4 at any time', quiet);
-      valid = 0;
-    } else {
-      ferror.clear(f[COL_BRI]);
-    }
-/* MULTIWAN-END */
-
     for(var i=0; i<4; i++) {
       if ((this.countLan(i) > 0) && (f[COL_BRI].selectedIndex == (i+2))) {
         ferror.set(f[COL_BRI],'One and only one VID can be used for LAN' + ((i==0) ? '' : i ) + ' (br'+i+') at any time', quiet);
@@ -659,9 +617,6 @@ REMOVE-END */
     (data[COL_P4T].toString() != '0') ? 'On' : '',
     (data[COL_VID_DEF].toString() != '0') ? '*' : '',
     ['', 'WAN', 'LAN (br0)', 'LAN1 (br1)', 'LAN2 (br2)', 'LAN3 (br3)', 'WAN2'
-/* MULTIWAN-BEGIN */
-	, 'WAN3', 'WAN4'
-/* MULTIWAN-END */
     ][data[COL_BRI] - 1]];
   }
 
@@ -890,10 +845,6 @@ function earlyInit() {
 <input type='hidden' name='vlan15hwname'>
 <input type='hidden' name='wan_ifnameX'>
 <input type='hidden' name='wan2_ifnameX'>
-<!-- MULTIWAN-BEGIN -->
-<input type='hidden' name='wan3_ifnameX'>
-<input type='hidden' name='wan4_ifnameX'>
-<!-- MULTIWAN-END -->
 <input type='hidden' name='manual_boot_nv'>
 <input type='hidden' name='lan_ifnames'>
 <input type='hidden' name='lan1_ifnames'>
