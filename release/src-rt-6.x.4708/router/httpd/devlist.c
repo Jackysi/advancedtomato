@@ -128,7 +128,7 @@ static int get_wl_clients(int idx, int unit, int subunit, void *param)
 						if (get_wds_ifname(&rssi.ea, ifname)) p = ifname;
 					}
 
-					web_printf("%c['%s','%s',%d,%u,%u,%u,%d]",
+					web_printf("%c['%s','%s',%d,%d,%d,%u,%d]",
 						*comma,
 						p,
 						ether_etoa(rssi.ea.octet, buf),
