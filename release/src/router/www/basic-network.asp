@@ -466,7 +466,7 @@ function refreshChannels(uidx)
 			max_channel[uidx] = 0;
 			for (i = 0; i < wl_channels.length; ++i) {
 				ghz[uidx].push([wl_channels[i][0] + '',
-					(wl_channels[i][0]) ? ((wl_channels[i][1]) ? wl_channels[i][0] + ' - ' + (wl_channels[i][1] / 1000.0).toFixed(3) + ' GHz' : wl_channels[i][0] + '') : 'Auto']);
+					(wl_channels[i][0]) ? ((wl_channels[i][1]) ? wl_channels[i][0] + ' - ' + (wl_channels[i][1] / 1000.0).toFixed(3) + ' GHz' : wl_channels[i][0] + '') : 'Auto (deprecated)']);
 				max_channel[uidx] = wl_channels[i][0] * 1;
 			}
 
