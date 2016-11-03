@@ -376,6 +376,7 @@ int get_model(void)
 		if ((nvram_match("boardtype","0xF646")) && (nvram_match("boardnum", "01"))) return MODEL_EA6700;
 		if ((nvram_match("boardtype","0xF646")) && (nvram_match("boardnum", "00"))) return MODEL_WZR1750;
 		if ((nvram_match("boardtype","0xD646")) && (nvram_match("boardrev", "0x1100"))) return MODEL_EA6900;
+		if ((nvram_match("boardrev", "0x1100")) && (nvram_match("1:boardnum", "AC155g"))) return MODEL_AC15;//Fallback to Tenda AC15
 	}
 #endif
 	switch (strtoul(nvram_safe_get("boardnum"), NULL, 0)) {

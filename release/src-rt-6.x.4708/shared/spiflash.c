@@ -318,6 +318,8 @@ mspi_writeread_continue(osl_t *osh, qspiregs_t *qspi, unsigned char *w_buf,
 #define NUMONYXPART         0x20
 /* Macronix manufacturer ID */
 #define MACRONIXPART        0xC2
+/* GigaDevice manufacturer ID */
+#define GIGADEVICEPART      0xC8
 
 /* JEDEC device ID */
 #define ID_M25P64           0x17
@@ -381,7 +383,7 @@ mspi_read_id(osl_t *osh, qspiregs_t *qspi)
 	cmd[2] = 0;
 	cmd[3] = 0;
 	if (mspi_writeread(osh, qspi, cmd, 4, data, 2)) {
-		if (data[0] == SSTPART || data[0] == NXPART) {
+		if (data[0] == SSTPART || data[0] == NXPART || data[0] == GIGADEVICEPART) {
 			return NTOS(data);
 		}
 	}
@@ -402,7 +404,7 @@ mspi_read_id(osl_t *osh, qspiregs_t *qspi)
 		}
 
 		if ((data[0] == NUMONYXPART) || (data[0] == SPANPART) ||
-		    (data[0] == EONPART) || (data[0] == MACRONIXPART)) {
+		    (data[0] == EONPART) || (data[0] == MACRONIXPART || data[0] == GIGADEVICEPART)) {
 			data[1] = data[2];
 			return NTOS(data);
 		}
@@ -734,6 +736,7 @@ spiflash_init(si_t *sih)
 	switch (vendor_id) {
 	case SPANPART:
 	case MACRONIXPART:
+	case GIGADEVICEPART:
 	case NUMONYXPART:
 	case NXPART:
 		/* ST compatible */
@@ -741,10 +744,13 @@ spiflash_init(si_t *sih)
 			name = "ST compatible";
 		else if (vendor_id == MACRONIXPART)
 			name = "ST compatible (Marconix)";
+		else if (vendor_id == GIGADEVICEPART)
+			name = "ST compatible (GigaDevice)";
 		else if (vendor_id == NXPART)
 			name = "ST compatible (Winbond/NexFlash)";
 		else
 			name = "ST compatible (Micron)";
+		printk(KERN_INFO "spiflash: name: %s\n",name);
 
 		spiflash.type = QSPIFLASH_ST;
 		spiflash.blocksize = 64 * 1024;

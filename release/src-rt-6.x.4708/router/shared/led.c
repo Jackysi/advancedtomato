@@ -225,6 +225,7 @@ int do_led(int which, int mode)
 	static int r6300v2[]    = {  11, 255,    10,  255,  255,    1,  255,     8,   8,  255};
 	static int r6400[]      = {   9,  -2,   255,  255,  255,  -11,  255,    12,  13,    8};
 	static int r7000[]      = {  13, 255,   255,  255,  255,  -15,  255,   -17, -18,   12};
+	static int ac15[]       = { 255,  -0,   255,  255,  255,   -6,  255,   -14, 255,   -2};
 	static int dir868[]     = { 255, 255,     3,  255,  255,   -0,  255,   255, 255,  255};
 	static int ea6700[]     = { 255, 255,    -6,   -6,  255,  255,  255,   255, 255,  255};
 	static int ea6900[]     = { 255, 255,     8,  255,  255,    6,  255,   255, 255,  255};
@@ -475,6 +476,9 @@ int do_led(int which, int mode)
 			c = (mode) ? 3 : 2;
 		} else
 			b = r7000[which];
+		break;
+	case MODEL_AC15:
+		b = ac15[which];
 		break;
 	case MODEL_DIR868L:
 		if (which == LED_DIAG) {

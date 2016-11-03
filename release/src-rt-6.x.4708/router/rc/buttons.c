@@ -36,6 +36,8 @@ int buttons_main(int argc, char *argv[])
 	uint32_t ses_pushed;
 	uint32_t reset_mask;
 	uint32_t reset_pushed;
+	uint32_t wlan_mask;
+	uint32_t wlan_pushed;
 	uint32_t brau_mask;
 	uint32_t brau_state;
 	int brau_count_stable;
@@ -47,6 +49,7 @@ int buttons_main(int argc, char *argv[])
 	int ses_led;
 
 	ses_mask = ses_pushed = 0;
+	wlan_mask = wlan_pushed = 0;
 	reset_pushed = 0;
 	brau_mask = 0;
 	brau_state = ~0;
@@ -192,6 +195,12 @@ int buttons_main(int argc, char *argv[])
 		ses_mask = 1 << 7;
 		ses_led = LED_AOSS;
 		break;
+	case MODEL_AC15:
+		reset_mask = 1 << 11;
+		ses_mask = 1 << 7;
+		wlan_mask = 1 << 15;
+		ses_led = LED_AOSS;
+		break;
 	case MODEL_WS880:
 		reset_mask = 1 << 2;
 		ses_mask = 1 << 3;
@@ -333,10 +342,11 @@ int buttons_main(int argc, char *argv[])
 		}
 		break;
 	}
-	mask = reset_mask | ses_mask | brau_mask;
+	mask = reset_mask | ses_mask | wlan_mask | brau_mask;
 
 #ifdef DEBUG_TEST
 	cprintf("reset_mask=0x%X reset_pushed=0x%X\n", reset_mask, reset_pushed);
+	cprintf("wlan_mask=0x%X wlan_pushed=0x%X\n", wlan_mask, wlan_pushed);
 	cprintf("ses_mask=0x%X\n", ses_mask);
 	cprintf("brau_mask=0x%X\n", brau_mask);
 	cprintf("ses_led=%d\n", ses_led);
@@ -452,6 +462,25 @@ int buttons_main(int argc, char *argv[])
 #endif
 
 			}
+		}
+
+		if ((wlan_mask) && ((gpio & wlan_mask) == wlan_pushed)) {
+			count = 0;
+			do {
+				//	syslog(LOG_DEBUG, "wlan-pushed: gpio=x%X, pushed=x%X, mask=x%X, count=%d", gpio, wlan_pushed, wlan_mask, count);
+
+				led(ses_led, LED_ON);
+				usleep(500000);
+				led(ses_led, LED_OFF);
+				usleep(500000);
+				++count;
+			} while (((gpio = _gpio_read(gf)) != ~0) && ((gpio & wlan_mask) == wlan_pushed));
+			gpio &= mask;
+
+			//	syslog(LOG_DEBUG, "wlan-released: gpio=x%X, pushed=x%X, mask=x%X, count=%d", gpio, wlan_pushed, wlan_mask, count);
+			syslog(LOG_INFO, "WLAN pushed. Count was %d.", count);
+			nvram_set("rrules_radio", "-1");
+			eval("radio", "toggle");
 		}
 
 		if (brau_mask) {

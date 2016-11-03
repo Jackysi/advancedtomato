@@ -586,6 +586,7 @@ static int init_vlan_ports(void)
 	case MODEL_R6400:
 	case MODEL_RTN18U:
 	case MODEL_RTAC68U:
+	case MODEL_AC15:
 	case MODEL_WS880:
 		dirty |= check_nv("vlan1ports", "1 2 3 4 5*");
 		dirty |= check_nv("vlan2ports", "0 5");
@@ -1521,6 +1522,71 @@ static int init_nvram(void)
 			nvram_set("1:ccode", "SG");
 			nvram_set("wl_country", "SG");
 			nvram_set("wl_country_code", "SG");
+		}
+		break;
+	case MODEL_AC15:
+		mfr = "Tenda";
+		name = "AC15";
+		features = SUP_SES | SUP_AOSS_LED | SUP_80211N | SUP_1000ET | SUP_80211AC;
+#ifdef TCONFIG_USB
+		nvram_set("usb_uhci", "-1");
+#endif
+		if (!nvram_match("t_fix1", (char *)name)) {
+			nvram_set("vlan1hwname", "et0");
+			nvram_set("vlan2hwname", "et0");
+			nvram_set("lan_ifname", "br0");
+			nvram_set("landevs", "vlan1 wl0 wl1");
+			nvram_set("lan_ifnames", "vlan1 eth1 eth2");
+			nvram_set("wan_ifnames", "vlan2");//check different
+			nvram_set("wan_ifnameX", "vlan2");//check not exist
+			nvram_set("wandevs", "vlan2");//check different
+			nvram_set("wl_ifnames", "eth1 eth2");//check not exist
+			nvram_set("wl_ifname", "eth1");//check not exist
+			nvram_set("wl0_ifname", "eth1");
+			nvram_set("wl1_ifname", "eth2");
+
+			// fix WL mac`s
+
+//			nvram_set("wl0_hwaddr", nvram_safe_get("0:macaddr"));//replace stars
+//			nvram_set("wl1_hwaddr", nvram_safe_get("1:macaddr"));//replace stars
+
+			// usb3.0 settings
+			nvram_set("usb_usb3", "1");//check not exist
+			nvram_set("xhci_ports", "1-1");//check not exist
+			nvram_set("ehci_ports", "2-1 2-2");//check not exist
+			nvram_set("ohci_ports", "3-1 3-2");//check not exist
+
+			// force wl1 settings
+			nvram_set("0:ccode", "#a");
+			nvram_set("1:ccode", "#a");
+			nvram_set("wl0_country_code", "#a");
+			nvram_set("wl1_country_code", "#a");
+			nvram_set("wl0_txpwr","0");
+			nvram_set("wl1_txpwr","0");
+			nvram_set("wl1_chanspec", "100/40");
+			nvram_set("wl1_nctrlsb", "lower");
+
+			nvram_set("1:rpcal5gb0", "0x7052"); //in CFE x is capitalized??
+			nvram_set("1:rpcal5gb1", "0x7F52"); //in CFE x is capitalized??
+			nvram_set("1:rpcal5gb2", "0x8154"); //in CFE x is capitalized??
+			nvram_set("1:rpcal5gb3", "0x8B66"); //in CFE x is capitalized??
+			// From 868L
+			nvram_set("1:mcsbw205ghpo", "0xBA768600");
+			nvram_set("1:mcsbw205glpo", "0xBA768600");
+			nvram_set("1:mcsbw205gmpo", "0xBA768600");
+			nvram_set("1:mcsbw405ghpo", "0xBA768600");
+			nvram_set("1:mcsbw405glpo", "0xBA768600");
+			nvram_set("1:mcsbw405gmpo", "0xBA768600");
+			nvram_set("1:mcsbw805ghpo", "0xBA768600");
+			nvram_set("1:mcsbw805glpo", "0xBA768600");
+			nvram_set("1:mcsbw805gmpo", "0xBA768600");
+			nvram_set("1:maxp5ga0", "106,106,106,106");
+			nvram_set("1:maxp5ga1", "106,106,106,106");
+			nvram_set("1:maxp5ga2", "106,106,106,106");
+			nvram_set("1:pa5ga0", "0xFF4C,0x1808,0xFD1B,0xFF4C,0x18CF,0xFD0C,0xFF4A,0x1920,0xFD08,0xFF4C,0x1949,0xFCF6");
+			nvram_set("1:pa5ga1", "0xFF4A,0x18AC,0xFD0B,0xFF44,0x1904,0xFCFF,0xFF56,0x1A09,0xFCFC,0xFF4F,0x19AB,0xFCEF");
+			nvram_set("1:pa5ga2", "0xFF4C,0x1896,0xFD11,0xFF43,0x192D,0xFCF5,0xFF50,0x19EE,0xFCF1,0xFF52,0x19C6,0xFCF1");
+
 		}
 		break;
 	case MODEL_R6250:
