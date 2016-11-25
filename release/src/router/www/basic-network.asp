@@ -1335,10 +1335,8 @@ function save()
 			else E('_wl'+u+'_mode').value = wmode;
 
 			if (wmode == 'wet') {
-				for (wan_uidx = 1; wan_uidx <= maxwan_num; ++wan_uidx) {
-					var v = (wan_uidx>1) ? wan_uidx : '';
-					E('_wan'+v+'_proto').value = 'disabled';
-				}
+				fom.wan_proto.value = 'disabled';
+				fom.wan_proto.disabled = 0;
 /* REMOVE-BEGIN */
 // TODO - what's required ? integrate with tomatogrid?
 /* REMOVE-END */
