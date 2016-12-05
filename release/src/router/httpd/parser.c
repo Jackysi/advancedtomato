@@ -33,7 +33,7 @@ int parse_asp(const char *path)
 
 	if (f_read_alloc_string(path, &buffer, 128 * 1024) < 0) {
 		free(buffer);
-		if (!header_sent) send_error(500, NULL, "Read error");
+		if (!header_sent) send_error(500, NULL, "Requested file could not be read!");
 		return 0;
 	}
 

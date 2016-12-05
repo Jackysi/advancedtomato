@@ -14,7 +14,7 @@
 #include <typedefs.h>
 #include <sys/reboot.h>
 
-//	#define DEBUG
+//#define DEBUG
 
 #ifdef DEBUG
 #define NVRAMCMD	"/tmp/nvram"

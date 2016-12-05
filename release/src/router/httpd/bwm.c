@@ -92,6 +92,7 @@ void wi_bwmrestore(char *url, int len, char *boundary)
 	}
 
 	if ((len < 64) || (len > 10240)) {
+		error = "File size is limited to range of 64 - 10240 bytes";
 		goto ERROR;
 	}
 
@@ -142,6 +143,7 @@ void wi_iptrestore(char *url, int len, char *boundary)
 	}
 
 	if ((len < 64) || (len > 10240)) {
+		error = "File size is limited to range of 64 - 10240 bytes";
 		goto ERROR;
 	}
 
@@ -185,7 +187,7 @@ void wo_bwmrestore(char *url)
 void wo_iptrestore(char *url)
 {
 	if (rboot) {
-		redirect("/#ipt-daily.asp");
+		redirect("/#bwm-ipt-daily.asp");
 	}
 	else {
 		parse_asp("error.asp");

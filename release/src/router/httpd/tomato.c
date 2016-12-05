@@ -270,7 +270,7 @@ const struct mime_handler mime_handlers[] = {
 	{ "update.cgi",		mime_javascript,			0,	wi_generic,			wo_update,		1 },
 	{ "tomato.cgi",		NULL,						0,	wi_generic,		    wo_tomato,		1 },
 
-	{ "debug.js",		mime_javascript,			5,	wi_generic_noid,	wo_blank,		1 },	// while debugging
+	{ "debug.js",		mime_javascript,			12,	wi_generic_noid,	wo_blank,		1 },	// while debugging
 	{ "cfe/*.bin",		mime_binary,				0,	wi_generic,			wo_cfe,			1 },
 	{ "nvram/*.txt",	mime_binary,				0,	wi_generic,			wo_nvram,		1 },
 	{ "ipt/*.txt",		mime_binary,				0,	wi_generic,			wo_iptables,	1 },
@@ -297,24 +297,24 @@ const struct mime_handler mime_handlers[] = {
 //	{ "spin.gif",		NULL,						0,	wi_generic_noid,	wo_spin,		1 },
 
 	{ "**.asp",			NULL,						0,	wi_generic_noid,	wo_asp,			1 },
-	{ "**.css",			"text/css",					2,	wi_generic_noid,	do_file,		1 },
-	{ "**.htm|**.html",		mime_html,		  		  	2,	wi_generic_noid,	do_file,		1 },
-	{ "**.gif",			"image/gif",				5,	wi_generic_noid,	do_file,		1 },
-	{ "**.jpg",			"image/jpeg",				5,	wi_generic_noid,	do_file,		1 },
-	{ "**.png",			"image/png",				5,	wi_generic_noid,	do_file,		1 },
-	{ "**.js",			mime_javascript,			2,	wi_generic_noid,	do_file,		1 },
+	{ "**.css",			"text/css",					12,	wi_generic_noid,	do_file,		1 },
+	{ "**.htm|**.html",		mime_html,		  		2,	wi_generic_noid,	do_file,		1 },
+	{ "**.gif",			"image/gif",				12,	wi_generic_noid,	do_file,		1 },
+	{ "**.jpg",			"image/jpeg",				12,	wi_generic_noid,	do_file,		1 },
+	{ "**.png",			"image/png",				12,	wi_generic_noid,	do_file,		1 },
+	{ "**.js",			mime_javascript,			12,	wi_generic_noid,	do_file,		1 },
 	{ "**.jsx",			mime_javascript,			0,	wi_generic,			wo_asp,			1 },
-	{ "**.svg",			"image/svg+xml",			2,	wi_generic_noid,	do_file,		1 },
+	{ "**.svg",			"image/svg+xml",			12,	wi_generic_noid,	do_file,		1 },
 
 // Required mimetype for fonts & icons
-	{ "**.woff",		"application/font-woff",		2,	wi_generic_noid,do_file,		1 },
-	{ "**.eot",			"application/vnd.ms-fontobject",2,	wi_generic_noid,do_file,		1 },
-	{ "**.ttf",			"application/octet-stream",	2,	wi_generic_noid,	do_file,		1 },
+	{ "**.woff",		"application/font-woff",		12,	wi_generic_noid,do_file,		1 },
+	{ "**.eot",			"application/vnd.ms-fontobject",12,	wi_generic_noid,do_file,		1 },
+	{ "**.ttf",			"application/octet-stream",	12,	wi_generic_noid,	do_file,		1 },
 
 	{ "**.txt",			mime_plain,					2,	wi_generic_noid,	do_file,		1 },
 	{ "**.bin",			mime_binary,				0,	wi_generic_noid,	do_file,		1 },
 	{ "**.bino",		mime_octetstream,			0,	wi_generic_noid,	do_file,		1 },
-	{ "favicon.ico",	NULL,						5,	wi_generic_noid,	wo_favicon,		1 },
+	{ "favicon.ico",	NULL,						24,	wi_generic_noid,	wo_favicon,		1 },
 // !!TB - CGI Support, enable downloading archives
 	{ "**/cgi-bin/**|**.sh",	NULL,					0,	wi_cgi_bin,		wo_cgi_bin,			1 },
 	{ "**.tar|**.gz",		mime_binary,				0,	wi_generic_noid,	do_file,		1 },
@@ -1238,7 +1238,7 @@ static const nvset_t nvset_list[] = {
 	{ "tomatoanon_cru",		V_RANGE(1, 12)			},
 	{ "tomatoanon_id",		V_LENGTH(0, 32)			},
 	{ "tomatoanon_notify",		V_01				},
-		
+
 // AdvancedTomato
 	{ "at_update",      V_LENGTH(0, 32)      },
 	{ "at_nav",         V_TEXT(0, 2048)      },
@@ -1339,18 +1339,17 @@ static const nvset_t nvset_list[] = {
 	{ "qos_icmp",			V_01				},
 	{ "qos_udp",			V_01				},
 	{ "qos_reset",			V_01				},
-	{ "qos_pfifo",			V_01				}, // !!TB
-	{ "wan_qos_obw",		V_RANGE(10, 999999)		},
-	{ "wan_qos_ibw",		V_RANGE(10, 999999)		},
-	{ "wan2_qos_obw",		V_RANGE(10, 999999)		},
-	{ "wan2_qos_ibw",		V_RANGE(10, 999999)		},
+	{ "qos_pfifo",			V_NUM				}, // !!TB
+	{ "wan_qos_obw",		V_RANGE(10, 999999)	},
+	{ "wan_qos_ibw",		V_RANGE(10, 999999)	},
+	{ "wan2_qos_obw",		V_RANGE(10, 999999)	},
+	{ "wan2_qos_ibw",		V_RANGE(10, 999999)	},
 #ifdef TCONFIG_MULTIWAN
-	{ "wan3_qos_obw",		V_RANGE(10, 999999)		},
-	{ "wan3_qos_ibw",		V_RANGE(10, 999999)		},
-	{ "wan4_qos_obw",		V_RANGE(10, 999999)		},
-	{ "wan4_qos_ibw",		V_RANGE(10, 999999)		},
+	{ "wan3_qos_obw",		V_RANGE(10, 999999)	},
+	{ "wan3_qos_ibw",		V_RANGE(10, 999999)	},
+	{ "wan4_qos_obw",		V_RANGE(10, 999999)	},
+	{ "wan4_qos_ibw",		V_RANGE(10, 999999)	},
 #endif
-
 	{ "qos_orules",			V_LENGTH(0, 4096)	},
 	{ "qos_default",		V_RANGE(0, 9)		},
 	{ "qos_irates",			V_LENGTH(0, 128)	},
@@ -1372,7 +1371,6 @@ static const nvset_t nvset_list[] = {
 	{ "qosl_dlc",                    V_RANGE(0, 999999)     },
 	{ "qosl_tcp",                    V_RANGE(0, 1000)       },
 	{ "qosl_udp",                    V_RANGE(0, 100)        },
-	{ "limit_br0_prio",              V_RANGE(0, 5)          },
 	{ "limit_br1_enable",            V_01                   },
 	{ "limit_br1_ulr",               V_RANGE(0, 999999)     },
 	{ "limit_br1_ulc",               V_RANGE(0, 999999)     },
@@ -1934,9 +1932,9 @@ static int save_variables(int write)
 	}
 
 	// special cases
-	#ifdef CONFIG_BCMWL6
-	    foreach_wif(0, &write, nv_wl_bwcap_chanspec);
-	#endif
+#ifdef CONFIG_BCMWL6
+	foreach_wif(0, &write, nv_wl_bwcap_chanspec);
+#endif
 
 	char *p1, *p2;
 	if (((p1 = webcgi_get("set_password_1")) != NULL) && (strcmp(p1, "**********") != 0)) {

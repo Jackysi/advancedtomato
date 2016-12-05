@@ -401,7 +401,6 @@ mtd1: 007d0000 00010000 "linux"
 		}
 		fclose(f);
 	}
-
 #ifdef TCONFIG_NAND
 	return 128; //little trick for now. FIXIT.
 #else

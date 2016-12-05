@@ -2,7 +2,7 @@
 
 	micro_httpd/mini_httpd
 
-	Copyright © 1999,2000 by Jef Poskanzer <jef@acme.com>.
+	Copyright ï¿½ 1999,2000 by Jef Poskanzer <jef@acme.com>.
 	All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
@@ -144,9 +144,8 @@ void send_header(int status, const char* header, const char* mime, int cache)
 
 	if (mime) web_printf("Content-Type: %s\r\n", mime);
 	if (cache > 0) {
-		web_printf("Cache-Control: max-age=%d\r\n", cache * 60);
-	}
-	else {
+		web_printf("Cache-Control: max-age=%d\r\n", cache * 3600 );
+	} else {
 		web_puts("Cache-Control: no-cache, no-store, must-revalidate, private\r\n"
 				 "Expires: Thu, 31 Dec 1970 00:00:00 GMT\r\n"
 				 "Pragma: no-cache\r\n");
@@ -162,11 +161,12 @@ void send_error(int status, const char *header, const char *text)
 	const char *s = http_status_desc(status);
 	send_header(status, header, mime_html, 0);
 	web_printf(
-		"<html>"
-		"<head><title>Error</title></head>"
-		"<body>"
-		"<h2>%d %s</h2> %s"
-		"</body></html>",
+		"<!DOCTYPE html>\r\n"
+		"<html>\r\n"
+		"\t<head>\r\n\t\t<title>Error</title>\n\t\t<style>body { font-family: 'Segoe UI', 'Verdana', sans-serif; font-size: 14px; } h2 { font-size: 24px; }</style>\r\n\t</head>\r\n"
+		"\t<body>\r\n"
+		"\t\t<h2>%d %s</h2> %s\r\n"
+		"\t</body>\r\n</html>",
 		status, s, text ? text : s);
 }
 
@@ -1022,6 +1022,11 @@ int main(int argc, char **argv)
 	init_id();
 
 	if (!debug) {
+
+		// Lets let every one know daemon started.
+		printf( "Tomato interface started successfully\n");
+
+		// Daemonize???
 		if (daemon(1, 1) == -1) {
 			syslog(LOG_ERR, "daemon: %m");
 			return 0;
@@ -1030,8 +1035,11 @@ int main(int argc, char **argv)
 		char s[16];
 		sprintf(s, "%d", getpid());
 		f_write_string("/var/run/httpd.pid", s, 0, 0644);
-	}
-	else {
+
+		// Write to log that service started (informative)
+		syslog(LOG_INFO, "Tomato interface started successfully");
+
+	} else {
 		printf("DEBUG mode, not daemonizing\n");
 	}
 

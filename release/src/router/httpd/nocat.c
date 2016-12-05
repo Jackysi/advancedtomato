@@ -30,7 +30,7 @@ void wi_uploadsplash(char *url, int len, char *boundary)
 	int ok;
 	int n;
 	char tmp[255];
-	
+
 //	check_id();
 
 
@@ -62,16 +62,16 @@ void wi_uploadsplash(char *url, int len, char *boundary)
 	if (f_write(tmp, buf, n, 0, 0600) != n) {
 		error = "Error writing temporary file";
 		goto ERROR;
-	}	
+	}
 
 	nvram_set_file("NC_SplashFile", tmp, 8192);
 	nvram_commit();
 	rboot = 1;
-	
+
 #ifndef DEBUG
 #endif
 	error = NULL;
-	
+
 ERROR:
 	free(buf);
 	if (error != NULL) resmsg_set(error);
@@ -81,11 +81,10 @@ ERROR:
 void wo_uploadsplash(char *url)
 {
         if (rboot) {
-                redirect("/new-splashd.asp");
+                redirect("/#advanced-splashd.asp");
 		exit(0);
         }
         else {
               parse_asp("error.asp");
         }
 }
-
