@@ -16,6 +16,7 @@ No part of this file may be used without permission.
 			stroke: #000;
 			stroke-width: 1px;
 			stroke-opacity: 0.3;
+			shape-rendering: geometricPrecision;
 		}
 		#info {
 			font: 11px sans-serif;
@@ -162,7 +163,7 @@ No part of this file may be used without permission.
 		<linearGradient id="lg8"><stop/><stop/></linearGradient>
 		<linearGradient id="lg9"><stop/><stop/></linearGradient>
 		<linearGradient id="lg10"><stop/><stop/></linearGradient>
-		<linearGradient id="lg11"><stop/><stop/></linearGradient>	
+		<linearGradient id="lg11"><stop/><stop/></linearGradient>
 	</defs>
 	<g transform="rotate(135, 155, 155)">
 		<path />

@@ -1,5 +1,8 @@
 <title>About</title>
 <content>
+	<style>
+		p { margin-top: 0; padding-top: 0; }
+	</style>
 	<div class="fluid-grid x3">
 		<div class="box"><div class="heading">Tomato Firmware <% version(1); %></div>
 			<div class="content">
@@ -28,7 +31,7 @@
 					- AdvancedTomato logo by Jacky, re-vectored by <a href="http://www.linksysinfo.org/index.php?members/wally3k.52990/">WaLLy3K</a><br />
 					- Based on Tomato by Shibby
 				</p>
-				Copyright (C) 2014 <a href="http://prahec.com/">Jacky Prahec</a>
+				Copyright (C) 2014 <a href="https://prahec.com/">Jacky Prahec</a>
 			</div>
 		</div>
 
@@ -41,14 +44,19 @@
 		</div>
 		<!-- OPENVPN-END -->
 
-		<div class="box"><div class="heading">"Shibby" features</div>
+		<div class="box">
+			<div class="heading">"Shibby" features</div>
 			<div class="content">
-				<form action="https://www.paypal.com/cgi-bin/webscr" method="post" class="pull-right" target="_blank">
-					<input name="cmd" value="_s-xclick" type="hidden">
-					<input name="encrypted" value="-----BEGIN PKCS7-----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-----END PKCS7-----" type="hidden">
-					<button class="btn btn-primary" value="submit" border="0" name="submit" alt="Donate"><i class="icon-paypal icon-large"></i> <b>Donate</b></button>
-					<img alt="" src="https://www.paypalobjects.com/pl_PL/i/scr/pixel.gif" border="0" height="1" width="1">
-				</form>
+
+				<div class="pull-right" >
+					<form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_blank">
+						<input name="cmd" value="_s-xclick" type="hidden">
+						<input name="encrypted" value="-----BEGIN PKCS7-----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-----END PKCS7-----" type="hidden">
+						<button class="btn btn-primary" value="submit" border="0" name="submit" alt="Donate"><i class="icon-paypal icon-large"></i> <b>Donate</b></button>
+						<img alt="" src="https://www.paypalobjects.com/pl_PL/i/scr/pixel.gif" border="0" height="1" width="1">
+					</form>
+				</div>
+
 				<p>
 					<!-- BBT-BEGIN -->
 					- Transmission 2.92 integration<br>
@@ -222,7 +230,7 @@
 			</p>
 
 			<p>
-				Built on <% build_time(); %> by Jacky, <a href='http://advancedtomato.com/' target='_new'>http://advancedtomato.com/</a>
+				Built on <% build_time(); %> by Jacky, <a href='https://advancedtomato.com/' target='_new'>https://advancedtomato.com</a>.
 				<br /><b>Thanks to everyone who risked their routers, tested, reported bugs, made suggestions and contributed to this project. ^ _ ^</b>
 			</p>
 

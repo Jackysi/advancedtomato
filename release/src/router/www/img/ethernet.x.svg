@@ -1,23 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Generator: Adobe Illustrator 18.1.1, SVG Export Plug-In . SVG Version: 6.00 Build 0)  -->
-<svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
-	 viewBox="-295 217 48 48" xml:space="preserve" preserveAspectRatio="xMinYMid">
-<path fill="#CFD8DC" d="M-250,257.3c0,2.6-2.1,4.7-4.7,4.7h-32.7c-2.6,0-4.7-2.1-4.7-4.7v-32.7c0-2.6,2.1-4.7,4.7-4.7h32.7
-	c2.6,0,4.7,2.1,4.7,4.7V257.3z"/>
-<g>
-	<rect x="-286.2" y="228.2" fill="#455A64" width="30.3" height="18.7"/>
-	<rect x="-281.5" y="242.2" fill="#455A64" width="21" height="8.2"/>
-	<rect x="-276.8" y="246.8" fill="#455A64" width="11.7" height="7"/>
-</g>
-<g>
-	<rect x="-282.7" y="230.5" fill="#FDD835" width="2.3" height="8.2"/>
-	<rect x="-279.2" y="230.5" fill="#FDD835" width="2.3" height="8.2"/>
-	<rect x="-275.7" y="230.5" fill="#FDD835" width="2.3" height="8.2"/>
-	<rect x="-272.2" y="230.5" fill="#FDD835" width="2.3" height="8.2"/>
-	<rect x="-268.7" y="230.5" fill="#FDD835" width="2.3" height="8.2"/>
-	<rect x="-265.2" y="230.5" fill="#FDD835" width="2.3" height="8.2"/>
-	<rect x="-261.7" y="230.5" fill="#FDD835" width="2.3" height="8.2"/>
-</g>
-<polygon fill="#E74C3C" points="-252,252.4 -263.4,241 -252,229.6 -259.6,222 -271,233.4 -282.4,222 -290,229.6 -278.6,241 
-	-290,252.4 -282.4,260 -271,248.6 -259.6,260 "/>
+<svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="-295 217 48 48" xml:space="preserve" preserveAspectRatio="xMinYMid">
+	<path fill="#CFD8DC" d="M-250,257.3c0,2.6-2.1,4.7-4.7,4.7h-32.7c-2.6,0-4.7-2.1-4.7-4.7v-32.7c0-2.6,2.1-4.7,4.7-4.7h32.7	c2.6,0,4.7,2.1,4.7,4.7V257.3z"/>
+	<style>
+		g,path {
+			shape-rendering: geometricPrecision;
+		}
+	</style>
+	<g>
+		<rect x="-286.2" y="228.2" fill="#455A64" width="30.3" height="18.7"/>
+		<rect x="-281.5" y="242.2" fill="#455A64" width="21" height="8.2"/>
+		<rect x="-276.8" y="246.8" fill="#455A64" width="11.7" height="7"/>
+	</g>
+	<g>
+		<rect x="-282.7" y="230.5" fill="#FDD835" width="2.3" height="8.2"/>
+		<rect x="-279.2" y="230.5" fill="#FDD835" width="2.3" height="8.2"/>
+		<rect x="-275.7" y="230.5" fill="#FDD835" width="2.3" height="8.2"/>
+		<rect x="-272.2" y="230.5" fill="#FDD835" width="2.3" height="8.2"/>
+		<rect x="-268.7" y="230.5" fill="#FDD835" width="2.3" height="8.2"/>
+		<rect x="-265.2" y="230.5" fill="#FDD835" width="2.3" height="8.2"/>
+		<rect x="-261.7" y="230.5" fill="#FDD835" width="2.3" height="8.2"/>
+	</g>
+	<polygon fill="#E74C3C" points="-252,252.4 -263.4,241 -252,229.6 -259.6,222 -271,233.4 -282.4,222 -290,229.6 -278.6,241 -290,252.4 -282.4,260 -271,248.6 -259.6,260 "/>
 </svg>

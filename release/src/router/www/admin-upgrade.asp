@@ -19,7 +19,7 @@ No part of this file may be used without permission.
 			background: #fff;
 			color: #5A5A5A;
 			opacity: 0;
-			transition: all 400ms ease-in;
+			transition: opacity 250ms ease-out;
 		}
 
 		#afu-progress .text-container {
@@ -29,10 +29,10 @@ No part of this file may be used without permission.
 			font-size: 14px;
 			width: 100%;
 			height: 150px;
-			top: -150px;
+			top: 30%;
 			margin-top: -75px;
 			transform: scale(0.2);
-			transition: all 600ms ease-out;
+			transition: all 350ms ease-out;
 		}
 
 		#afu-progress.active {
@@ -41,7 +41,7 @@ No part of this file may be used without permission.
 
 		#afu-progress.active .text-container {
 			transform: scale(1);
-			top: 35%;
+			top: 40%;
 		}
 		
 		.line-table tr { background: transparent !important; }
@@ -67,14 +67,15 @@ No part of this file may be used without permission.
 				return false;
 			}
 
-			if (!confirm('Are you sure you want to upgrade using ' + name + '?')) return;
+			if (!confirm('Are you sure you want to flash ' + name + '?')) return;
 			E('afu-upgrade-button').disabled = true;
 
 			// Some cool things
 			$('#wrapper > .content').css('position', 'static');
 			$('#afu-progress').clone().prependTo('#wrapper').show().addClass('active');
 			startTime = (new Date()).getTime();
-			setInterval('clock()', 800);
+			setInterval('clock()', 500);
+
 			fom.action += '?_reset=' + (E('f_reset').checked ? "1" : "0");
 			form.addIdAction(fom);
 			fom.submit();
@@ -120,7 +121,7 @@ No part of this file may be used without permission.
 				<div class="heading">Router Info</div>
 				<div class="content">
 					<table class="line-table" id="version-table">
-						<tr><td>Current Version:</td><td>&nbsp; <% version(1); %> <small></td></tr>
+						<tr><td>Current Version:</td><td>&nbsp; <% version(1); %></td></tr>
 					</table>
 				</div>
 			</div>
@@ -129,8 +130,8 @@ No part of this file may be used without permission.
 				<div class="text-container">
 					<div class="spinner spinner-large"></div><br /><br />
 					<b id="afu-time">0:00</b><br />
-					Please wait while new firmware is being uploaded and flashed...<br />
-					<b>WARNING:</b> Do not interrupt browser or the router!
+					Please wait while new image is being uploaded and flashed...<br />
+					<b>Do not interrupt web browser or the router!</b>
 				</div>
 			</div>
 		</form>

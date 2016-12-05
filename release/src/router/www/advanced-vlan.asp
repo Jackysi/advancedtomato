@@ -688,7 +688,9 @@ No part of this file may be used without permission.
 				         (data[ COL_P4T ].toString() != '0') ? 'On' : '',
 				         (data[ COL_VID_DEF ].toString() != '0') ? '*' : '',
 				         [ '', 'WAN', 'LAN (br0)', 'LAN1 (br1)', 'LAN2 (br2)', 'LAN3 (br3)', 'WAN2'
-					         /* MULTIWAN-BEGIN */, 'WAN3', 'WAN4'/* MULTIWAN-END */
+					    	/* MULTIWAN-BEGIN */
+					         , 'WAN3', 'WAN4'
+					         /* MULTIWAN-END */
 				         ][ data[ COL_BRI ] - 1 ] ];
 			}
 

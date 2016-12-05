@@ -42,14 +42,13 @@ No part of this file may be used without permission.
 				alert('Incorrect filename. Expecting a ".gz" file.');
 				return false;
 			}
+
 			if (!confirm('Restore data from ' + name + '?')) return false;
 
 			E('restore-button').disabled = 1;
-			fields.disableAll(E('config-section'), 1);
-			fields.disableAll(E('backup-section'), 1);
-			fields.disableAll(E('footer'), 1);
-
+			fields.disableAll(E('_fom'), 1);
 			E('restore-form').submit();
+
 		}
 
 		function getPath()
@@ -172,7 +171,7 @@ No part of this file may be used without permission.
 		}
 	</script>
 
-	<div class="box" id="config-section">
+	<div class="box">
 		<div class="heading">Bandwidth Monitoring Settings</div>
 		<div class="content">
 			<form id="_fom" method="post" action="tomato.cgi" style="margin: 0;">
@@ -182,49 +181,49 @@ No part of this file may be used without permission.
 				<input type="hidden" name="rstats_path">
 				<input type="hidden" name="rstats_sshut">
 				<input type="hidden" name="rstats_bak">
-
-				<script type="text/javascript">
-					switch (nvram.rstats_path) {
-						case '':
-						case '*nvram':
-						case '/jffs/':
-						case '/cifs1/':
-						case '/cifs2/':
-							loc = nvram.rstats_path;
-							break;
-						default:
-							loc = '*user';
-							break;
-					}
-					$('#config-section form:first').forms([
-						{ title: 'Enable', name: 'f_rstats_enable', type: 'checkbox', value: nvram.rstats_enable == '1' },
-						{ title: 'Save History Location', multi: [
-							{ name: 'f_loc', type: 'select', options: [['','RAM (Temporary)'],['*nvram','NVRAM'],
-								/* JFFS2-BEGIN */
-								['/jffs/','JFFS2'],
-								/* JFFS2-END */
-								/* CIFS-BEGIN */
-								['/cifs1/','CIFS 1'],['/cifs2/','CIFS 2'],
-								/* CIFS-END */
-								['*user','Custom Path']], value: loc },
-							{ name: 'f_user', type: 'text', maxlen: 48, size: 50, value: nvram.rstats_path }
-						] },
-						{ title: 'Save Frequency', indent: 2, name: 'rstats_stime', type: 'select', value: nvram.rstats_stime, options: [
-							[1,'Every Hour'],[2,'Every 2 Hours'],[3,'Every 3 Hours'],[4,'Every 4 Hours'],[5,'Every 5 Hours'],[6,'Every 6 Hours'],
-							[9,'Every 9 Hours'],[12,'Every 12 Hours'],[24,'Every 24 Hours'],[48,'Every 2 Days'],[72,'Every 3 Days'],[96,'Every 4 Days'],
-							[120,'Every 5 Days'],[144,'Every 6 Days'],[168,'Every Week']] },
-						{ title: 'Save On Shutdown', indent: 2, name: 'f_sshut', type: 'checkbox', value: nvram.rstats_sshut == '1' },
-						{ title: 'Create New File<br><small>(Reset Data)</small>', indent: 2, name: 'f_new', type: 'checkbox', value: 0,
-							suffix: ' &nbsp;<small id="newmsg" style="visibility:hidden">Enable if this is a new file</small>' },
-						{ title: 'Create Backups', indent: 2, name: 'f_bak', type: 'checkbox', value: nvram.rstats_bak == '1' },
-						{ title: 'First Day Of The Month', name: 'rstats_offset', type: 'text', value: nvram.rstats_offset, maxlen: 2, size: 4 },
-						{ title: 'Excluded Interfaces', name: 'rstats_exclude', type: 'text', value: nvram.rstats_exclude, maxlen: 64, size: 50, suffix: '<small>(comma separated list)</small>' }
-						], { align: 'left' });
-				</script>
 			</form><hr>
 
+			<script type="text/javascript">
+				switch (nvram.rstats_path) {
+					case '':
+					case '*nvram':
+					case '/jffs/':
+					case '/cifs1/':
+					case '/cifs2/':
+						loc = nvram.rstats_path;
+						break;
+					default:
+						loc = '*user';
+						break;
+				}
+				$('#_fom').forms([
+					{ title: 'Enable', name: 'f_rstats_enable', type: 'checkbox', value: nvram.rstats_enable == '1' },
+					{ title: 'Save History Location', multi: [
+						{ name: 'f_loc', type: 'select', options: [['','RAM (Temporary)'],['*nvram','NVRAM'],
+							/* JFFS2-BEGIN */
+							['/jffs/','JFFS2'],
+							/* JFFS2-END */
+							/* CIFS-BEGIN */
+							['/cifs1/','CIFS 1'],['/cifs2/','CIFS 2'],
+							/* CIFS-END */
+							['*user','Custom Path']], value: loc },
+						{ name: 'f_user', type: 'text', maxlen: 48, size: 50, value: nvram.rstats_path }
+					] },
+					{ title: 'Save Frequency', indent: 2, name: 'rstats_stime', type: 'select', value: nvram.rstats_stime, options: [
+						[1,'Every Hour'],[2,'Every 2 Hours'],[3,'Every 3 Hours'],[4,'Every 4 Hours'],[5,'Every 5 Hours'],[6,'Every 6 Hours'],
+						[9,'Every 9 Hours'],[12,'Every 12 Hours'],[24,'Every 24 Hours'],[48,'Every 2 Days'],[72,'Every 3 Days'],[96,'Every 4 Days'],
+						[120,'Every 5 Days'],[144,'Every 6 Days'],[168,'Every Week']] },
+					{ title: 'Save On Shutdown', indent: 2, name: 'f_sshut', type: 'checkbox', value: nvram.rstats_sshut == '1' },
+					{ title: 'Create New File<br><small>(Reset Data)</small>', indent: 2, name: 'f_new', type: 'checkbox', value: 0,
+						suffix: ' &nbsp;<small id="newmsg" style="visibility:hidden">Enable if this is a new file</small>' },
+					{ title: 'Create Backups', indent: 2, name: 'f_bak', type: 'checkbox', value: nvram.rstats_bak == '1' },
+					{ title: 'First Day Of The Month', name: 'rstats_offset', type: 'text', value: nvram.rstats_offset, maxlen: 2, size: 4 },
+					{ title: 'Excluded Interfaces', name: 'rstats_exclude', type: 'text', value: nvram.rstats_exclude, maxlen: 64, size: 50, suffix: '<small>(comma separated list)</small>' }
+					], { align: 'left' });
+			</script>
+
 			<div class="row">
-			
+
 				<div class="col-sm-12">
 
 					<h4>Backup</h4>
@@ -246,12 +245,11 @@ No part of this file may be used without permission.
 					<div class="section" id="restore-section">
 						<form id="restore-form" method="post" action="bwm/restore.cgi?_http_id=<% nv(http_id); %>" encType="multipart/form-data">
 							<input class="uploadfile" type="file" size="40" id="restore-name" name="restore_name" accept="application/x-gzip">
-							<button name="f_restore_button" id="restore-button" value="Restore" onclick="restoreButton(); return false;" class="btn">Restore <i class="icon-upload"></i></button>
-							<br>
-						</form>
+							<button type="button" name="f_restore_button" id="restore-button" value="Restore" onclick="restoreButton(); return false;" class="btn">Restore <i class="icon-upload"></i></button>
+						</form><br>
 					</div>
 				</div>
-				
+
 			</div>
 		</div>
 	</div>

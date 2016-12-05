@@ -17,6 +17,7 @@ path {
 	stroke: #000;
 	stroke-width: 1px;
 	stroke-opacity: 0.3;
+	shape-rendering: geometricPrecision;
 }
 #info {
 	font: 11px sans-serif;
@@ -79,7 +80,7 @@ function updateSVG(data, abc)
 	var path, i, e, r, x, y, cx, cy, nx, ny, t, p, total;
 
 	mOut();
-	
+
 	total = 0;
 	for (i = 0; i < 11; ++i)
 		total += data[i] || 0;
@@ -91,7 +92,7 @@ function updateSVG(data, abc)
 	nx = cx;
 	ny = cy + r;
 	path = document.getElementsByTagName('path');
-	
+
 	for (i = 0; i < 11; ++i) {
 		e = path.item(i);
 
@@ -112,7 +113,7 @@ function updateSVG(data, abc)
 		else {
 			e.setAttribute('d', 'M' + cx + ',' + cy + 'L' + x + ',' + y + 'A' + r + ',' + r + ' 0 ' + ((p > 0.5) ? '1' : '0') + ',0 ' + nx + ',' + ny + 'Z');
 		}
-		
+
 		tipInfo[i] = abc[i] + ' ' + (p * 100).toFixed(2) + '%' + ((data[i] == parseInt(data[i])) ? ' (' + (data[i] || 0) + ')' : '' );
 
 		e.setAttribute('onclick', 'mClick(' + i + ')');
@@ -135,9 +136,9 @@ function setText(e, text)
 function showTip()
 {
 	setText(tipText, tipInfo[tipT]);
-	
+
 	tipMask.setAttribute('width', tipText.getComputedTextLength() + 10);
-	
+
 	if (tipY > (vHeight - 35)) tipY -= 20;
 		else tipY += 20;
 	if (tipX > (vWidth - 165)) tipX = vWidth - 170;

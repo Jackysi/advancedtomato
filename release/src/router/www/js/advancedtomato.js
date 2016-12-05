@@ -289,6 +289,9 @@ function data_boxes() {
 
 }
 
+// We use this for loadPage
+var ajax_retries = 1;
+
 // Ajax Function to load pages
 function loadPage( page, is_history ) {
 
@@ -298,11 +301,7 @@ function loadPage( page, is_history ) {
 	if ( window.ajaxLoadingState ) { return false; } else { window.ajaxLoadingState = true; }
 
 	// Since we use ajax, functions and timers stay in memory/cache. Here we undefine & stop them to prevent issues with other pages.
-	if ( typeof( ref ) != 'undefined' ) {
-		ref.destroy();
-		ref = undefined;
-		delete ref;
-	}
+	if ( typeof( ref ) != 'undefined' ) { ref.destroy(); ref = undefined; delete ref; }
 	if ( typeof( wdog ) != 'undefined' ) { clearTimeout( wdog ); } // Delayed function that kills our refreshers!
 
 	// Start page pre-loader
@@ -313,7 +312,7 @@ function loadPage( page, is_history ) {
 
 
 	// Switch to JQUERY AJAX function call (doesn't capture errors allowing much easier debugging)
-	$.ajax( { url: page, async: true, cache: false } )
+	$.ajax( { url: page, async: true, cache: false, timeout: 2950 } )
 		.done( function( resp ) {
 
 			var dom   = $( resp );
@@ -352,7 +351,6 @@ function loadPage( page, is_history ) {
 
 			// Handle Navigation
 			$( '.navigation li ul li' ).removeClass( 'active' ); // Reset all
-
 			var naviLinks = $( ".navigation a[href='#" + page + "']" );
 			$( naviLinks ).parent( 'li' ).addClass( 'active' );
 
@@ -367,19 +365,53 @@ function loadPage( page, is_history ) {
 
 			// Reset loading state to false.
 			window.ajaxLoadingState = false;
+			if ( ajax_retries != 1 ) $( '.body-overwrite' ).remove();
+			ajax_retries = 1;
 
 		})
 		.fail( function( jqXHR, textStatus, errorThrown ) {
 
-			console.log( jqXHR );
+			console.log( jqXHR, errorThrown );
+
+			// We retry few x before showing msg bellow (TBD)
+			if ( ajax_retries <= 8 ) {
+
+				// Write only if div doesn't already exist
+				if ( $( 'body .body-overwrite' ).length == 0 ) {
+
+					$( 'body' ).append( '<div class="body-overwrite"><div class="body-overwrite-text text-center"><div class="spinner spinner-large"></div>' +
+					                    '<br><br><b>Connection lost!</b><br>Attempting to reconnect...</div></div>' );
+
+				}
+
+				// Try again in 2500ms, when retries reach 3, show error instead
+				setTimeout( function() {
+
+					// Count retries
+					ajax_retries++;
+
+					// Try again
+					window.ajaxLoadingState = false;
+					loadPage( page, is_history );
+
+				}, 3000 );
+
+				// Don't continue
+				return;
+
+			}
+
+			// In case error is 0 it usually means 504, gateway timeout
+			if  ( jqXHR.status == 0 ) jqXHR.status = 504;
 
 			$( 'h2.currentpage' ).text( jqXHR.status + ' ERROR' );
 			$( '.container .ajaxwrap' ).html( '<div class="box"><div class="heading">ERROR - ' + jqXHR.status + '</div><div class="content">\
-				<p>Interface was unable to communicate with the router! <br>These issues usually occur when a file is missing, web handler is busy or the router is unavailable.</p>\
+				<p>The Graphical user interface was unable to communicate with the router!<br>These issues usually occur when a file is missing, web handler is busy or the connection to router is unavailable.</p>\
 				<a href="/">Refreshing</a> browser window might help.</div></div>' ).addClass( 'ajax-animation' );
 
 			// Loaded, clear state
 			window.ajaxLoadingState = false;
+			if ( ajax_retries != 1 ) $('.body-overwrite').remove();
 
 			// Remove Preloader
 			$( '#nprogress' ).find( '.bar' ).css( { 'animation': 'none' } ).width( '100%' );

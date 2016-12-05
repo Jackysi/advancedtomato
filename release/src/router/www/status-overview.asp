@@ -80,9 +80,10 @@
 								c0-2.5,1.1-3.9,1.6-4.2c0.6-0.3,0.2-0.5-0.4-0.4c-1.4,0.3-3.3,3.7-3.3,4.7c-0.2-1.4-2.9-2.1-4-2.1c-1.6,0-2.1-0.7-2.6-1.2
 								C8.6,1.6,7.9,5,14.1,5.4z"/>
 						</svg>
-						<h1 class="nav-collapse-hide">Advanced<span>Tomato</span></h1>
 
+						<h1 class="nav-collapse-hide">Advanced<span>Tomato</span></h1>
 						<h2 class="currentpage nav-collapse-hide">Loading...</h2>
+
 					</div>
 				</a>
 

@@ -1,5 +1,5 @@
 <?xml version="1.0" standalone="no"?>
-<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.2//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
 <!--
 Tomato GUI
 Copyright (C) 2006-2010 Jonathan Zarate
@@ -7,40 +7,39 @@ http://www.polarcloud.com/tomato/
 For use with Tomato Firmware only.
 No part of this file may be used without permission.
 -->
-<svg width="100%" height="100%" version="1.2" xmlns="http://www.w3.org/2000/svg" onload="init(evt)"
-	onmousemove="mMove(evt)">
+<svg width="100%" height="100%" version="1.1" xmlns="http://www.w3.org/2000/svg" onload="init(evt)"	onmousemove="mMove(evt)">
 	<style type='text/css'>
 		line {
 			stroke: #f0f0f0;
 			stroke-width: 1px;
-		 	shape-rendering: crispEdges;
+		 	shape-rendering: geometricPrecision;
 		}
-		
+
 		text {
 			font: 12px 'Segoe UI', 'Roboto', sans-serif;
 			fill: #696969;
 		}
-		
+
 		.tickH {
 			text-anchor: middle;
 			fill: #222;
 		}
-		
+
 		#pointText {
 			text-anchor: end;
 		}
-		
+
 		.back {
 			fill: none;
 			opacity: 1;
 		}
-		
+
 		.dataLine {
 			stroke-width: 1px;
 			transition: fill 400ms ease-in-out;
-			shape-rendering: optimizeSpeed;
+			shape-rendering: geometricPrecision;
 		}
-		
+
 		#xpst { transition: all 150ms ease-in-out; }
 		#xpst.hide { opacity: 0; visibility: hidden; transform: translate(-50px); }
 		#xpst.show { opacity: 1; visibility: visible; transform: translate(0); }
@@ -165,6 +164,7 @@ No part of this file may be used without permission.
 				y = (vHeight - Math.floor((d * vHeight) / maxV))
 				pt += ' ' + Math.floor(x) + ',' + y;
 				x += advX;
+
 			}
 
 			pt += ' ' + (vWidth + 5) + ',' + y + ' ' + (vWidth + 10) + ',' + vHeight;

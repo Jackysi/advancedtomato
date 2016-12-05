@@ -23,7 +23,7 @@ LAN Access admin module by Augusto Bott
 		}
 		.pct {
 			width:55px;
-			padding-right: 10px;
+			padding: 0 0 2px 10px;
 			text-align: right;
 		}
 		.thead {
