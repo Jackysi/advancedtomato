@@ -782,6 +782,7 @@ const defaults_t defaults[] = {
 	},
 	{ "smbd_user",			"nas"				},
 	{ "smbd_passwd",		""				},
+	{ "smbd_ifnames",		"br0"				},
 #endif
 
 #ifdef TCONFIG_MEDIA_SERVER
