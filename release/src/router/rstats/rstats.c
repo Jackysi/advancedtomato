@@ -54,7 +54,7 @@
 #define MAX_NDAILY		62
 #define MAX_NMONTHLY	25
 #define MAX_SPEED_IF	10
-#define MAX_ROLLOVER	(225 * M)
+//#define MAX_ROLLOVER    (225 * M) //not needed anymore
 
 #define MAX_COUNTER	2
 #define RX 			0
@@ -601,6 +601,9 @@ static void calc(void)
 	int n;
 	char *exclude;
 
+	int wanup = 0; // 0 = FALSE, 1 = TRUE
+	long wanuptime = 0; // wanuptime in seconds
+
 	now = time(0);
 	exclude = nvram_safe_get("rstats_exclude");
 
@@ -658,8 +661,14 @@ static void calc(void)
 				c = counter[i];
 				sc = sp->last[i];
 				if (c < sc) {
-					diff = (0xFFFFFFFF - sc) + c;
-					if (diff > MAX_ROLLOVER) diff = 0;
+		wanup = check_wanup(); // router/shared/misc.c
+		wanuptime = check_wanup_time(); // router/shared/misc.c
+		diff = (0xFFFFFFFF - sc + 1) + c;
+		if(wanup && (wanuptime < (INTERVAL + 1))) diff = 0;
+		// if (diff > MAX_ROLLOVER) diff = 0; // 225 Mbyte / 120 sec => 15 MBit/s only with rollover
+		// If a rollover AND a reconnect within the last 121 sec (INTERVAL + 1) happend, set diff to 0
+		// this will prevent traffic peaks, for example with ADSL/PPPoE
+		// see https://www.linksysinfo.org/index.php?threads/tomato-toastmans-releases.36106/page-39#post-281722
 				}
 				else {
 					 diff = c - sc;
