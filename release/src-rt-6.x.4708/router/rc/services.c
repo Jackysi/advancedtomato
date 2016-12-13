@@ -1869,6 +1869,7 @@ static void start_samba(void)
 	char nlsmod[15];
 	int mode;
 	char *nv;
+       char *si;
 #ifdef TCONFIG_BCMARM
 	int cpu_num = sysconf(_SC_NPROCESSORS_CONF);
 	int taskset_ret = -1;
@@ -1890,6 +1891,8 @@ static void start_samba(void)
 	enable_gro(2);
 #endif
 
+       si = nvram_safe_get("smbd_ifnames");
+
 	fprintf(fp, "[global]\n"
 		" interfaces = %s\n"
 		" bind interfaces only = yes\n"
@@ -1908,7 +1911,7 @@ static void start_samba(void)
 		" encrypt passwords = yes\n"
 		" preserve case = yes\n"
 		" short preserve case = yes\n",
-		nvram_safe_get("lan_ifname"),
+               strlen(si) ? si : nvram_safe_get("lan_ifname"),
 		nvram_get("smbd_wgroup") ? : "WORKGROUP",
 		nvram_safe_get("lan_hostname"),
 		nvram_get("router_name") ? : "Tomato",
