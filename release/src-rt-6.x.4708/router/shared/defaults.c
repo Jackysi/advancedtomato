@@ -836,6 +836,7 @@ struct nvram_tuple router_defaults[] = {
 	, 0 },
 	{ "smbd_user",			"nas"				, 0 },
 	{ "smbd_passwd",		""				, 0 },
+       { "smbd_ifnames",               "br0"                           , 0 },
 #endif
 
 #ifdef TCONFIG_MEDIA_SERVER
