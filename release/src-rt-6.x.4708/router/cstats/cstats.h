@@ -37,7 +37,7 @@
 #define MAX_NSPEED		((24 * SHOUR) / INTERVAL)
 #define MAX_NDAILY		62
 #define MAX_NMONTHLY	25
-#define MAX_ROLLOVER	(225 * M)
+//#define MAX_ROLLOVER    (225 * M) //not needed anymore
 
 #define MAX_COUNTER	2
 #define RX 			0
