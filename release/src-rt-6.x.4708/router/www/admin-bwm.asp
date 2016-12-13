@@ -288,7 +288,7 @@ createFieldTable('', [
 	<input type='button' value='Save' id='save-button' onclick='save()'>
 	<input type='button' value='Cancel' id='cancel-button' onclick='javascript:reloadPage();'>
 	</form>
-div></div>
+<div></div>
 </td></tr>
 </table>
 <script type='text/javascript'>verifyFields(null, 1);</script>
