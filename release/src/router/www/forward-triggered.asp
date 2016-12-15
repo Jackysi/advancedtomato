@@ -163,12 +163,15 @@ function init()
 	<script type='text/javascript'>tg.setup();</script>
 </div>
 
-<div>
+<!-- / / / -->
+
+<div class='section-title'>Notes</div>
+<div class='section'>
 <ul>
-<li>Use "-" to specify a range of ports (200-300).
-<li>Trigger Ports are the initial LAN to WAN "trigger".
-<li>Forwarded Ports are the WAN to LAN ports that are opened if the "trigger" is activated.
-<li>These ports are automatically closed after a few minutes of inactivity.
+<li>Use "-" to specify a range of ports (ex. "200-300").</li>
+<li>Trigger Ports are the initial LAN to WAN "trigger".</li>
+<li>Forwarded Ports are the WAN to LAN ports that are opened if the "trigger" is activated.</li>
+<li>These ports are automatically closed after a few minutes of inactivity.</li>
 </ul>
 </div>
 

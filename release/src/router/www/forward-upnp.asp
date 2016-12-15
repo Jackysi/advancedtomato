@@ -31,6 +31,10 @@
 #upnp-grid .co5 {
 	width: 53%;
 }
+textarea {
+	width: 98%;
+	height: 15em;
+}
 </style>
 
 <script type='text/javascript' src='debug.js'></script>
@@ -267,11 +271,10 @@ REMOVE-END */
 	{ title: 'LAN3', indent: 2, name: 'f_upnp_lan3', type: 'checkbox', value: (nvram.upnp_lan3 == '1') },
 	{ title: 'Show In My Network Places',  name: 'f_upnp_mnp',  type: 'checkbox',  value: (nvram.upnp_mnp == '1')},
 	null,
-	{ title: 'Miniupnpd</a><br>Custom configuration', name: 'upnp_custom', type: 'textarea', value: nvram.upnp_custom }
+	{ title: '<a href="https://github.com/miniupnp/miniupnp/blob/master/miniupnpd/miniupnpd.conf" target="_new">Miniupnpd</a><br>Custom configuration', name: 'upnp_custom', type: 'textarea', value: nvram.upnp_custom }
 ]);
 </script>
 </div>
-
 
 <!-- / / / -->
 

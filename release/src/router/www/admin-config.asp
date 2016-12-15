@@ -98,8 +98,8 @@ function resetButton()
 		W("<input type='text' size='40' maxlength='64' id='backup-name' onchange='backupNameChanged()' value='tomato_v" + ('<% version(); %>'.replace(/\./g, '')) + "_m" + nvram.et0macaddr.replace(/:/g, '').substring(6, 12) + "'>");
 		</script>
 		.cfg &nbsp;
-		<input type='button' name='f_backup_button' onclick='backupButton()' value='Backup'><br>
-		<a href='' id='backup-link'>Link</a>
+		<input type='button' name='f_backup_button' onclick='backupButton()' value='Backup'>
+		&nbsp;&nbsp;&nbsp;<a href='' id='backup-link'>Direct Download Link</a>
 	</form>
 </div>
 
@@ -108,9 +108,8 @@ function resetButton()
 <div class='section-title'>Restore Configuration</div>
 <div class='section'>
 	<form id='restore-form' method='post' action='cfg/restore.cgi' encType='multipart/form-data'>
-		Select the configuration file to restore:<br>
-		<input type='file' size='40' id='restore-name' name='filename'> <input type='button' name='f_restore_button' id='restore-button' value='Restore' onclick='restoreButton()'>
-		<br>
+		<input type='file' size='40' id='restore-name' name='filename'>
+		<input type='button' name='f_restore_button' id='restore-button' value='Restore' onclick='restoreButton()'>
 	</form>
 </div>
 

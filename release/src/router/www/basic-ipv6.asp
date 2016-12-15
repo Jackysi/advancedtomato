@@ -368,7 +368,8 @@ createFieldTable('', [
 	{ title: '6rd Routed Prefix', name: 'ipv6_6rd_prefix', type: 'text', maxlen: 46, size: 48, value: nvram.ipv6_6rd_prefix },
 	{ title: '6rd Prefix Length', name: 'ipv6_6rd_prefix_length', type: 'text', maxlen: 3, size: 5, value: nvram.ipv6_6rd_prefix_length, suffix: ' <small>(Usually 32)</small>' },
 	{ title: 'Prefix Length', name: 'f_ipv6_prefix_length', type: 'text', maxlen: 3, size: 5, value: nvram.ipv6_prefix_length },
-	{ title: 'Request PD Only', name: 'f_ipv6_pdonly', type: 'checkbox', value: (nvram.ipv6_pdonly != '0') },
+	{ title: 'Request PD Only', name: 'f_ipv6_pdonly', type: 'checkbox', value: (nvram.ipv6_pdonly != '0'),
+		suffix: ' <small>(enable for ISPs which require Prefix Delegation)</small>' },
 	{ title: 'Router IPv6 Address', multi: [
 		{ name: 'f_ipv6_rtr_addr_auto', type: 'select', options: [['0', 'Default'],['1','Manual']], value: (nvram.ipv6_rtr_addr == '' ? '0' : '1') },
 		{ name: 'f_ipv6_rtr_addr', type: 'text', maxlen: 46, size: 48, value: nvram.ipv6_rtr_addr }
@@ -401,16 +402,6 @@ createFieldTable('', [
 
 <br>
 <script type='text/javascript'>show_notice1('<% notice("ip6tables"); %>');</script>
-
-<!-- / / / -->
-
-<div class='section-title'>Notes</div>
-<div class='section'>
-<br>
-	<ul>
-	<li><b>Request PD Only:</b> Check for ISP's that require only a Prefix Delegation(usually PPPOE(Dsl,Fiber?) connections).</li>
-	</ul>
-</div>
 
 <!-- / / / -->
 

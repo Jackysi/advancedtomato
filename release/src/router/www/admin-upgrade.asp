@@ -101,10 +101,10 @@ function upgrade()
 
 		<br>
 		<table border=0>
-		<tr><td>Current Version:</td><td>&nbsp; <% version(1); %></td></tr>
+		<tr><td>Current Version:</td><td><% version(1); %></td></tr>
 		<script type='text/javascript'>
 		//	<% sysinfo(); %>
-		W('<tr><td>Free Memory:</td><td>&nbsp; ' + scaleSize(sysinfo.totalfreeram) + ' &nbsp; <small>(aprox. size that can be buffered completely in RAM)</small></td></tr>');
+		W('<tr><td>Free Memory:</td><td>' + scaleSize(sysinfo.totalfreeram) + ' &nbsp; <small>(approx. size that can be buffered completely in RAM)</small></td></tr>');
 		</script>
 		</table>
 
