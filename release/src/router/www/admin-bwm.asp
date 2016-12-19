@@ -265,8 +265,8 @@ createFieldTable('', [
 	</script>
 	.gz &nbsp;
 	<input type='button' name='f_backup_button' id='backup-button' onclick='backupButton()' value='Backup'>
+	&nbsp;&nbsp;&nbsp;<a href='' id='backup-link'>Direct Download Link</a>
 	</form>
-	<a href='' id='backup-link'>Link</a>
 </div>
 <br>
 

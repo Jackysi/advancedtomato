@@ -139,7 +139,7 @@ fog.setup = function() {
 		{ type: 'text', maxlen: 5 },
 		{ type: 'text', maxlen: 15 },
 		{ type: 'text', maxlen: 32 }]);
-	this.headerSet(['On', 'Proto', 'Src Address', 'Ext Ports', 'Int Port', 'Int Address', 'Description']);
+	this.headerSet(['On', 'Protocol', 'Src Address', 'Ext Ports', 'Int Port', 'Int Address', 'Description']);
 	var nv = nvram.portforward.split('>');
 	for (var i = 0; i < nv.length; ++i) {
 		var r;
@@ -218,21 +218,22 @@ function init()
 	<script type='text/javascript'>fog.setup();</script>
 </div>
 
-<div>
+<!-- / / / -->
+
+<div class='section-title'>Notes</div>
+<div class='section'>
 <ul>
-<li><b>Src Address</b> <i>(optional)</i> - Forward only if from this address. Ex: "1.2.3.4", "1.2.3.4 - 2.3.4.5", "1.2.3.0/24", "me.example.com".
-<li><b>Ext Ports</b> - The ports to be forwarded, as seen from the WAN. Ex: "2345", "200,300", "200-300,400".
-<li><b>Int Port</b> <i>(optional)</i> - The destination port inside the LAN. If blank, the destination port
-is the same as <i>Ext Ports</i>. Only one port per entry is supported when forwarding to a different internal
-port.
-<li><b>Int Address</b> - The destination address inside the LAN.
+<li><b>Src Address</b> <i>(optional)</i> - Forward only if from this address (ex: "1.2.3.4", "1.2.3.0/24", "1.2.3.4 - 2.3.4.5", or "me.example.com").</li>
+<li><b>Ext Ports</b> - The ports to be forwarded, as seen from the WAN (ex: "2345", "200,300", "200-300,400").</li>
+<li><b>Int Port</b> <i>(optional)</i> - The destination port inside the LAN. If blank, the destination port is the same as <i>Ext Ports</i>. Only one port per entry is supported when forwarding to a different internal port.</li>
+<li><b>Int Address</b> - The destination address inside the LAN.</li>
 </ul>
 </div>
 
+<!-- / / / -->
+
 <br>
 <script type='text/javascript'>show_notice1('<% notice("iptables"); %>');</script>
-
-<!-- / / / -->
 
 </td></tr>
 <tr><td id='footer' colspan=2>
