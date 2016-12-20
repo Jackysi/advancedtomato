@@ -140,7 +140,7 @@ function verifyFields(focused, quiet)
 		elem.display(PR('_f_user' + i), op.u);
 		elem.display(PR('_f_pass' + i), op.u || op.p);
 		elem.display(PR('_f_host' + i), op.h || op.j);
-		elem.display(PR('_f_cust' + i), 'custmsg' + i, op.c);
+		elem.display(PR('_f_cust' + i), op.c);
 
 		elem.display(PR('_f_wild' + i), op.w);
 		elem.display(PR('_f_mx' + i), op.m);
@@ -441,7 +441,6 @@ for (i = 0; i < 2; ++i) {
 		{ title: 'Password', name: 'f_pass' + i, type: 'password', maxlen: 64, size: 35, peekaboo: 1, value: u[1], hidden: 1 },
 		{ title: 'Hostname', name: 'f_host' + i, type: 'text', maxlen: 255, size: 80, value: v[2], hidden: 1 },
 		{ title: 'URL', name: 'f_cust' + i, type: 'text', maxlen: 255, size: 80, value: v[6], hidden: 1 },
-		{ title: ' ', text: '(Use @IP for the current WAN IP address)', rid: ('custmsg' + i), hidden: 1 },
 		{ title: 'Wildcard', indent: 2, name: 'f_wild' + i, type: 'checkbox', value: v[3] != '0', hidden: 1 },
 		{ title: 'MX', name: 'f_mx' + i, type: 'text', maxlen: 32, size: 35, value: v[4], hidden: 1 },
 		{ title: 'Backup MX', indent: 2, name: 'f_bmx' + i, type: 'checkbox', value: v[5] != '0', hidden: 1 },
@@ -458,6 +457,14 @@ for (i = 0; i < 2; ++i) {
 }
 </script>
 
+<!-- / / / -->
+
+<div class='section-title'>Notes</div>
+<div class='section'>
+<ul>
+<li><b>URL</b> - Use <code>@IP</code> in an HTTP parameter/argument to refer to the current WAN IP address.</li>
+</ul>
+</div>
 
 <!-- / / / -->
 

@@ -90,6 +90,8 @@ function init()
 <div style='margin:30px 30px;font-size:14px;color:#555;'>
 <b>Tomato Firmware v<% version(1); %></b><br>
 <br>
+<b>Built on <% build_time(); %></b><br>
+<br>
 Based on TomatoUSB by Fedor Kozhevnikov<br>
 - Linux kernel <% version(2); %> and Broadcom Wireless Driver <% version(3); %> updates<br>
 - Support for additional router models, dual-band and Wireless-N mode.<br>
@@ -216,8 +218,6 @@ Copyright (C) 2012 Tiomo<br>
 - Comprehensive QOS rule examples set by default<br>
 Copyright (C) 2010-2016 Toastman<br>
 <a href='http://www.toastmanfirmware.yolasite.com'>http://www.toastmanfirmware.yolasite.com</a><br>
-<br>
-Built on <% build_time(); %><br>
 <br>
 <b>If you enjoy this firmware, and would like to thank me for all the time I spent<br>
 working on it, you can make a PayPal donation:</b>

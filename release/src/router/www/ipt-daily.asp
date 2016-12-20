@@ -458,8 +458,8 @@ function verifyFields(focused, quiet) {
 <script type='text/javascript'>
 var c;
 c = [];
-c.push({ title: 'List only these IPs', name: 'f_filter_ip', size: 50, maxlen: 255, type: 'text', suffix: ' <small>(Comma separated list)</small>' });
-c.push({ title: 'Exclude these IPs', name: 'f_filter_ipe', size: 50, maxlen: 255, type: 'text', suffix: ' <small>(Comma separated list)</small>' });
+c.push({ title: 'List only these IPs', name: 'f_filter_ip', size: 50, maxlen: 255, type: 'text', suffix: ' <small>(comma separated list)</small>' });
+c.push({ title: 'Exclude these IPs', name: 'f_filter_ipe', size: 50, maxlen: 255, type: 'text', suffix: ' <small>(comma separated list)</small>' });
 c.push({ title: 'Date Range', multi: [ { name: 'f_begin_date', type: 'select', options: [['0', 'Any']], suffix: ' - ' }, { name: 'f_end_date', type: 'select', options: [['0', 'Any']] } ] } );
 c.push({ title: 'Date Format', name: 'f_dafm', type: 'select', options: [['0', 'yyyy-mm-dd'], ['1', 'mm-dd-yyyy'], ['2', 'mmm dd, yyyy'], ['3', 'dd.mm.yyyy']] });
 c.push({ title: 'Scale', name: 'f_scale', type: 'select', options: [['0', 'KB'], ['1', 'MB'], ['2', 'GB']] });
