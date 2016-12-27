@@ -631,7 +631,7 @@ static void calc(void) {
 							if (c < sc) {
 				wanup = check_wanup(); // router/shared/misc.c
 				wanuptime = check_wanup_time(); // router/shared/misc.c
-				diff = (0xFFFFFFFF - sc + 1) + c;
+				diff = ((0xFFFFFFFFFFFFFFFFULL) - sc + 1) + c;
 				if(wanup && (wanuptime < (INTERVAL + 1))) diff = 0;
 				// if (diff > MAX_ROLLOVER) diff = 0; // 225 Mbyte / 120 sec => 15 MBit/s only with rollover
 				// If a rollover AND a reconnect within the last 121 sec (INTERVAL + 1) happend, set diff to 0
