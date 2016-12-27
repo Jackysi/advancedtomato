@@ -114,7 +114,7 @@ fog.setup = function() {
 		{ type: 'text', maxlen: 140 },
 		{ type: 'text', maxlen: 16 },
 		{ type: 'text', maxlen: 32 }]);
-	this.headerSet(['On', 'Proto', 'Src Address', 'Dest Address', 'Dest Ports', 'Description']);
+	this.headerSet(['On', 'Protocol', 'Src Address', 'Dest Address', 'Dest Ports', 'Description']);
 	var nv = nvram.ipv6_portforward.split('>');
 	for (var i = 0; i < nv.length; ++i) {
 		var r;
@@ -183,19 +183,25 @@ function init()
 	<script type='text/javascript'>fog.setup();</script>
 </div>
 
-<div>
-Opens access to ports on machines inside the LAN, but does <b>not</b> re-map ports.
+<!-- / / / -->
+
+<div class='section-title'>Notes</div>
+<div class='section'>
 <ul>
-<li><b>Src Address</b> <i>(optional)</i> - Forward only if from this address. Ex: "2001:4860:800b::/48", "me.example.com".
-<li><b>Dest Address</b> <i>(optional)</i> - The destination address inside the LAN.
-<li><b>Dest Ports</b> - The ports to be opened for forwarding. Ex: "2345", "200,300", "200-300,400".
+<li>Opens access to ports on machines inside the LAN, but does <b>not</b> re-map ports.</li>
+</ul>
+<i>IPv6 Port Forwarding:</i><br>
+<ul>
+<li><b>Src Address</b> <i>(optional)</i> - Forward only if from this address (ex: "2001:4860:800b::/48", or "me.example.com").</li>
+<li><b>Dest Address</b> <i>(optional)</i> - The destination address inside the LAN.</li>
+<li><b>Dest Ports</b> - The ports to be opened for forwarding (ex: "2345", "200,300", "200-300,400").</li>
 </ul>
 </div>
 
+<!-- / / / -->
+
 <br>
 <script type='text/javascript'>show_notice1('<% notice("ip6tables"); %>');</script>
-
-<!-- / / / -->
 
 </td></tr>
 <tr><td id='footer' colspan=2>
