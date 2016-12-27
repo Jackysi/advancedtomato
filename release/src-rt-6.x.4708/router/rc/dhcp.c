@@ -507,7 +507,6 @@ void start_dhcp6c(void)
 		};
 		fprintf(f,
 			" send ia-pd 0;\n"
-			" send rapid-commit;\n"
 			" request domain-name-servers;\n"
 			" script \"/sbin/dhcp6c-state\";\n"
 			"};\n"
