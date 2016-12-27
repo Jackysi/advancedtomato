@@ -1357,7 +1357,7 @@ function escapeText(s) {
 <div id='sesdiv' style='display:none'>
 
 <!-- / / / -->
-<div class='section-title'>Virtual Wireless Interfaces</div>
+<div class='section-title'>Virtual Wireless Interfaces (VIFs)</div>
 <div class='section'>
 
 <script type='text/javascript'>
@@ -1405,6 +1405,7 @@ createFieldTable('', [
 <div class='section-title'>Notes <small><i><a href='javascript:toggleVisibility("notes");'><span id='sesdivnotesshowhide'>(Click here to show)</span></a></i></small></div>
 <div class='section' id='sesdivnotes' style='display:none'>
 
+<i>Virtual Wireless Interfaces (VIFs):</i><br>
 <ul>
 <li><b>Interface</b> - Wireless VIF name.</li>
 <li><b>Enabled</b> - If this VIF should be active and brought online.</li>
@@ -1413,27 +1414,20 @@ createFieldTable('', [
 <li><b>Bridge</b> - Which LAN bridge this VIF should be assigned.</li>
 </ul>
 
-<ul>
 <!-- LINUX24-BEGIN -->
+<i>Options:</i><br>
+<ul>
 <li><b>Use alternate NAS startup(...)</b> - <i>Only meaningful for K24 builds</i> - Enable this option if you need more than one NAS process running (i.e. to handle WPAx encryption on more than one WLVIF).</li>
-<!-- LINUX24-END -->
 </ul>
+<!-- LINUX24-END -->
 
-<small>
+<i>Other relevant notes/hints:</i><br>
 <ul>
-<li><b>Other relevant notes/hints:</b>
-<ul>
-<li>When creating/defining a new wireless VIF, it's MAC address will be shown (incorrectly) as '00:00:00:00:00:00', as it's unknown at that moment (until network is restarted and this page is reloaded).</li>
+<li>When creating/defining a new wireless VIF, its MAC address will be shown incorrectly as 00:00:00:00:00:00, as it's unknown at that moment (until network is restarted and this page is reloaded).</li>
 <li>When saving changes, the MAC addresses of all defined non-primary wireless VIFs could sometimes be (already) <i>set</i> but might be <i>recreated</i> by the WL driver (so that previously defined/saved settings might need to be updated/changed accordingly on <a href=advanced-mac.asp>Advanced/MAC Address</a> after saving settings and rebooting your router).</li>
 <li>This web interface allows configuring a maximum of 4 VIFs for each physical wireless interface available - up to 3 extra VIFs can be defined in addition to the primary VIF (<i>on devices with multiple VIF capabilities</i>).</li>
 <li>By definition, configuration settings for the <i>primary VIF</i> of any physical wireless interfaces shouldn't be touched here (use the <a href=basic-network.asp>Basic/Network</a> page instead).</li>
 </ul>
-</ul>
-</small>
-
-</div>
-
-<!-- / / / -->
 
 </div>
 

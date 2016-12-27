@@ -20,8 +20,8 @@
 
 <style type='text/css'>
 textarea {
-	width: 99%;
-	height: 10em;
+	width: 98%;
+	height: 9em;
 }
 </style>
 
@@ -298,7 +298,7 @@ var m = [
 	{ title: 'Allow Wireless Access', name: 'f_http_wireless', type: 'checkbox', value:  nvram.web_wl_filter == 0 },
 	null,
 	{ title: 'Directory with GUI files', name: 'web_dir', type: 'select',
-		options: [['default','Default: /www'], ['jffs', 'Custom: /jffs/www (Experts Only!)'], ['opt', 'Custom: /opt/www (Experts Only!)'], ['tmp', 'Custom: /tmp/www (Experts Only!)']], value: nvram.web_dir, suffix: ' <small>Please be sure of your decision before change this settings!</small>' },
+		options: [['default','Default: /www'], ['jffs', 'Custom: /jffs/www (Experts Only!)'], ['opt', 'Custom: /opt/www (Experts Only!)'], ['tmp', 'Custom: /tmp/www (Experts Only!)']], value: nvram.web_dir, suffix: ' <small>(please be sure of your decision before changing this setting!)</small>' },
 	{ title: 'Color Scheme', name: 'web_css', type: 'select',
 		options: [['red','Tomato'],['asus','Asustek'],['black','Black'],['blue','Blue'],['bluedream','Bluedream'],['brownlight','Brownlight'],['brown','Brown'],['cisco','Cisco'],['cyan','Cyan'],['enlightened','Enlightened'],['linksys','Linksys'],['olive','Olive'],['tijuana','Tijuana'],['ext/custom','Custom (ext/custom.css)'], ['online', 'On-line from TTB']], value: nvram.web_css },
 	{ title: 'TTB ID#', indent: 2, name: 'ttb_css', type: 'text', maxlen: 25, size: 30, value: nvram.ttb_css, suffix: ' Theme name from <a href="http://www.tomatothemebase.eu" target="_blanc"><u><i>TTB themes gallery</i></u></a>' },
@@ -351,12 +351,12 @@ createFieldTable('', [
 	{ title: 'Allowed Remote<br>IP Address', name: 'f_rmgt_sip', type: 'text', maxlen: 512, size: 64, value: nvram.rmgt_sip,
 		suffix: '<br><small>(optional; ex: "1.1.1.1", "1.1.1.0/24", "1.1.1.1 - 2.2.2.2" or "me.example.com")</small>' },
 	{ title: 'Limit Connection Attempts', multi: [
-		{ suffix: '&nbsp; SSH &nbsp; / &nbsp;', name: 'f_limit_ssh', type: 'checkbox', value: (shlimit[0] & 1) != 0 },
-		{ suffix: '&nbsp; Telnet &nbsp;', name: 'f_limit_telnet', type: 'checkbox', value: (shlimit[0] & 2) != 0 }
+		{ suffix: '&nbsp;SSH &nbsp;&nbsp;', name: 'f_limit_ssh', type: 'checkbox', value: (shlimit[0] & 1) != 0 },
+		{ suffix: '&nbsp;Telnet', name: 'f_limit_telnet', type: 'checkbox', value: (shlimit[0] & 2) != 0 }
 	] },
 	{ title: '', indent: 2, multi: [
-		{ name: 'f_limit_hit', type: 'text', maxlen: 4, size: 6, suffix: '&nbsp; every &nbsp;', value: shlimit[1] },
-		{ name: 'f_limit_sec', type: 'text', maxlen: 4, size: 6, suffix: '&nbsp; seconds', value: shlimit[2] }
+		{ name: 'f_limit_hit', type: 'text', maxlen: 4, size: 6, suffix: '&nbsp;<small>every</small>&nbsp;&nbsp;', value: shlimit[1] },
+		{ name: 'f_limit_sec', type: 'text', maxlen: 4, size: 6, suffix: '&nbsp;<small>seconds</small>', value: shlimit[2] }
 	] }	
 ]);
 </script>
