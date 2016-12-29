@@ -58,9 +58,9 @@ int nvram_save_new(char *file, char *buf)
 	count = 0;
 	for (name = buf; *name; name += strlen(name) + 1)
 	{
-//#ifdef ASUS_DEBUG
+#ifdef ASUS_DEBUG
 		puts(name);
-//#endif
+#endif
 		count = count + strlen(name) + 1;
 	}
 
@@ -167,8 +167,11 @@ int nvram_restore_new(char *file, char *buf)
 #endif
 		for (i = 0; i < count; i++)
 		{
-			if ((unsigned char) buf[i] > ( 0xfd - 0x1))
-				buf[i] = 0x0;
+			if ((unsigned char) buf[i] > ( 0xfd - 0x1)){
+				/* e.g.: to skip the case: 0x61 0x62 0x63 0x00 0x00 0x61 0x62 0x63 */
+				if(i > 0 && buf[i-1] != 0x0)
+					buf[i] = 0x0;
+			}
 			else
 				buf[i] = 0xff + rand - buf[i];
 		}
@@ -197,6 +200,13 @@ int nvram_restore_new(char *file, char *buf)
 
 	while (*p)
 	{
+#if 1
+		/* e.g.: to skip the case: 00 2e 30 2e 32 38 00 ff 77 61 6e */
+		if(*p == NULL || *p < 32 || *p > 127 ){
+			p = p + 1;
+			continue;
+		}
+#endif
 		v = strchr(p, '=');
 
 		if (v != NULL)
@@ -278,8 +288,8 @@ main(int argc, char **argv)
 			if (**argv != 'd')
 				fprintf(stderr, "size: %d bytes (%d left)\n",
 				        size, MAX_NVRAM_SPACE - size);
-		} //else
-		//	usage();
+		} else
+			usage();
 	}
 
 	return 0;
