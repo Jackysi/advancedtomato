@@ -1433,6 +1433,10 @@ createFieldTable('', [
 
 <!-- / / / -->
 
+</div>
+
+<!-- / / / -->
+
 <script type='text/javascript'>
 for (var i = 1; i < tabs.length; ++i) {
 	var t = tabs[i][0];

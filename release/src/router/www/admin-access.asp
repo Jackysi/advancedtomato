@@ -356,7 +356,7 @@ createFieldTable('', [
 	] },
 	{ title: '', indent: 2, multi: [
 		{ name: 'f_limit_hit', type: 'text', maxlen: 4, size: 6, suffix: '&nbsp;<small>every</small>&nbsp;&nbsp;', value: shlimit[1] },
-		{ name: 'f_limit_sec', type: 'text', maxlen: 4, size: 6, suffix: '&nbsp;<small>seconds', value: shlimit[2] }
+		{ name: 'f_limit_sec', type: 'text', maxlen: 4, size: 6, suffix: '&nbsp;<small>seconds</small>', value: shlimit[2] }
 	] }	
 ]);
 </script>
