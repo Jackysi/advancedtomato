@@ -315,21 +315,9 @@ function init()
 		</script>
 		<br>
 		<table class='tomato-grid' id='qosg-grid'></table>
-		<div>
-			<ul>
-				<li><b>IP Address / IP Range:</b>
-				<li>Example: 192.168.1.5 for one IP.
-				<li>Example: 192.168.1.4-7 for IP 192.168.1.4 to 192.168.1.7
-				<li>Example: 4-7 for IP Range .4 to .7
-				<li><b>The IP Range devices will share the Bandwidth</b>
-				<li><b>MAC Address</b> Example: 00:2E:3C:6A:22:D8
-			</ul>
-		</div>
 	</div>
 	
-	<br>
-
-	<div class='section-title'>Default Class for unlisted MAC / IP's in LAN (br0)</div>
+	<div class='section-title'>Default Class for unlisted MAC / IPs in LAN (br0)</div>
 	<div class='section'>
 		<script type='text/javascript'>
 			createFieldTable('', [
@@ -430,6 +418,21 @@ function init()
 			</ul>
 		</div>
 	</div>
+</div>
+
+<!-- / / / -->
+
+<div class='section-title'>Notes</div>
+<div class='section'>
+<i>IP / IP Range / MAC Address field:</i>
+<br>
+<ul>
+<li>Example single IP: <b>192.168.1.4</b></li>
+<li>Example IP range: <b>192.168.1.4-7</b> (for IPs 192.168.1.4 to 192.168.1.7)</li>
+<li>Example IP range: <b>4-7</b> (for IPs 192.168.1.4 to 192.168.1.7)</li>
+<li><b>All hosts within an IP range will share bandwidth.</b></li>
+<li>MAC addresses are colon-delimited, case-insensivite, and require 6 octets (ex. <b>00:aa:bb:cc:dd:ee</b>).</li>
+</ul>
 </div>
 
 <!-- / / / -->
