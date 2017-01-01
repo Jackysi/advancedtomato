@@ -115,7 +115,7 @@ void start_sshd(void)
 	mkdir("/etc/dropbear", 0700);
 	mkdir("/root/.ssh", 0700);
 
-	f_write_string("/root/.ssh/authorized_keys", nvram_safe_get("sshd_authkeys"), 0, 0700);
+	f_write_string("/root/.ssh/authorized_keys", nvram_safe_get("sshd_authkeys"), 0, 0600);
 
 	dirty |= check_host_key("rsa",   "sshd_hostkey",  "/etc/dropbear/dropbear_rsa_host_key");
 	dirty |= check_host_key("dss",   "sshd_dsskey",   "/etc/dropbear/dropbear_dss_host_key");
