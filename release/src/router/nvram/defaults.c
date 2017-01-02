@@ -602,6 +602,7 @@ const defaults_t defaults[] = {
 	{ "sshd_authkeys",		""				},
 	{ "sshd_hostkey",		""				},
 	{ "sshd_dsskey",		""				},
+	{ "sshd_ecdsakey",		""				},
 	{ "sshd_forwarding",		"1"				},
 	{ "rmgt_sip",			""				},	// remote management: source ip address
 
