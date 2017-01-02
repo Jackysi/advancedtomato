@@ -91,6 +91,8 @@ function init()
 </div>
 <div style='margin:30px 30px;font-size:14px;color:#555;'>
 <b>Tomato Firmware v<% version(1); %></b><br>
+<b>Built on <% build_time(); %></b><br>
+<br>
 <br>
 Based on TomatoUSB by Fedor Kozhevnikov<br>
 - Linux kernel <% version(2); %> and Broadcom Wireless Driver <% version(3); %> updates<br>
@@ -249,8 +251,6 @@ Based on TomatoUSB by Fedor Kozhevnikov<br>
 - Comprehensive QOS rule examples set by default<br>
 Copyright (C) 2010-2015 Toastman<br>
 <a href='http://www.toastmanfirmware.yolasite.com'>http://www.toastmanfirmware.yolasite.com</a><br>
-<br>
-Built on <% build_time(); %><br>
 <br>
 <b>If you enjoy this firmware, and would like to thank me for all the time I spent<br>
 working on it, you can make a PayPal donation:</b>

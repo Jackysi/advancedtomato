@@ -1424,9 +1424,9 @@ createFieldTable('', [
 <i>Other relevant notes/hints:</i><br>
 <ul>
 <li>When creating/defining a new wireless VIF, its MAC address will be shown incorrectly as 00:00:00:00:00:00, as it's unknown at that moment (until network is restarted and this page is reloaded).</li>
-<li>When saving changes, the MAC addresses of all defined non-primary wireless VIFs could sometimes be (already) <i>set</i> but might be <i>recreated</i> by the WL driver (so that previously defined/saved settings might need to be updated/changed accordingly on <a href=advanced-mac.asp>Advanced/MAC Address</a> after saving settings and rebooting your router).</li>
+<li>When saving changes, the MAC addresses of all defined non-primary wireless VIFs could sometimes be (already) <i>set</i> but might be <i>recreated</i> by the WL driver (so that previously defined/saved settings might need to be updated/changed accordingly on <a href="advanced-mac.asp">Advanced/MAC Address</a> after saving settings and rebooting your router).</li>
 <li>This web interface allows configuring a maximum of 4 VIFs for each physical wireless interface available - up to 3 extra VIFs can be defined in addition to the primary VIF (<i>on devices with multiple VIF capabilities</i>).</li>
-<li>By definition, configuration settings for the <i>primary VIF</i> of any physical wireless interfaces shouldn't be touched here (use the <a href=basic-network.asp>Basic/Network</a> page instead).</li>
+<li>By definition, configuration settings for the <i>primary VIF</i> of any physical wireless interfaces shouldn't be touched here (use the <a href="basic-network.asp">Basic/Network</a> page instead).</li>
 </ul>
 
 </div>
@@ -1485,11 +1485,12 @@ for (var i = 1; i < tabs.length; ++i) {
 		{ title: 'Enable Interface', name: 'f_wl'+u+'_radio', type: 'checkbox',
 			value: (eval('nvram["wl'+u+'_radio"]') == '1') && (eval('nvram["wl'+u+'_net_mode"]') != 'disabled') },
 		{ title: 'MAC Address', text: '<a href="advanced-mac.asp">' + (eval('nvram["wl'+u+'_hwaddr"]') || '00:00:00:00:00:00') + '</a>' +
-			' &nbsp; <b id="wl'+u+'_hwaddr_msg" style="visibility:hidden"><small>(warning: WL driver reports BSSID <a href=advanced-mac.asp>' + ((typeof(wl_ifaces[wl_ifidxx(u)]) != 'undefined')? wl_ifaces[wl_ifidxx(u)][9] : '') + '</a>)</small></b>' },
+			' &nbsp; <b id="wl'+u+'_hwaddr_msg" style="visibility:hidden"><small>(warning: WL driver reports BSSID <a href="advanced-mac.asp">' + ((typeof(wl_ifaces[wl_ifidxx(u)]) != 'undefined')? wl_ifaces[wl_ifidxx(u)][9] : '') + '</a>)</small></b>' },
 		{ title: 'Wireless Mode', name: 'f_wl'+u+'_mode', type: 'select',
 			options: wl_modes_available,
 			value: ((eval('nvram["wl'+u+'_mode"]') == 'ap') && (eval('nvram["wl'+u+'_wds_enable"]') == '1')) ? 'apwds' : eval('nvram["wl'+u+'_mode"]'),
-			suffix: ' &nbsp; <b id="wl'+u+'_mode_msg" style="visibility:hidden"><small>(note: you might wish to cross-check settings later on <a href=basic-network.asp>Basic/Network</a>)</small></b>' }
+			suffix: ' &nbsp; <b id="wl'+u+'_mode_msg" style="visibility:hidden"><small>(note: you might wish to cross-check settings later on <a href="basic-network.asp">Basic/Network</a>)</small></b>' }
+
 	);
 
 // only if primary VIF

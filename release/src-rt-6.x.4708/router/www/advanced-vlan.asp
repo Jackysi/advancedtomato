@@ -919,47 +919,62 @@ if(port_vlan_supported) vlg.setup();
 </script>
 </div>
 
+<!-- / / / -->
+
 <div class='section-title'>Notes <small><i><a href='javascript:toggleVisibility("notes");'><span id='sesdiv_notes_showhide'>(Click here to hide)</span></a></i></small></div>
 <div class='section' id='sesdiv_notes' style='display:none'>
-<ul>
-<li>If you notice that the order of the Lan Ports are incorrectly mapped, <a href='http://www.linksysinfo.org/index.php?threads/can-vlan-gui-port-order-be-corrected.70160/#post-247634/'> <b>Please Follow these Instructions to get it corrected.</b></a></li>
+
+<i>General:</i>
 <br>
+<ul>
+<li>If you notice the order of the LAN ports are incorrectly mapped, <b>please follow <a href="http://www.linksysinfo.org/index.php?threads/can-vlan-gui-port-order-be-corrected.70160/#post-247634/">these instructions</a> to get it corrected.</b></li>
+</ul>
+
+<i>VLAN:</i>
+<br>
+<ul>
 <li><b>VLAN</b> - Unique identifier of a VLAN.</li>
-<li><b>VID</b> - Allows overriding 'traditional' VLAN/VID mapping with arbitrary VIDs for each VLAN (set to '0' to use 'regular' VLAN/VID mappings instead).</li>
+<li><b>VID</b> - Overrides "traditional" VLAN/VID mapping with arbitrary VIDs for each VLAN. Set to 0 to use "traditional" VLAN/VID mappings.</li>
 <li><b>Ports 1-4 &amp; WAN</b> - Which ethernet ports on the router should be members of this VLAN.</li>
-<li><b>Tagged</b> - Enable 802.1Q tagging of ethernet frames on a particular port/VLAN</li>
+<li><b>Tagged</b> - Enable 802.1Q tagging of ethernet frames on a particular port/VLAN.</li>
 <li><b>Default</b> - VLAN ID assigned to untagged frames received by the router.</li>
 <li><b>Bridge</b> - Determines if this VLAN ID should be treated as WAN, part of a LAN bridge or just left alone (i.e. member of a 802.1Q trunk, being managed manually via scripts, etc...).</li>
 </ul>
+
+<i>Wireless:</i>
+<br>
 <ul>
-<li><b>Wireless</b> - Assignments of wireless interfaces to different LAN briges. You should probably be using and/or check things on <a href=advanced-wlanvifs.asp>Advanced/Virtual Wireless</a> and <a href=basic-network.asp>Basic/Network</a>.</li>
+<li><b>Wireless</b> - Assignments of wireless interfaces to different LAN briges. You should probably be using and/or check things on <a href="advanced-wlanvifs.asp">Advanced/Virtual Wireless</a> and <a href="basic-network.asp">Basic/Network</a>.</li>
 </ul>
 
-<small>
+<i>Other relevant notes/hints:</i>
+<br>
 <ul>
-<li><b>Other relevant notes/hints:</b>
-<ul>
-<li>One VID <i>must</i> be assigned to WAN.</li>
-<li>One VID <i>must</i> be selected as the default.</li>
+<li>One VID <b>must</b> be assigned to WAN.</li>
+<li>One VID <b>must</b> be selected as the default.</li>
 <script type='text/javascript'>
 if(trunk_vlan_supported) {
-  W('<li>To prevent 802.1Q compatibility issues, avoid using VID "0" as 802.1Q specifies that frames with a tag of "0" do not belong to any VLAN (the tag contains only user priority information).</li>');
-  W('<li>It may be also recommended to avoid using VID "1" as some vendors consider it special/reserved (for management purposes).</li>');
+  W('<li>To prevent 802.1Q compatibility issues, avoid using a VID of 0, as 802.1Q specifies that frames with a tag of 0 do not belong to any VLAN (the tag contains only user priority information).</li>');
+  W('<li>It may be also recommended to avoid using VID of 1 as some vendors consider it special or reserved for management purposes.</li>');
 }
 </script>
 </ul>
-<br>
-</ul>
-</small>
-</div>
-</div>
+
+</div> <!-- sesdiv_notes -->
+
+</div> <!-- sesdiv -->
+
 <script type='text/javascript'>
 if(!port_vlan_supported) 
-  W('<i>This feature is not supported on this router.</i>');
+  W('This feature is not supported on this model of router.');
 else {
+  // Needed to enable rendering of main content (sesdiv)
   E('sesdiv').style.display = '';
 }
 </script>
+
+<!-- / / / -->
+
 </td></tr>
 <tr><td id='footer' colspan=2>
  <span id='footer-msg'></span>
