@@ -254,7 +254,7 @@ createFieldTable('', [
 <script type='text/javascript'>
 cc = nvram.qos_orates.split(/[,-]/);
 f = [];
-f.push({ title: 'Max Bandwidth Limit', name: 'qos_obw', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s   (Set to measured bandwidth less 15-30%)</small>', value: nvram.qos_obw });
+f.push({ title: 'Max Bandwidth Limit', name: 'qos_obw', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s (set to measured bandwidth less 15-30%)</small>', value: nvram.qos_obw });
 f.push(null);
 j = 0;
 for (i = 0; i < 10; ++i) {
@@ -277,7 +277,7 @@ createFieldTable('', f);
 <script type='text/javascript'>
 allRates = nvram.qos_irates.split(',');
 f = [];
-f.push({ title: 'Max Bandwidth Limit', name: 'qos_ibw', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s   (Set to measured bandwidth less 15-30%)</small>', value: nvram.qos_ibw });
+f.push({ title: 'Max Bandwidth Limit', name: 'qos_ibw', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s (set to measured bandwidth less 15-30%)</small>', value: nvram.qos_ibw });
 f.push(null);
 
 f.push(

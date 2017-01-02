@@ -462,8 +462,8 @@ function toggleVisibility(whichone) {
 <script type='text/javascript'>
 var c;
 c = [];
-c.push({ title: 'Only these IPs', name: 'f_filter_ip', size: 50, maxlen: 255, type: 'text', suffix: ' <small>(Comma separated list)</small>' });
-c.push({ title: 'Exclude these IPs', name: 'f_filter_ipe', size: 50, maxlen: 255, type: 'text', suffix: ' <small>(Comma separated list)</small>' });
+c.push({ title: 'Only these IPs', name: 'f_filter_ip', size: 50, maxlen: 255, type: 'text', suffix: ' <small>(comma separated list)</small>' });
+c.push({ title: 'Exclude these IPs', name: 'f_filter_ipe', size: 50, maxlen: 255, type: 'text', suffix: ' <small>(comma separated list)</small>' });
 c.push({ title: 'Scale', name: 'f_scale', type: 'select', options: [['0', 'KB'], ['1', 'MB'], ['2', 'GB']] });
 c.push({ title: 'Ignore inactive hosts', name: 'f_onlyactive', type: 'checkbox' });
 c.push({ title: 'Show hostnames', name: 'f_hostnames', type: 'checkbox' });
