@@ -4171,9 +4171,6 @@ static void sysinit(void)
 #endif
 
 #ifdef LINUX26
-	eval("hotplug2", "--coldplug");
-	start_hotplug2();
-
 	static const char *dn[] = {
 		"null", "zero", "random", "urandom", "full", "ptmx", "nvram",
 		NULL
@@ -4190,6 +4187,11 @@ static void sysinit(void)
 	for (i = 0; defenv[i]; ++i) {
 		putenv(defenv[i]);
 	}
+
+#ifdef LINUX26
+	eval("hotplug2", "--coldplug");
+	start_hotplug2();
+#endif
 
 	if (!noconsole) {
 		printf("\n\nHit ENTER for console...\n\n");
