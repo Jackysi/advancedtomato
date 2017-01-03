@@ -647,6 +647,7 @@ struct nvram_tuple router_defaults[] = {
 	{ "sshd_authkeys",		""				, 0 },
 	{ "sshd_hostkey",		""				, 0 },
 	{ "sshd_dsskey",		""				, 0 },
+	{ "sshd_ecdsakey",		""				, 0 },
 	{ "sshd_forwarding",		"1"				, 0 },
 	{ "rmgt_sip",			""				, 0 },	// remote management: source ip address
 
