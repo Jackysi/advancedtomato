@@ -74,9 +74,10 @@ connect() {
                     fi
 
                     #connecting
-                    MODE="AT^NDISDUP=1,1,\"$APN\"" gcom -d $i -s /etc/gcom/setverbose.gcom > /tmp/4g.mode
+                    MODE="AT^NDISDUP=1,1,\"$APN\"" gcom -d $i -s /etc/gcom/setverbose.gcom
+                    MODE="AT+CGPADDR=1" gcom -d $i -s /etc/gcom/setverbose.gcom > /tmp/4g.mode
 
-                    CHECK=`cat /tmp/4g.mode | grep "NDISSTAT:" | grep IPV4 | cut -d ":" -f2 | cut -d "," -f1`
+                    CHECK=`cat /tmp/4g.mode | grep "+CGPADDR:" | cut -d '"' -f2 | wc -l`
                     if [ "$CHECK" == "1" ]; then
                         logger 4G MODEM - connected ...
                         CONNECTED=1
@@ -96,10 +97,10 @@ connect() {
                 INTERVAL=`nvram get mwan_cktime`
                 if [ "$INTERVAL" -gt 0 ]; then
                     logger 4G MODEM - connection failed - watchdog enabled
-                    watchdog $PREFIX add
+                    watchdog add
                 else
                     logger 4G MODEM - connection failed - process terminated!
-                    watchdog $PREFIX del
+                    watchdog del
                 fi
                 rm $LOCK;
                 exit 0;
@@ -156,10 +157,10 @@ connect() {
                 INTERVAL=`nvram get mwan_cktime`
                 if [ "$INTERVAL" -gt 0 ]; then
                     logger 4G MODEM - connection failed - watchdog enabled
-                    watchdog $PREFIX add
+                    watchdog add
                 else
                     logger 4G MODEM - connection failed - process terminated!
-                    watchdog $PREFIX del
+                    watchdog del
                 fi
                 rm $LOCK;
                 exit 0;
@@ -175,10 +176,10 @@ connect() {
             INTERVAL=`nvram get mwan_cktime`
             if [ "$INTERVAL" -gt 0 ]; then
                 logger 4G MODEM WAN IFACE failed - watchdog enabled
-                watchdog $PREFIX add
+                watchdog add
             else
                 logger 4G MODEM WAN IFACE failed - connection process terminated!
-                watchdog $PREFIX del
+                watchdog del
             fi
             rm $LOCK
             exit 0;
@@ -191,7 +192,8 @@ connect() {
             if [ "$CHECKIFA" == "1" ]; then
                 GO=1
                 logger 4G MODEM - WAN IFACE configured ...
-                watchdog $PREFIX add
+                watchdog add
+                echo "1" > /tmp/state_$PREFIX
                 signal
             else
                 logger 4G MODEM WAN IFACE - count: $COUNT
@@ -208,7 +210,7 @@ disconnect() {
     CLID=`nvram get modem_clid`
 
     logger 4G MODEM - disconnecting ...
-    watchdog $PREFIX del
+    watchdog del
     dhcpc-release $PREFIX
 
     if [ "$TYPE" == "non-hilink" -o "$TYPE" == "hw-ether" ]; then
@@ -234,13 +236,13 @@ checkLock() {
         logger 4G MODEM - previous proces of switch4g still working
 
         TEST=`ps | grep switch4g | grep -v "grep" | wc -l`
-        if [ "$TEST" == "0" ]; # lock file exist but process doesn`t.
+        if [ "$TEST" == "0" ]; then  #lock file exist but process doesn`t.
             rm $LOCK
         fi
         exit 0
+    else
+        touch $LOCK
     fi
-
-    touch $LOCK
 }
 
 setPIN() {
@@ -489,6 +491,8 @@ searchDiag() {
 signal() {
     DEVNR=`nvram get modem_dev4g`
     TYPE=`nvram get modem_type`
+
+
 
     if [ "$TYPE" == "non-hilink" -o "$TYPE" == "hw-ether" ]; then
         HCSQ=`MODE="AT^HCSQ?" gcom -d $DEVNR -s /etc/gcom/setverbose.gcom | grep "HCSQ:" | tr -d '\r'`
