@@ -431,7 +431,7 @@ function init()
 <li>Example IP range: <b>192.168.1.4-7</b> (for IPs 192.168.1.4 to 192.168.1.7)</li>
 <li>Example IP range: <b>4-7</b> (for IPs 192.168.1.4 to 192.168.1.7)</li>
 <li><b>All hosts within an IP range will share bandwidth.</b></li>
-<li>MAC addresses are colon-delimited, case-insensivite, and require 6 octets (ex. <b>00:aa:bb:cc:dd:ee</b>).</li>
+<li>MAC addresses are colon-delimited, case-insensitive, and require 6 octets (ex. <b>00:aa:bb:cc:dd:ee</b>).</li>
 </ul>
 </div>
 
