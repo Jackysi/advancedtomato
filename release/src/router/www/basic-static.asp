@@ -259,7 +259,7 @@ sg.setup = function() {
 		{ type: 'checkbox', prefix: '<div class="centered">', suffix: '</div>' },
 		{ type: 'text', maxlen: 50 } ] );
 
-	this.headerSet(['MAC Address', 'Bound to', 'IP Address', 'IPTraffic', 'Hostname']);
+	this.headerSet(['MAC Address', 'Bound to', 'IP Address', 'IP Traffic', 'Hostname']);
 
 	var ipt = nvram.cstats_include.split(',');
 	var s = nvram.dhcpd_static.split('>');
@@ -375,25 +375,35 @@ createFieldTable('', [
 </div>
 <div class='section-title'>Notes <small><i><a href='javascript:toggleVisibility("notes");'><span id='sesdivnotesshowhide'>(Click here to show)</span></a></i></small></div>
 <div class='section' id='sesdivnotes' style='display:none'>
+
+<i>Static DHCP/ARP/IPT:</i>
+<br>
 <ul>
 <li><b>MAC Address</b> - Unique identifier associated to a network interface on this particular device.</li>
-<li><b>Bound to</b> - Enforce static ARP binding of this particular IP/MAC address pair.</li>
+<li><b>Bound to</b> - Creates a persistent entry in the kernel ARP cache for this device using <code>arp -s</code>.</li>
 <li><b>IP Address</b> - Network address assigned to this device on the local network.</li>
-<li><b>IPTraffic</b> - Keep track of bandwidth usage for this IP address.</li>
-<li><b>Hostname</b> - Human-readable nickname/label assigned to this device on the network.</li>
+<li><b>IP Traffic</b> - Keep track of bandwidth usage for this IP address using the <a href="http://gw.home.lan/admin-iptraffic.asp">IP Traffic</a> feature.</li>
+<li><b>Hostname</b> - DNS name assigned to this device on the network.</li>
 </ul>
-<small>
+
+<i>Options:</i>
+<br>
 <ul>
-<li><b>Other relevant notes/hints:</b>
+<li><b>Ignore DHCP requests from unknown devices</b> - Only honor DHCP requests from the above devices.</li>
+</ul>
+
+<i>Other relevant notes/hints:</i>
+<br>
 <ul>
 <li>To specify multiple hostnames for a device, separate them with spaces.</li>
-<li>To enable/enforce static ARP binding for a particular device, it must have only one MAC associated with that particular IP address (i.e. you can't have two MAC addresses linked to the same hostname/device in the table above).</li>
-<li>When ARP binding is enabled for a particular MAC/IP address pair, that device will always be shown as "active" in the <a href="tools-wol.asp">Wake On LAN</a> table.</li>
-<li>See also the <a href='advanced-dhcpdns.asp'>Advanced DHCP/DNS</a> settings page for more DHCP-related configuration options.</li>
+<li><b>Bound to</b> should not be used in 99% of cases; refer to the <a href="">arp man page</a> for details.  If used, only one MAC address per device is permitted.  The device will always be shown as "Active" in the <a href="tools-wol.asp">Wake On LAN</a> table.</li>
+<li><b>Hostname</b> entries end up in <code>/etc/dnsmasq/hosts/hosts</code>, which is read by dnsmasq using the <code>addn-hosts</code> directive.</li>
+<li><b>Ignore DHCP requests from unknown devices</b> uses the <code>dhcp-ignore=tag:!known</code> directive in dnsmasq.</li>
+<li>See the <a href='advanced-dhcpdns.asp'>Advanced DHCP/DNS</a> settings page for more DHCP-related configuration options.</li>
+<li>Refer to the <a href="http://www.thekelleys.org.uk/dnsmasq/docs/dnsmasq-man.html">dnsmasq documentation</a> for descriptions of the above configuration directives.</li>
 </ul>
-</ul>
-</small>
-</div>
+
+</div> <!-- sesdivnotes -->
 
 
 <!-- / / / -->
