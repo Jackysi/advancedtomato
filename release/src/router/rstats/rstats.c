@@ -664,9 +664,9 @@ static void calc(void)
 		wanup = check_wanup(); // router/shared/misc.c
 		wanuptime = check_wanup_time(); // router/shared/misc.c
 		diff = ((0xFFFFFFFFUL) - sc + 1) + c;
-		if(wanup && (wanuptime < (INTERVAL + 1))) diff = 0;
+        if(wanup && (wanuptime < (INTERVAL + 10))) diff = 0;
 		// if (diff > MAX_ROLLOVER) diff = 0; // 225 Mbyte / 120 sec => 15 MBit/s only with rollover
-		// If a rollover AND a reconnect within the last 121 sec (INTERVAL + 1) happend, set diff to 0
+        // If a rollover AND a reconnect within the last 130 sec (INTERVAL + 10) happend, set diff to 0
 		// this will prevent traffic peaks, for example with ADSL/PPPoE
 		// see https://www.linksysinfo.org/index.php?threads/tomato-toastmans-releases.36106/page-39#post-281722
 				}
