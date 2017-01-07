@@ -1225,9 +1225,6 @@ n60n:
 n60nc:
 	@$(MAKE) r2nc NVRAM_SIZE=60 LINKSYS_E=y
 
-n60e:
-	@$(MAKE) r2e NVRAM_SIZE=60 LINKSYS_E=y
-
 n60r:
 	@$(MAKE) r2r NVRAM_SIZE=60 LINKSYS_E=y
 
@@ -1271,20 +1268,6 @@ n64v:
 	@$(MAKE) r2v NVRAM_SIZE=64 LINKSYS_E_64k=y
 
 
-#Linksys E-Series with 4MB Flash
-
-e1000v2i:
-	@$(MAKE) r2i NVRAM_SIZE=32 LINKSYS_E1000v2=y NO_JFFS=y
-
-e1000v2f:
-	@$(MAKE) r2f NVRAM_SIZE=32 LINKSYS_E1000v2=y NO_JFFS=y
-
-e1200v1i:
-	@$(MAKE) r2i NVRAM_SIZE=64 LINKSYS_E1200v1=y NO_JFFS=y
-
-e1200v1f:
-	@$(MAKE) r2f NVRAM_SIZE=64 LINKSYS_E1200v1=y NO_JFFS=y
-
 
 #Linksys E-Series with 4MB Flash (Max Flashsize=3866624)
 
@@ -1300,10 +1283,9 @@ e1200v1f:
 e1200v1i:
 	@$(MAKE) bin MIPS32=r2 NVRAM_SIZE=64 LINKSYS_E1200v1=y NO_JFFS=y NO_CIFS=y NO_ZEBRA=y IPV6SUPP=y B=I USB="" NO_HTTPS=y KERN_SIZE_OPT=y BUILD_DESC="MiniIPv6"
 
-#Builds for WNR3500L v2
-
+#Build for WNR3500L v2
 v2e:
-	@$(MAKE) e MIPS32=r2 WNR3500LV2=1 NO_JFFS=y
+	@$(MAKE) e MIPS32=r2 WNR3500LV2=1 NAND=y
 
 
 #Builds with wl_high module

@@ -45,8 +45,14 @@ extern void nand_wait_ready(struct mtd_info *mtd);
  * is supported now. If you add a chip with bigger oobsize/page
  * adjust this accordingly.
  */
+
+#ifdef CONFIG_MTD_BRCMNAND
+#define NAND_MAX_OOBSIZE	128
+#define NAND_MAX_PAGESIZE	4096
+#else
 #define NAND_MAX_OOBSIZE	64
 #define NAND_MAX_PAGESIZE	2048
+#endif /* CONFIG_MTD_BRCMNAND */
 
 /*
  * Constants for hardware specific CLE/ALE/NCE function
@@ -60,6 +66,12 @@ extern void nand_wait_ready(struct mtd_info *mtd);
 #define NAND_CLE		0x02
 /* Select the address latch by setting ALE to high */
 #define NAND_ALE		0x04
+
+#ifdef CONFIG_MTD_BRCMNAND
+# define NAND_ALE_COL	0x08
+# define NAND_ALE_ROW	0x10
+#endif /* CONFIG_MTD_BRCMNAND */
+
 
 #define NAND_CTRL_CLE		(NAND_NCE | NAND_CLE)
 #define NAND_CTRL_ALE		(NAND_NCE | NAND_ALE)
@@ -180,6 +192,12 @@ typedef enum {
 #define NAND_HAS_CACHEPROG(chip) ((chip->options & NAND_CACHEPRG))
 #define NAND_HAS_COPYBACK(chip) ((chip->options & NAND_COPYBACK))
 
+/* Large page NAND with SOFT_ECC should support subpage reads */
+/* It's patched from Linux 2.6.27.57 */
+#define NAND_SUBPAGE_READ(chip) ((chip->ecc.mode == NAND_ECC_SOFT) \
+					&& (chip->page_shift > 9))
+
+
 /* Mask to zero out the chip options, which come from the id table */
 #define NAND_CHIPOPTIONS_MSK	(0x0000ffff & ~NAND_NO_AUTOINCR)
 
@@ -199,6 +217,11 @@ typedef enum {
 /* Cell info constants */
 #define NAND_CI_CHIPNR_MSK	0x03
 #define NAND_CI_CELLTYPE_MSK	0x0C
+
+#ifdef CONFIG_MTD_BRCMNAND
+#define NAND_IS_MLC(chip) ((chip)->cellinfo & NAND_CI_CELLTYPE_MSK)
+#endif /* CONFIG_MTD_BRCMNAND */
+
 
 /*
  * nand_state_t - chip states
@@ -253,6 +276,10 @@ struct nand_hw_control {
  */
 struct nand_ecc_ctrl {
 	nand_ecc_modes_t	mode;
+#ifdef CONFIG_MTD_BRCMNAND
+	int			level;
+	int			oobsize;
+#endif /* CONFIG_MTD_BRCMNAND */
 	int			steps;
 	int			size;
 	int			bytes;
@@ -275,6 +302,11 @@ struct nand_ecc_ctrl {
 						  const uint8_t *buf);
 	int			(*read_page)(struct mtd_info *mtd,
 					     struct nand_chip *chip,
+					     uint8_t *buf);
+	/* Patched from Linux 2.6.27.57 */
+	int			(*read_subpage)(struct mtd_info *mtd,
+					     struct nand_chip *chip,
+					     uint32_t offs, uint32_t len,
 					     uint8_t *buf);
 	void			(*write_page)(struct mtd_info *mtd,
 					      struct nand_chip *chip,
@@ -381,6 +413,11 @@ struct nand_chip {
 	int		(*waitfunc)(struct mtd_info *mtd, struct nand_chip *this);
 	void		(*erase_cmd)(struct mtd_info *mtd, int page);
 	int		(*scan_bbt)(struct mtd_info *mtd);
+#ifdef CONFIG_MTD_BRCMNAND
+	int		(*erase_bbt)(struct mtd_info *mtd, struct erase_info *instr, int allowbbt);
+	int		(*get_device)(struct nand_chip *chip, struct mtd_info *mtd, int new_state);
+	void	(*release_device)(struct mtd_info *mtd);
+#endif /* CONFIG_MTD_BRCMNAND */
 	int		(*errstat)(struct mtd_info *mtd, struct nand_chip *this, int state, int status, int page);
 	int		(*write_page)(struct mtd_info *mtd, struct nand_chip *chip,
 				      const uint8_t *buf, int page, int cached, int raw);
@@ -399,6 +436,9 @@ struct nand_chip {
 	int		subpagesize;
 	uint8_t		cellinfo;
 	int		badblockpos;
+#ifdef CONFIG_MTD_BRCMNAND
+	int		pageidx;
+#endif /* CONFIG_MTD_BRCMNAND */
 
 	nand_state_t	state;
 

@@ -44,19 +44,36 @@ void start_jffs2(void)
 	int part;
 	const char *p;
 	struct statfs sf;
+	int model;
+
+	model = get_model();
 
 	if (!wait_action_idle(10)) return;
 
-	if (!mtd_getinfo("jffs2", &part, &size)) return;
+	// new partition name "brcmnand" for WNR3500Lv2
+	if (model == MODEL_WNR3500LV2) {
+		if (!mtd_getinfo("brcmnand", &part, &size)) return;
+	}	
+	else {
+		if (!mtd_getinfo("jffs2", &part, &size)) return;
+	}
 
 	if (nvram_match("jffs2_format", "1")) {
 		nvram_set("jffs2_format", "0");
 		nvram_commit_x();
-		if (!mtd_erase("jffs2")) {
-			error("formatting");
-			return;
+		// new partition name "brcmnand" for WNR3500Lv2
+		if (model == MODEL_WNR3500LV2) {
+			if (!mtd_erase("brcmnand")) {
+				error("formatting");
+				return;
+			}
 		}
-
+		else {
+			if (!mtd_erase("jffs2")) {
+				error("formatting");
+				return;
+			}
+		}
 		format = 1;
 	}
 
@@ -79,9 +96,18 @@ void start_jffs2(void)
 		return;
 	}
 
-	if (!mtd_unlock("jffs2")) {
-		error("unlocking");
-		return;
+	// new partition name "brcmnand" for WNR3500Lv2
+	if (model == MODEL_WNR3500LV2) {
+		if (!mtd_unlock("brcmnand")) {
+			error("unlocking");
+			return;
+		}
+	}
+	else {
+		if (!mtd_unlock("jffs2")) {
+			error("unlocking");
+			return;
+		}
 	}
 
 	modprobe(JFFS_NAME);

@@ -1,15 +1,21 @@
 /*
  * Broadcom SiliconBackplane chipcommon serial flash interface
  *
- * Copyright (C) 2009, Broadcom Corporation
- * All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
  * 
- * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
- * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
- * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
+ * Permission to use, copy, modify, and/or distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+ * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+ * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+ * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: sflash.c,v 1.2 2009/11/06 09:55:49 Exp $
+ * $Id: sflash.c,v 1.6 2011-02-10 10:55:57 Exp $
  */
 
 #include <linux/config.h>
@@ -40,6 +46,7 @@
 extern struct mtd_partition * init_mtd_partitions(struct mtd_info *mtd, size_t size);
 #endif
 
+extern struct mutex *partitions_mutex_init(void);
 
 struct sflash_mtd {
 	si_t *sih;
@@ -58,11 +65,13 @@ sflash_mtd_poll(struct sflash_mtd *sflash, unsigned int offset, int timeout)
 	int ret = 0;
 
 	for (;;) {
-		if (!sflash_poll(sflash->sih, sflash->cc, offset)) {
-			ret = 0;
+		if (!sflash_poll(sflash->sih, sflash->cc, offset))
 			break;
-		}
+
 		if (time_after((unsigned long)jiffies, (unsigned long)now + timeout)) {
+			if (!sflash_poll(sflash->sih, sflash->cc, offset))
+				break;
+
 			printk(KERN_ERR "sflash: timeout\n");
 			ret = -ETIMEDOUT;
 			break;
@@ -84,6 +93,8 @@ sflash_mtd_read(struct mtd_info *mtd, loff_t from, size_t len, size_t *retlen, u
 		return 0;
 	if ((from + len) > mtd->size)
 		return -EINVAL;
+	
+	mutex_lock(mtd->mutex);
 
 	*retlen = 0;
 	while (len) {
@@ -96,7 +107,8 @@ sflash_mtd_read(struct mtd_info *mtd, loff_t from, size_t len, size_t *retlen, u
 		buf += bytes;
 		*retlen += bytes;
 	}
-
+	
+	mutex_unlock(mtd->mutex);
 	return ret;
 }
 
@@ -112,13 +124,14 @@ sflash_mtd_write(struct mtd_info *mtd, loff_t to, size_t len, size_t *retlen, co
 	if ((to + len) > mtd->size)
 		return -EINVAL;
 
+	mutex_lock(mtd->mutex);
 	*retlen = 0;
 	while (len) {
 		if ((bytes = sflash_write(sflash->sih, sflash->cc, (uint) to, len, buf)) < 0) {
 			ret = bytes;
 			break;
 		}
-		if ((ret = sflash_mtd_poll(sflash, (unsigned int) to, HZ / 10)))
+		if ((ret = sflash_mtd_poll(sflash, (unsigned int) to, HZ)))
 			break;
 		to += (loff_t) bytes;
 		len -= bytes;
@@ -126,6 +139,7 @@ sflash_mtd_write(struct mtd_info *mtd, loff_t to, size_t len, size_t *retlen, co
 		*retlen += bytes;
 	}
 
+	mutex_unlock(mtd->mutex);
 	return ret;
 }
 
@@ -142,6 +156,7 @@ sflash_mtd_erase(struct mtd_info *mtd, struct erase_info *erase)
 	if ((erase->addr + erase->len) > mtd->size)
 		return -EINVAL;
 
+	mutex_lock(mtd->mutex);
 	addr = erase->addr;
 	len = erase->len;
 
@@ -168,6 +183,8 @@ sflash_mtd_erase(struct mtd_info *mtd, struct erase_info *erase)
 		erase->state = MTD_ERASE_FAILED;
 	else
 		erase->state = MTD_ERASE_DONE;
+
+	mutex_unlock(mtd->mutex);
 
 	/* Call erase callback */
 	if (erase->callback)
@@ -247,7 +264,9 @@ sflash_mtd_init(void)
 	sflash.mtd.writesize = 1;
 	sflash.mtd.priv = &sflash;
 	sflash.mtd.owner = THIS_MODULE;
-
+	sflash.mtd.mutex = partitions_mutex_init();
+	if (!sflash.mtd.mutex)
+		return -ENOMEM;
 
 #ifdef CONFIG_MTD_PARTITIONS
 	parts = init_mtd_partitions(&sflash.mtd, sflash.mtd.size);
@@ -258,6 +277,7 @@ sflash_mtd_init(void)
 		goto fail;
 	}
 #endif
+
 	return 0;
 
 fail:

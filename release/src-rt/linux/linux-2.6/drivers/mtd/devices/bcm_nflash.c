@@ -1,13 +1,19 @@
 /*
  * Broadcom SiliconBackplane chipcommon serial flash interface
  *
- * Copyright (C) 2009, Broadcom Corporation
- * All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
  * 
- * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
- * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
- * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
+ * Permission to use, copy, modify, and/or distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+ * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+ * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+ * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
  * $Id $
  */
@@ -42,6 +48,7 @@ extern struct mtd_partition * init_nflash_mtd_partitions(struct mtd_info *mtd, s
 struct mtd_partition *nflash_parts;
 #endif
 
+extern struct mutex *partitions_mutex_init(void);
 
 struct nflash_mtd {
 	si_t *sih;
@@ -55,11 +62,11 @@ struct nflash_mtd {
 static struct nflash_mtd nflash;
 
 static int
-nflash_mtd_read(struct mtd_info *mtd, loff_t from, size_t len, size_t *retlen, u_char *buf)
+_nflash_mtd_read(struct mtd_info *mtd, struct mtd_partition *part,
+	loff_t from, size_t len, size_t *retlen, u_char *buf)
 {
 	struct nflash_mtd *nflash = (struct nflash_mtd *) mtd->priv;
 	int bytes, ret = 0;
-	struct mtd_partition *part = NULL;
 	uint extra = 0;
 	uchar *tmpbuf = NULL;
 	int size;
@@ -70,15 +77,17 @@ nflash_mtd_read(struct mtd_info *mtd, loff_t from, size_t len, size_t *retlen, u
 	uchar *ptr = NULL;
 
 	/* Locate the part */
-	for (i = 0; nflash_parts[i].name; i++) {
-		if (from >= nflash_parts[i].offset &&
-		((nflash_parts[i+1].name == NULL) || (from < nflash_parts[i+1].offset))) {
-			part = &nflash_parts[i];
-			break;
+	if (!part) {
+		for (i = 0; nflash_parts[i].name; i++) {
+			if (from >= nflash_parts[i].offset &&
+			((nflash_parts[i+1].name == NULL) || (from < nflash_parts[i+1].offset))) {
+				part = &nflash_parts[i];
+				break;
+			}
 		}
+		if (!part)
+			return -EINVAL;
 	}
-	if (!part)
-		return -EINVAL;
 	/* Check address range */
 	if (!len)
 		return 0;
@@ -167,24 +176,38 @@ done:
 }
 
 static int
+nflash_mtd_read(struct mtd_info *mtd, loff_t from, size_t len, size_t *retlen, u_char *buf)
+{
+	int ret;
+
+	mutex_lock(mtd->mutex);
+	ret = _nflash_mtd_read(mtd, NULL, from, len, retlen, buf);
+	mutex_unlock(mtd->mutex);
+
+	return ret;
+}
+
+static int
 nflash_mtd_write(struct mtd_info *mtd, loff_t to, size_t len, size_t *retlen, const u_char *buf)
 {
 	struct nflash_mtd *nflash = (struct nflash_mtd *) mtd->priv;
 	int bytes, ret = 0;
 	struct mtd_partition *part = NULL;
 	u_char *block = NULL;
-	u_char *ptr = buf;
+	u_char *ptr = (u_char *)buf;
 	uint offset, blocksize, mask, blk_offset, off;
 	uint skip_bytes = 0, good_bytes = 0;
 	int blk_idx, i;
-	int read_len, write_len, copy_len;
-	loff_t from;
+	int read_len, write_len, copy_len = 0;
+	loff_t from = to;
 	u_char *write_ptr;
+	int docopy = 1;
 
 	/* Locate the part */
 	for (i = 0; nflash_parts[i].name; i++) {
 		if (to >= nflash_parts[i].offset &&
-		((nflash_parts[i+1].name == NULL) || (to < nflash_parts[i+1].offset))) {
+			((nflash_parts[i+1].name == NULL) ||
+			(to < (nflash_parts[i].offset + nflash_parts[i].size)))) {
 			part = &nflash_parts[i];
 			break;
 		}
@@ -200,11 +223,15 @@ nflash_mtd_write(struct mtd_info *mtd, loff_t to, size_t len, size_t *retlen, co
 	blocksize = mtd->erasesize;
 	if (!(block = kmalloc(blocksize, GFP_KERNEL)))
 		return -ENOMEM;
+
+	mutex_lock(mtd->mutex);
+
 	mask = blocksize - 1;
 	/* Check and skip bad blocks */
 	blk_offset = offset & ~mask;
 	good_bytes = part->offset & ~mask;
-	for (blk_idx = good_bytes/blocksize; blk_idx < (part->offset+part->size)/blocksize; blk_idx++) {
+	for (blk_idx = good_bytes/blocksize; blk_idx < (part->offset+part->size)/blocksize;
+	blk_idx++) {
 		if ((nflash->map[blk_idx] != 0) ||
 		    (nflash_checkbadb(nflash->sih, nflash->cc, (blocksize*blk_idx)) != 0)) {
 			skip_bytes += blocksize;
@@ -223,44 +250,58 @@ nflash_mtd_write(struct mtd_info *mtd, loff_t to, size_t len, size_t *retlen, co
 	/* Backup and erase one block at a time */
 	*retlen = 0;
 	while (len) {
-		/* Align offset */
-		from = offset & ~mask;
-		/* Copy existing data into holding block if necessary */
-		if (((offset & (blocksize-1)) != 0) || (len < blocksize)) {
-			if ((ret = nflash_mtd_read(mtd, from, blocksize, &read_len, block)))
-				goto done;
-			if (read_len != blocksize) {
-				ret = -EINVAL;
-				goto done;
+		if (docopy) {
+			/* Align offset */
+			from = offset & ~mask;
+			/* Copy existing data into holding block if necessary */
+			if (((offset & (blocksize-1)) != 0) || (len < blocksize)) {
+				ret = _nflash_mtd_read(mtd, part, from, blocksize,
+					&read_len, block);
+				if (ret)
+					goto done;
+				if (read_len != blocksize) {
+					ret = -EINVAL;
+					goto done;
+				}
 			}
+			/* Copy input data into holding block */
+			copy_len = min(len, blocksize - (offset & mask));
+			memcpy(block + (offset & mask), ptr, copy_len);
 		}
-		/* Copy input data into holding block */
-		copy_len = min(len, blocksize - (offset & mask));
-		memcpy(block + (offset & mask), ptr, copy_len);
 		off = (uint) from + skip_bytes;
 		/* Erase block */
 		if ((ret = nflash_erase(nflash->sih, nflash->cc, off)) < 0) {
-			goto done;
+				nflash_mark_badb(nflash->sih, nflash->cc, off);
+				nflash->map[blk_idx] = 1;
+				skip_bytes += blocksize;
+				docopy = 0;
 		}
-		/* Write holding block */
-		write_ptr = block;
-		write_len = blocksize;
-		while (write_len) {
-			if ((bytes = nflash_write(nflash->sih, nflash->cc,
-			                          (uint) from + skip_bytes,
-			                          (uint) write_len,
-			                          (uchar *) write_ptr)) < 0) {
-				ret = bytes;
-				goto done;
+		else {
+			/* Write holding block */
+			write_ptr = block;
+			write_len = blocksize;
+			while (write_len) {
+				if ((bytes = nflash_write(nflash->sih, nflash->cc,
+				(uint) from + skip_bytes, (uint) write_len,
+				(uchar *) write_ptr)) < 0) {
+					nflash_mark_badb(nflash->sih, nflash->cc, off);
+					nflash->map[blk_idx] = 1;
+					skip_bytes += blocksize;
+					docopy = 0;
+					break;
+				}
+				from += bytes;
+				write_len -= bytes;
+				write_ptr += bytes;
+				docopy = 1;
 			}
-			from += bytes;
-			write_len -= bytes;
-			write_ptr += bytes;
+			if (docopy) {
+				offset += copy_len;
+				len -= copy_len;
+				ptr += copy_len;
+				*retlen += copy_len;
+			}
 		}
-		offset += copy_len;
-		len -= copy_len;
-		ptr += copy_len;
-		*retlen += copy_len;
 		/* Check and skip bad blocks */
 		if (len) {
 			blk_offset += blocksize;
@@ -280,6 +321,8 @@ nflash_mtd_write(struct mtd_info *mtd, loff_t to, size_t len, size_t *retlen, co
 		}
 	}
 done:
+	mutex_unlock(mtd->mutex);
+
 	if (block)
 		kfree(block);
 	return ret;
@@ -289,39 +332,107 @@ static int
 nflash_mtd_erase(struct mtd_info *mtd, struct erase_info *erase)
 {
 	struct nflash_mtd *nflash = (struct nflash_mtd *) mtd->priv;
-	int i, j, ret = 0;
-	unsigned int addr, len;
-
-	/* Check address range */
-	if (!erase->len)
-		return 0;
-	if ((erase->addr + erase->len) > mtd->size)
-		return -EINVAL;
+	struct mtd_partition *part = NULL;
+	int i, ret = 0;
+	uint addr, len, blocksize;
+	uint part_start_blk, part_end_blk;
+	uint blknum, new_addr, erase_blknum;
 
 	addr = erase->addr;
 	len = erase->len;
 
-	/* Ensure that requested region is aligned */
-	for (i = 0; i < mtd->numeraseregions; i++) {
-		for (j = 0; j < mtd->eraseregions[i].numblocks; j++) {
-			if (addr == mtd->eraseregions[i].offset +
-			    mtd->eraseregions[i].erasesize * j &&
-			    len >= mtd->eraseregions[i].erasesize) {
-				if ((ret = nflash_erase(nflash->sih, nflash->cc, addr)) < 0)
-					break;
-				addr += mtd->eraseregions[i].erasesize;
-				len -= mtd->eraseregions[i].erasesize;
+	blocksize = mtd->erasesize;
+
+	/* Check address range */
+	if (!len)
+		return 0;
+
+	if ((addr + len) > mtd->size)
+		return -EINVAL;
+
+	if (addr & (blocksize - 1))
+		return -EINVAL;
+
+	/* Locate the part */
+	for (i = 0; nflash_parts[i].name; i++) {
+		if (addr >= nflash_parts[i].offset &&
+			((addr + len) <= (nflash_parts[i].offset + nflash_parts[i].size))) {
+			part = &nflash_parts[i];
+			break;
+		}
+	}
+
+	if (!part)
+		return -EINVAL;
+
+	mutex_lock(mtd->mutex);
+
+	/* Find the effective start block address to erase */
+	part_start_blk = (part->offset & ~(blocksize - 1)) / blocksize;
+	part_end_blk = ROUNDUP((part->offset + part->size), blocksize) / blocksize;
+
+	new_addr = part_start_blk * blocksize;
+	blknum = (addr / blocksize) - part_start_blk;
+
+	for (i = part_start_blk; i < part_end_blk; i++) {
+		if ((nflash->map[i] != 0) ||
+			(nflash_checkbadb(nflash->sih, nflash->cc, i * blocksize) != 0)) {
+			nflash->map[i] = 1;
+			new_addr += blocksize;
+			continue;
+		} else {
+			if (blknum) {
+				new_addr += blocksize;
+				blknum--;
 			}
 		}
-		if (ret)
+
+		if (blknum == 0)
 			break;
 	}
 
+	/* Erase the blocks from the new block address */
+	erase_blknum = ROUNDUP(len, blocksize) / blocksize;
+
+	#if 0
+	if ((new_addr + (erase_blknum * blocksize)) > (part->offset + part->size)) {
+		ret = -EINVAL;
+		goto done;
+	}
+	#endif
+
+	for (i = new_addr; erase_blknum; i += blocksize) {
+		if (i >= (part->offset + part->size)) {
+			/* It indicates bad block, but do NOT treat it as fail */
+			printk(KERN_WARNING "%s(%d):end of part %s (0x%x)!\n",
+					__FUNCTION__, __LINE__, part->name, i);
+			ret = 0;
+			goto done;
+		}
+
+		/* Skip bad block erase */
+		if ((nflash->map[i / blocksize] != 0) ||
+			(nflash_checkbadb(nflash->sih, nflash->cc, i) != 0)) {
+			nflash->map[i / blocksize] = 1;
+			continue;
+		}
+
+		if ((ret = nflash_erase(nflash->sih, nflash->cc, i)) < 0) {
+			nflash_mark_badb(nflash->sih, nflash->cc, i);
+			nflash->map[i / blocksize] = 1;
+		} else {
+			erase_blknum--;
+		}
+	}
+
+done:
 	/* Set erase status */
 	if (ret)
 		erase->state = MTD_ERASE_FAILED;
 	else
 		erase->state = MTD_ERASE_DONE;
+
+	mutex_unlock(mtd->mutex);
 
 	/* Call erase callback */
 	if (erase->callback)
@@ -405,7 +516,18 @@ nflash_mtd_init(void)
 	nflash.mtd.writesize = NFL_SECTOR_SIZE;
 	nflash.mtd.priv = &nflash;
 	nflash.mtd.owner = THIS_MODULE;
+	nflash.mtd.mutex = partitions_mutex_init();
+	if (!nflash.mtd.mutex)
+		return -ENOMEM;
 
+	/* Scan bad block */
+	mutex_lock(nflash.mtd.mutex);
+	for (i = 0; i < info->numblocks; i++) {
+		if (nflash_checkbadb(nflash.sih, nflash.cc, (i * info->blocksize)) != 0) {
+			nflash.map[i] = 1;
+		}
+	}
+	mutex_unlock(nflash.mtd.mutex);
 
 #ifdef CONFIG_MTD_PARTITIONS
 	parts = init_nflash_mtd_partitions(&nflash.mtd, nflash.mtd.size);
