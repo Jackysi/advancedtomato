@@ -533,9 +533,6 @@ static void calc(void) {
 	Node *ptr = NULL;
 	Node test;
 
-	int wanup = 0; // 0 = FALSE, 1 = TRUE
-	long wanuptime = 0; // wanuptime in seconds
-
 	now = time(0);
 
 	exclude = strdup(nvram_safe_get("cstats_exclude"));
@@ -630,14 +627,8 @@ static void calc(void) {
 							_dprintf("%s: counter[%d]=%llu ptr->last[%d]=%llu c=%llu sc=%llu\n", __FUNCTION__, i, counter[i], i, ptr->last[i], c, sc);
 #endif
 							if (c < sc) {
-                              wanup = check_wanup(); // router/shared/misc.c
-                              wanuptime = check_wanup_time(); // router/shared/misc.c
-			      diff = ((0xFFFFFFFFFFFFFFFFULL) - sc + 1) + c;
-                              if(wanup && (wanuptime < (INTERVAL + 10))) diff = 0;
-                              // if (diff > MAX_ROLLOVER) diff = 0; // 225 Mbyte / 120 sec => 15 MBit/s only with rollover
-                              // If a rollover AND a reconnect within the last 130 sec (INTERVAL + 10) happend, set diff to 0
-                              // this will prevent IP Traffic peaks, for example with ADSL/PPPoE
-                              // see https://www.linksysinfo.org/index.php?threads/tomato-toastmans-releases.36106/page-39#post-281722
+								diff = (0xFFFFFFFF - sc) + c;
+								if (diff > MAX_ROLLOVER) diff = 0;
 							}
 							else {
 								 diff = c - sc;
