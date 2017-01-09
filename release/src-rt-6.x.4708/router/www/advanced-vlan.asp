@@ -210,7 +210,7 @@ function save() {
   fom['lan1_ifnames'].value = '';
   fom['lan2_ifnames'].value = '';
   fom['lan3_ifnames'].value = '';
- 
+
   var v = '';
   var d = vlg.getAllData();
 

@@ -261,7 +261,6 @@ working on it, you can make a PayPal donation:</b>
 <input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif" border="0" name="submit">
 </form>
 <br>
-<br>
 <div style='border-top:2px solid #e7e7e7;margin:1em 0;padding:1em 0;font-size:12px'>
 </div>
 <b>Based on Tomato Firmware v<% version(); %></b><br>

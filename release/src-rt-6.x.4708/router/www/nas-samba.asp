@@ -42,7 +42,7 @@ textarea {
 
 <script type='text/javascript'>
 
-//     <% nvram("smbd_enable,smbd_user,smbd_passwd,smbd_wgroup,smbd_cpage,smbd_ifnames,smbd_custom,smbd_master,smbd_wins,smbd_shares,smbd_autoshare,wan_wins"); %>
+//	<% nvram("smbd_enable,smbd_user,smbd_passwd,smbd_wgroup,smbd_cpage,smbd_ifnames,smbd_custom,smbd_master,smbd_wins,smbd_shares,smbd_autoshare,wan_wins"); %>
 
 var ssg = new TomatoGrid();
 
@@ -154,13 +154,13 @@ function verifyFields(focused, quiet)
 
 	E('_smbd_wgroup').disabled = (a == 0);
 	E('_smbd_cpage').disabled = (a == 0);
-       E('_smbd_ifnames').disabled = (a == 0);
+	E('_smbd_ifnames').disabled = (a == 0);
 	E('_smbd_custom').disabled = (a == 0);
 	E('_smbd_autoshare').disabled = (a == 0);
 	E('_f_smbd_master').disabled = (a == 0);
 	E('_f_smbd_wins').disabled = (a == 0 || (nvram.wan_wins != '' && nvram.wan_wins != '0.0.0.0'));
 
-       if (a != 0 && !v_length('_smbd_ifnames', quiet, 0, 50)) return 0;
+	if (a != 0 && !v_length('_smbd_ifnames', quiet, 0, 50)) return 0;
 	if (a != 0 && !v_length('_smbd_custom', quiet, 0, 2048)) return 0;
 
 	if (a == 2) {
@@ -200,22 +200,22 @@ function save()
 
 function init()
 {
-       var c;
-       if (((c = cookie.get('nas_samba_notes_vis')) != null) && (c == '1')) {
-               toggleVisibility("notes");
-       }
+	var c;
+	if (((c = cookie.get('nas_samba_notes_vis')) != null) && (c == '1')) {
+		toggleVisibility("notes");
+	}
 }
 
 function toggleVisibility(whichone) {
-       if(E('sesdiv' + whichone).style.display=='') {
-               E('sesdiv' + whichone).style.display='none';
-               E('sesdiv' + whichone + 'showhide').innerHTML='(Click here to show)';
-               cookie.set('nas_samba_' + whichone + '_vis', 0);
-       } else {
-               E('sesdiv' + whichone).style.display='';
-               E('sesdiv' + whichone + 'showhide').innerHTML='(Click here to hide)';
-               cookie.set('nas_samba_' + whichone + '_vis', 1);
-       }
+	if(E('sesdiv' + whichone).style.display=='') {
+		E('sesdiv' + whichone).style.display='none';
+		E('sesdiv' + whichone + 'showhide').innerHTML='(Click here to show)';
+		cookie.set('nas_samba_' + whichone + '_vis', 0);
+	} else {
+		E('sesdiv' + whichone).style.display='';
+		E('sesdiv' + whichone + 'showhide').innerHTML='(Click here to hide)';
+		cookie.set('nas_samba_' + whichone + '_vis', 1);
+	}
 }
 </script>
 
@@ -262,9 +262,9 @@ createFieldTable('', [
 		],
 		suffix: ' <small> (start cmd.exe and type chcp to see the current code page)</small>',
 		value: nvram.smbd_cpage },
-       { title: 'Network Interfaces', name: 'smbd_ifnames', type: 'text', maxlen: 50, size: 32,
-               suffix: ' <small> (space-delimited)</small>',
-               value: nvram.smbd_ifnames },
+	{ title: 'Network Interfaces', name: 'smbd_ifnames', type: 'text', maxlen: 50, size: 32,
+		suffix: ' <small> (space-delimited)</small>',
+		value: nvram.smbd_ifnames },
 	{ title: 'Samba<br>Custom Configuration', name: 'smbd_custom', type: 'textarea', value: nvram.smbd_custom },
 	{ title: 'Auto-share all USB Partitions', name: 'smbd_autoshare', type: 'select',
 		options: [['0', 'Disabled'],['1', 'Read Only'],['2', 'Read / Write'],['3', 'Hidden Read / Write']],
