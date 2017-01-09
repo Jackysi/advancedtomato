@@ -212,7 +212,7 @@ sg.populate = function()
 
 		mac = e.bssid;
 		if (mac.match(/^(..):(..):(..)/))
-                       mac = '<a href="http://api.macvendors.com/' + RegExp.$1 + '-' + RegExp.$2 + '-' + RegExp.$3 + '" target="_new" title="OUI Search">' + mac + '</a>';
+			mac = '<a href="http://api.macvendors.com/' + RegExp.$1 + '-' + RegExp.$2 + '-' + RegExp.$3 + '" target="_new" title="OUI Search">' + mac + '</a>';
 
 		sg.insert(-1, e, [
 			'<small>' + seen + '</small>',

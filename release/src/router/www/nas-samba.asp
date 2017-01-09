@@ -220,7 +220,6 @@ function toggleVisibility(whichone) {
 </script>
 
 </head>
-<body>
 <body onload='init()'>
 <form id='_fom' method='post' action='tomato.cgi'>
 <table id='container' cellspacing=0>

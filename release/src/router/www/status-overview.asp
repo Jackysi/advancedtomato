@@ -221,6 +221,7 @@ function ethstates()
 	code += '<tr><td class="title indent1" colspan="7" align="right">&raquo; <a href="basic-network.asp">Configure</a></td></tr></table></div>';
 	E("ports").innerHTML = code;
 }
+
 function show()
 {
 	c('cpu', stats.cpuload);
