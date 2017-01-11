@@ -11,6 +11,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
+<meta name="viewport" content="width=device-width">
 <title>[<% ident(); %>] Forwarding: Basic IPv6</title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <link rel='stylesheet' type='text/css' href='color.css'>
@@ -114,7 +115,7 @@ fog.setup = function() {
 		{ type: 'text', maxlen: 140 },
 		{ type: 'text', maxlen: 16 },
 		{ type: 'text', maxlen: 32 }]);
-	this.headerSet(['On', 'Protocol', 'Src Address', 'Dest Address', 'Dest Ports', 'Description']);
+	this.headerSet(['On', 'Protocol', 'Src Address', 'Dst Address', 'Dst Ports', 'Description']);
 	var nv = nvram.ipv6_portforward.split('>');
 	for (var i = 0; i < nv.length; ++i) {
 		var r;
@@ -193,8 +194,8 @@ function init()
 <i>IPv6 Port Forwarding:</i><br>
 <ul>
 <li><b>Src Address</b> <i>(optional)</i> - Forward only if from this address (ex: "2001:4860:800b::/48", or "me.example.com").</li>
-<li><b>Dest Address</b> <i>(optional)</i> - The destination address inside the LAN.</li>
-<li><b>Dest Ports</b> - The ports to be opened for forwarding (ex: "2345", "200,300", "200-300,400").</li>
+<li><b>Dst Address</b> <i>(optional)</i> - The destination address inside the LAN.</li>
+<li><b>Dst Ports</b> - The ports to be opened for forwarding (ex: "2345", "200,300", "200-300,400").</li>
 </ul>
 </div>
 

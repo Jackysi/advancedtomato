@@ -11,6 +11,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
+<meta name="viewport" content="width=device-width">
 <title>[<% ident(); %>] About</title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <% css(); %>
@@ -130,7 +131,7 @@ Copyright (C) 2010 Keith Moyer<br>
 <!-- NOCAT-END -->
 Copyright (C) 2007-2011 Vicente Soriano<br>
 <!-- NOCAT-BEGIN -->
-Captive Portal Copyright (C) 2011 Ofer Chen & Vicente Soriano<br>
+Captive Portal Copyright (C) 2011 Ofer Chen &amp; Vicente Soriano<br>
 <!-- NOCAT-END -->
 <a href='http://victek.is-a-geek.com' target='_new'>http://victek.is-a-geek.com</a><br>
 <br>
@@ -187,7 +188,7 @@ Copyright (C) 2010-2011 Jean-Yves Avenard<br>
 <br>
 <!-- JYAVENARD-END -->
 <b>"Teaman" Features:</b><br>
-- QOS-detailed & ctrate improved filters<br>
+- QOS-detailed &amp; ctrate improved filters<br>
 - Real-time bandwidth monitoring of LAN clients<br>
 - Per-IP bandwidth monitoring of LAN clients [cstats v2]<br>
 - IPTraffic conn/BW ratios graphs<br>
@@ -210,7 +211,7 @@ Copyright (C) 2011-2012 Augusto Bott<br>
 Copyright (C) 2012 Tiomo<br>
 <br>
 <b>"Toastman" Features:</b><br>
-- 250 entry limit in Static DHCP  & Wireless Filter<br>
+- 250 entry limit in Static DHCP &amp; Wireless Filter<br>
 - 500 entry limit in Access Restriction rules*<br>
 - Up to 128 Port Forward rules*<br>
 - Up to 128 QOS rules* (*all dependent on nvram space)<br>
