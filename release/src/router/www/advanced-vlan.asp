@@ -20,7 +20,7 @@
 	June 2014 Tvlz
 	https://bitbucket.org/tvlz/tvlz-advanced-vlan/
 
-	** Last Updated - Aug 19 2016 - Tvlz **
+	** Last Updated - DEC 2 2016 - Tvlz **
 
 	For use with Tomato Firmware only.
 	No part of this file may be used without permission.
@@ -109,6 +109,7 @@ switch(nvram['t_model_name']) {
 		COL_P4N = '4';
 	break;
 	case 'vlan-testid1':
+	case 'Asus RT-AC66U':
 	case 'Asus RT-N66U':
 	case 'Belkin N F5D8235-4 v3':
 //	case 'Buffalo WZR-D1100H':
@@ -156,7 +157,6 @@ switch(nvram['t_model_name']) {
 	case 'vlan-testid3':
 	case 'Asus RT-N10U':
 	case 'Asus RT-N16': //invert port order=checked
-	case 'Asus RT-AC66U':
 	case 'Catchtech CW-5358U':
 //	case 'ChinaNet RG200E-CA':
 	case 'Netgear WNR2000 v2':
