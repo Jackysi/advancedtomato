@@ -18,6 +18,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
+<meta name="viewport" content="width=device-width">
 <title>[<% ident(); %>] Advanced: Virtual Wireless Interfaces</title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <% css(); %>
@@ -1490,7 +1491,6 @@ for (var i = 1; i < tabs.length; ++i) {
 			options: wl_modes_available,
 			value: ((eval('nvram["wl'+u+'_mode"]') == 'ap') && (eval('nvram["wl'+u+'_wds_enable"]') == '1')) ? 'apwds' : eval('nvram["wl'+u+'_mode"]'),
 			suffix: ' &nbsp; <b id="wl'+u+'_mode_msg" style="visibility:hidden"><small>(note: you might wish to cross-check settings later on <a href="basic-network.asp">Basic/Network</a>)</small></b>' }
-
 	);
 
 // only if primary VIF

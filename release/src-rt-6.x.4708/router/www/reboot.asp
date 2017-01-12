@@ -2,6 +2,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
+<meta name="viewport" content="width=device-width">
 <title>[<% ident(); %>] Rebooting...</title>
 <script type='text/javascript'>
 var n = 90 + parseInt('0<% nv("wait_time"); %>');

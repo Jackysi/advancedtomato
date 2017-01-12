@@ -15,6 +15,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
+<meta name="viewport" content="width=device-width">
 <title>[<% ident(); %>] QoS: View Per-Connection Transfer Rates</title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <% css(); %>
@@ -215,7 +216,7 @@ grid.setName = function(ip, name) {
 
 grid.setup = function() {
 	this.init('grid', 'sort');
-	this.headerSet(['Protocol', 'Source', 'S Port', 'Destination', 'D Port', 'UL Rate', 'DL Rate']);
+	this.headerSet(['Protocol', 'Source', 'Src Port', 'Destination', 'Dst Port', 'UL Rate', 'DL Rate']);
 }
 
 var ref = new TomatoRefresh('update.cgi', '', 0, 'qos_ctrate');
