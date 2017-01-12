@@ -502,7 +502,7 @@ void start_qos(void)
 				"# egress %d: %u-%u%%\n"
 				"\t$TCA parent 1:1 classid 1:%d htb rate %ukbit %s %s prio %d quantum %u\n"
 				"\t$TQA parent 1:%d handle %d: $Q\n"
-				"\t$TFA parent 1: prio %d handle %d fw flowid 1:%d\n",
+				"\t$TFA parent 1: prio %d protocol ip handle %d fw flowid 1:%d\n",
 					i, rate, ceil,
 					x, calc(bw, rate), s, burst_leaf, i+1, mtu,
 					x, x,
@@ -517,7 +517,7 @@ void start_qos(void)
 				"# egress %d: %u-%u%%\n"
 				"\t$TCA parent 1:1 classid 1:%d htb rate %ukbit %s %s prio %d quantum %u overhead %u linklayer atm\n"
 				"\t$TQA parent 1:%d handle %d: $Q\n"
-				"\t$TFA parent 1: prio %d handle %d fw flowid 1:%d\n",
+				"\t$TFA parent 1: prio %d protocol ip handle %d fw flowid 1:%d\n",
 					i, rate, ceil,
 					x, calc(bw, rate), s, burst_leaf, i+1, mtu, overhead,
 					x, x,
@@ -771,7 +771,7 @@ void start_qos(void)
 
 			fprintf(f,
 			"\n"
-			"\t$TFA parent ffff: prio 10 u32 match ip %s action mirred egress redirect dev $IMQ_DEV\n", (nvram_get_int("qos_udp") == 1) ? "protocol 6 0xff" : "dst 0.0.0.0/0");
+			"\t$TFA parent ffff: protocol ip prio 10 u32 match ip %s action mirred egress redirect dev $IMQ_DEV\n", (nvram_get_int("qos_udp") == 1) ? "protocol 6 0xff" : "dst 0.0.0.0/0");
 		}
 		
 		fprintf(
@@ -799,7 +799,7 @@ void start_qos(void)
 
 		fprintf(
 			f,
-			"\t$TFA_IMQ parent 1: prio %u handle %u fw flowid 1:%u \n",           
+			"\t$TFA_IMQ parent 1: prio %u protocol ip handle %u fw flowid 1:%u \n",           
 			classid, priority, classid);
 
 #ifdef TCONFIG_IPV6
@@ -825,7 +825,7 @@ void start_qos(void)
 		"\tip link set $IMQ_DEV down\n"
 		"\ttc qdisc del dev $WAN_DEV root 2>/dev/null\n"
 		"\ttc qdisc del dev $IMQ_DEV root 2>/dev/null\n"
-		"\ttc filter del dev $WAN_DEV parent ffff: prio 10 u32 match ip %s action mirred egress redirect dev $IMQ_DEV 2>/dev/null\n"
+		"\ttc filter del dev $WAN_DEV parent ffff: protocol ip prio 10 u32 match ip %s action mirred egress redirect dev $IMQ_DEV 2>/dev/null\n"
 		"\t;;\n"
 		"*)\n"
 		"\techo \"...\"\n"
