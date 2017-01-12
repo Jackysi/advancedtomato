@@ -11,6 +11,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
+<meta name="viewport" content="width=device-width">
 <title>[<% ident(); %>] About</title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <% css(); %>
@@ -91,8 +92,8 @@ function init()
 </div>
 <div style='margin:30px 30px;font-size:14px;color:#555;'>
 <b>Tomato Firmware v<% version(1); %></b><br>
-<b>Built on <% build_time(); %></b><br>
 <br>
+<b>Built on <% build_time(); %></b><br>
 <br>
 Based on TomatoUSB by Fedor Kozhevnikov<br>
 - Linux kernel <% version(2); %> and Broadcom Wireless Driver <% version(3); %> updates<br>
@@ -175,12 +176,12 @@ Based on TomatoUSB by Fedor Kozhevnikov<br>
 <!-- HFS-BEGIN -->
 - HFS / HFS+ filesystem integration<br>
 <!-- HFS-END -->
-<i>Copyright (C) 2007-2014 Ofer Chen & Vicente Soriano</i><br>
+<i>Copyright (C) 2007-2014 Ofer Chen &amp; Vicente Soriano</i><br>
 <a href='http://victek.is-a-geek.com' target='_new'>http://victek.is-a-geek.com</a><br>
 <br>
 
 <b>"Teaman" features:</b><br>
-- QOS-detailed & ctrate filters<br>
+- QOS-detailed &amp; ctrate filters<br>
 - Realtime bandwidth monitoring of LAN clients<br>
 - Static ARP binding<br>
 - VLAN administration GUI<br>
@@ -243,7 +244,7 @@ Based on TomatoUSB by Fedor Kozhevnikov<br>
 <!-- NGINX-END -->
 
 <b>"Toastman" Features:</b><br>
-- 250 entry limit in Static DHCP  & Wireless Filter<br>
+- 250 entry limit in Static DHCP &amp; Wireless Filter<br>
 - 500 entry limit in Access Restriction rules*<br>
 - Up to 128 Port Forward rules*<br>
 - Up to 128 QOS rules* (*all dependent on nvram space)<br>
@@ -259,7 +260,6 @@ working on it, you can make a PayPal donation:</b>
 <form action="http://toastmanfirmware.yolasite.com/donations.php" method="post">
 <input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif" border="0" name="submit">
 </form>
-<br>
 <br>
 <div style='border-top:2px solid #e7e7e7;margin:1em 0;padding:1em 0;font-size:12px'>
 </div>

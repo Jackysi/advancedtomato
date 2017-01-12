@@ -15,6 +15,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
+<meta name="viewport" content="width=device-width">
 <title>[<% ident(); %>] Status: Device List</title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <% css(); %>
@@ -240,7 +241,6 @@ dg.populate = function()
 
 		if ((a[3] >= 1000) || (a[4] >= 1000))
 		e.txrx = ((a[3] >= 1000) ? Math.round(a[3] / 1000) : '-') + ' / ' + ((a[4] >= 1000) ? Math.round(a[4] / 1000) : '-'); //+ '<br><small>Mbps</small>';
-
 	}
 
 	for (i = arplist.length - 1; i >= 0; --i) {
@@ -286,7 +286,7 @@ dg.populate = function()
 		b = e.mac;
 		if (e.mac.match(/^(..):(..):(..)/)) {
 			b += '<br><small>' +
-                               '<a href="http://api.macvendors.com/' + RegExp.$1 + '-' + RegExp.$2 + '-' + RegExp.$3 + '" target="_new" title="OUI Search">[oui]</a> ' +
+				'<a href="http://api.macvendors.com/' + RegExp.$1 + '-' + RegExp.$2 + '-' + RegExp.$3 + '" target="_new" title="OUI Search">[oui]</a> ' +
 				'<a href="javascript:addStatic(' + i + ')" title="Static Lease...">[static]</a> ' +
 				'<a href="javascript:addbwlimit(' + i + ')" title="BW Limiter">[bwlimit]</a>';
 

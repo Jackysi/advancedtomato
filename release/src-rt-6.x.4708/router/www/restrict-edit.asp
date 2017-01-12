@@ -11,6 +11,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
+<meta name="viewport" content="width=device-width">
 <title>[<% ident(); %>] Edit Access Restrictions</title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <link rel='stylesheet' type='text/css' href='color.css'>
@@ -408,7 +409,7 @@ function saveRule()
 	data = data.join('|');
 
 	if (data.length >= 8192) {
-		alert('This rule is too big. Please reduce by ' + (data.length - 2048) + ' characters.');
+		alert('This rule is too big. Please reduce by ' + (data.length - 8192) + ' characters.');
 		return;
 	}
 

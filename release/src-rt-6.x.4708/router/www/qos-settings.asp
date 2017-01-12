@@ -11,6 +11,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
+<meta name="viewport" content="width=device-width">
 <title>[<% ident(); %>] QoS: Basic Settings</title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <link rel='stylesheet' type='text/css' href='color.css'>
@@ -324,7 +325,6 @@ for (i = 1; i < 11; ++i) {
 createFieldTable('', f);
 </script>
 </div>
-
 
 <span id='s_vegas' style='display:none'>
 <div class='section-title'>TCP Vegas <small>(Network Congestion Control)</small></div>
