@@ -485,6 +485,10 @@ const char *get_wan6face(void)
 		return "v6to4";
 	case IPV6_6IN4:
 		return "v6in4";
+	case IPV6_6RD:
+		return "6rd";
+	case IPV6_6RD_DHCP:
+		return "6rd-pd";
 	}
 	return nvram_safe_get("ipv6_ifname");
 }
