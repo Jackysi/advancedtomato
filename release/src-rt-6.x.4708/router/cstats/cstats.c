@@ -532,6 +532,7 @@ static void calc(void) {
 
 	Node *ptr = NULL;
 	Node test;
+
 	int wanup = 0; // 0 = FALSE, 1 = TRUE
 	long wanuptime = 0; // wanuptime in seconds
 
@@ -553,15 +554,15 @@ static void calc(void) {
 
 	for(br=0 ; br<=3 ; br++) {
 
-	    char bridge[2] = "0";
-	    if (br!=0)
-	    	bridge[0]+=br;
-	    else
-	    	strcpy(bridge, "");
+		char bridge[2] = "0";
+		if (br!=0)
+			bridge[0]+=br;
+		else
+			strcpy(bridge, "");
 
-	    sprintf(name, "/proc/net/ipt_account/lan%s", bridge);
+		sprintf(name, "/proc/net/ipt_account/lan%s", bridge);
 
-	    if ((f = fopen(name, "r"))) {
+		if ((f = fopen(name, "r")) == NULL) continue;
 
 		while (fgets(buf, sizeof(buf), f)) {
 			if(sscanf(buf, 
@@ -572,7 +573,6 @@ static void calc(void) {
 #endif
 
 			if (find_word(exclude, ip)) continue;
-			if ((tx < 1) && (rx < 1)) continue;
 
 			counter[0] = tx;
 			counter[1] = rx;
@@ -581,6 +581,7 @@ static void calc(void) {
 			strncpy(test.ipaddr, ipaddr, INET_ADDRSTRLEN);
 			ptr = TREE_FIND(&tree, _Node, linkage, &test);
 
+			if ((tx < 1) && (rx < 1) && (!ptr)) continue;
 			if ( (ptr) || (nvram_get_int("cstats_all")) || (find_word(include, ipaddr)) ) {
 
 				if (!ptr) {
@@ -679,7 +680,6 @@ static void calc(void) {
 			}
 		}
 		fclose(f);
-	    }
 	}
 
 	// remove/exclude history (if we still have any data previously stored)
