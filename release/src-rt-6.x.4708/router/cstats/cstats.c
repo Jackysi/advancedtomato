@@ -629,14 +629,12 @@ static void calc(void) {
 							_dprintf("%s: counter[%d]=%llu ptr->last[%d]=%llu c=%llu sc=%llu\n", __FUNCTION__, i, counter[i], i, ptr->last[i], c, sc);
 #endif
 							if (c < sc) {
-				wanup = check_wanup(); // router/shared/misc.c
-				wanuptime = check_wanup_time(); // router/shared/misc.c
-				diff = ((0xFFFFFFFFFFFFFFFFULL) - sc + 1) + c;
-				if(wanup && (wanuptime < (INTERVAL + 1))) diff = 0;
-				// if (diff > MAX_ROLLOVER) diff = 0; // 225 Mbyte / 120 sec => 15 MBit/s only with rollover
-				// If a rollover AND a reconnect within the last 121 sec (INTERVAL + 1) happend, set diff to 0
-				// this will prevent traffic peaks, for example with ADSL/PPPoE
-				// see https://www.linksysinfo.org/index.php?threads/tomato-toastmans-releases.36106/page-39#post-281722
+								wanup = check_wanup(); // router/shared/misc.c
+								wanuptime = check_wanup_time(); // router/shared/misc.c
+								diff = ((0xFFFFFFFFFFFFFFFFULL) - sc + 1ULL) + c; // rollover calculation
+								if(diff > ((uint64_t)NEW_MAX_ROLLOVER)) diff = 0ULL; // 3750 MByte / 120 sec => 250 MBit/s maximum limit with roll-over! Try to catch unknown/unwanted traffic peaks - Part 1/2
+								if(wanup && (wanuptime < (INTERVAL + 10))) diff = 0ULL; // Try to catch traffic peaks at connection startup/reconnect (ADSL/PPPoE) - Part 2/2
+								// see https://www.linksysinfo.org/index.php?threads/tomato-toastmans-releases.36106/page-39#post-281722
 							}
 							else {
 								 diff = c - sc;
