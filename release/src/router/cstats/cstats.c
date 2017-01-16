@@ -533,6 +533,9 @@ static void calc(void) {
 	Node *ptr = NULL;
 	Node test;
 
+	int wanup = 0; // 0 = FALSE, 1 = TRUE
+	long wanuptime = 0; // wanuptime in seconds
+
 	now = time(0);
 
 	exclude = strdup(nvram_safe_get("cstats_exclude"));
@@ -627,8 +630,12 @@ static void calc(void) {
 							_dprintf("%s: counter[%d]=%llu ptr->last[%d]=%llu c=%llu sc=%llu\n", __FUNCTION__, i, counter[i], i, ptr->last[i], c, sc);
 #endif
 							if (c < sc) {
-								diff = (0xFFFFFFFF - sc) + c;
-								if (diff > MAX_ROLLOVER) diff = 0;
+								wanup = check_wanup(); // router/shared/misc.c
+								wanuptime = check_wanup_time(); // router/shared/misc.c
+								diff = ((0xFFFFFFFFFFFFFFFFULL) - sc + 1ULL) + c; // rollover calculation
+								if(diff > ((uint64_t)NEW_MAX_ROLLOVER)) diff = 0ULL; // 3750 MByte / 120 sec => 250 MBit/s maximum limit with roll-over! Try to catch unknown/unwanted traffic peaks - Part 1/2
+								if(wanup && (wanuptime < (INTERVAL + 10))) diff = 0ULL; // Try to catch traffic peaks at connection startup/reconnect (ADSL/PPPoE) - Part 2/2
+								// see https://www.linksysinfo.org/index.php?threads/tomato-toastmans-releases.36106/page-39#post-281722
 							}
 							else {
 								 diff = c - sc;
