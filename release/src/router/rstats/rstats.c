@@ -53,7 +53,7 @@
 #define MAX_NSPEED		((24 * SHOUR) / INTERVAL)
 #define MAX_NDAILY		62
 #define MAX_NMONTHLY	25
-#define MAX_SPEED_IF	10
+#define MAX_SPEED_IF	32	// Support up to 32 interfaces
 //#define MAX_ROLLOVER    (225 * M) //not needed anymore
 #define NEW_MAX_ROLLOVER    (3750UL * M) // 3750 MByte - new rollover limit
 
