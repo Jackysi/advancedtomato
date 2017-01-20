@@ -550,12 +550,6 @@ const defaults_t defaults[] = {
 	{ "qos_irates",			"5-100,2-20,5-100,10-90,20-90,5-90,5-70,5-100,5-30,1-1"				},
 	{ "qos_classnames",		"Service VOIP/Game Remote WWW Media HTTPS/Msgr Mail FileXfer P2P/Bulk Crawl"	},
 
-
-	{ "ne_vegas",			"0"				},	// TCP Vegas
-	{ "ne_valpha",			"2"				},	// "
-	{ "ne_vbeta",			"6"				},	// "
-	{ "ne_vgamma",			"2"				},	// "
-
 // access restrictions
 	{ "rruleN",				"0"				},
 	{ "rrule0",				"0|1320|300|31|||word text\n^begins-with.domain.\n.ends-with.net$\n^www.exact-domain.net$|0|example" },
