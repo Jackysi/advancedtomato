@@ -1181,10 +1181,6 @@ static const nvset_t nvset_list[] = {
 	{ "qos_orates",			V_LENGTH(0, 128)	},
 	{ "qos_classnames",		V_LENGTH(10, 128)		}, // !!TOASTMAN
 	{ "atm_overhead",		V_RANGE(-127, 128)	},
-	{ "ne_vegas",			V_01				},
-	{ "ne_valpha",			V_NUM				},
-	{ "ne_vbeta",			V_NUM				},
-	{ "ne_vgamma",			V_NUM				},
 
 // new_qoslimit
 	{ "new_qoslimit_enable",         V_01                   },

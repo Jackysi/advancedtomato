@@ -25,7 +25,7 @@
 /* REMOVE-BEGIN
 	!!TB - added qos_pfifo
 REMOVE-END */
-//	<% nvram("qos_classnames,qos_enable,qos_ack,qos_syn,qos_fin,qos_rst,qos_icmp,qos_udp,qos_default,qos_pfifo,qos_obw,qos_ibw,qos_orates,qos_irates,qos_reset,ne_vegas,ne_valpha,ne_vbeta,ne_vgamma,atm_overhead"); %>
+//	<% nvram("qos_classnames,qos_enable,qos_ack,qos_syn,qos_fin,qos_rst,qos_icmp,qos_udp,qos_default,qos_pfifo,qos_obw,qos_ibw,qos_orates,qos_irates,qos_reset,atm_overhead"); %>
 
 var classNames = nvram.qos_classnames.split(' ');		// Toastman - configurable class names
 
@@ -108,17 +108,8 @@ function verifyFields(focused, quiet)
 	f = E('_fom').elements;
 	b = !E('_f_qos_enable').checked;
 	for (i = 0; i < f.length; ++i) {
-		if ((f[i].name.substr(0, 1) != '_') && (f[i].type != 'button') && (f[i].name.indexOf('enable') == -1) &&
-			(f[i].name.indexOf('ne_v') == -1)) f[i].disabled = b;
-	}
-
-	var abg = ['alpha', 'beta', 'gamma'];
-	b = E('_f_ne_vegas').checked;
-	for (i = 0; i < 3; ++i) {
-		f = E('_ne_v' + abg[i]);
-		f.disabled = !b;
-		if (b) {
-			if (!v_range(f, quiet, 0, 65535)) return 0;
+		if ((f[i].name.substr(0, 1) != '_') && (f[i].type != 'button') && (f[i].name.indexOf('enable') == -1)) {
+			 f[i].disabled = b;
 		}
 	}
 
@@ -164,8 +155,6 @@ function save()
 	
 	fom.qos_irates.value = a.join(',');
 
-	fom.ne_vegas.value = E('_f_ne_vegas').checked ? 1 : 0;
-
 	form.submit(fom, 1);
 }
 
@@ -202,7 +191,6 @@ function save()
 <input type='hidden' name='qos_orates'>
 <input type='hidden' name='qos_irates'>
 <input type='hidden' name='qos_reset'>
-<input type='hidden' name='ne_vegas'>
 
 
 
@@ -325,20 +313,6 @@ for (i = 1; i < 11; ++i) {
 createFieldTable('', f);
 </script>
 </div>
-
-<span id='s_vegas' style='display:none'>
-<div class='section-title'>TCP Vegas <small>(Network Congestion Control)</small></div>
-<div class='section'>
-<script type='text/javascript'>
-createFieldTable('', [
-	{ title: 'Enable TCP Vegas', name: 'f_ne_vegas', type: 'checkbox', value: nvram.ne_vegas == '1' },
-	{ title: 'Alpha', name: 'ne_valpha', type: 'text', maxlen: 6, size: 8, value: nvram.ne_valpha },
-	{ title: 'Beta', name: 'ne_vbeta', type: 'text', maxlen: 6, size: 8, value: nvram.ne_vbeta },
-	{ title: 'Gamma', name: 'ne_vgamma', type: 'text', maxlen: 6, size: 8, value: nvram.ne_vgamma }
-]);
-</script>
-</div>
-</span>
 
 <!-- / / / -->
 
