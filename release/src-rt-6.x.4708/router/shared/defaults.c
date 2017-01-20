@@ -597,11 +597,6 @@ struct nvram_tuple router_defaults[] = {
 	{ "qos_irates",			"5-100,5-30,5-100,5-70,5-70,5-70,5-70,5-100,5-30,1-1"  	, 0 },
 	{ "qos_classnames",		"Service VOIP/Game Remote WWW Media HTTPS/Msgr Mail FileXfer P2P/Bulk Crawl"	, 0 },
 
-	{ "ne_vegas",			"0"				, 0 },	// TCP Vegas
-	{ "ne_valpha",			"2"				, 0 },	// "
-	{ "ne_vbeta",			"6"				, 0 },	// "
-	{ "ne_vgamma",			"2"				, 0 },	// "
-
 // access restrictions
 	{ "rruleN",			"0"			, 0 },
 	{ "rrule0",			"0|1320|300|31|||word text\n^begins-with.domain.\n.ends-with.net$\n^www.exact-domain.net$|0|example" , 0 },
