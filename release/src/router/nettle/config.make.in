@@ -83,7 +83,7 @@ default: all
 # compile was broken when .SUFFIXES was moved here from Makefile.in.
 
 .SUFFIXES:
-.SUFFIXES: .asm .c .$(OBJEXT) .p$(OBJEXT) .html .dvi .info .exe .pdf .ps .texinfo
+.SUFFIXES: .asm .c .$(OBJEXT) .html .dvi .info .exe .pdf .ps .texinfo
 
 # Disable builtin rule
 %$(EXEEXT) : %.c

@@ -107,6 +107,12 @@ Public-key algorithms
 * DSA::                         The DSA digital signature algorithm.
 * Elliptic curves::             Elliptic curves and ECDSA
 
+@acronym{Elliptic curves}
+
+* Side-channel silence::
+* ECDSA::
+* Curve 25519::
+
 @end detailmenu
 @end menu
 
@@ -1935,7 +1941,7 @@ around.
 
 Applies the encryption or decryption function @var{f} in @acronym{CBC}
 mode. The final ciphertext block processed is copied into @var{iv}
-before returning, so that large message be processed be a sequence of
+before returning, so that a large message can be processed by a sequence of
 calls to @code{cbc_encrypt}. The function @var{f} is of type
 
 @code{void f (void *@var{ctx}, size_t @var{length}, uint8_t @var{dst},
@@ -4174,7 +4180,17 @@ visible to nettle users. The ``bitsize of the curve'' is used as a
 shorthand for the bitsize of the curve's prime @math{p}, e.g., 256 bits
 for @code{nettle_secp_256r1}.
 
+@menu
+* Side-channel silence::
+* ECDSA::
+* Curve 25519::
+@end menu
+
+@node Side-channel silence, ECDSA, , Elliptic curves
+@comment  node-name,  next,  previous,  up
 @subsubsection Side-channel silence
+@cindex Side-channel attack
+
 Nettle's implementation of the elliptic curve operations is intended to
 be side-channel silent. The side-channel attacks considered are:
 
@@ -4191,7 +4207,8 @@ it. If you have a process operating on the secret data, and this process
 does memory accesses depending on the data, e.g, an internal lookup
 table in some cryptographic algorithm, an attacker running a separate
 process on the same system may use behavior of internal CPU caches to
-get information about your secrets.
+get information about your secrets. This type of attack can even cross
+virtual machine boundaries.
 @end itemize
 
 Nettle's ECC implementation is designed to be @dfn{side-channel silent},
@@ -4200,6 +4217,8 @@ accesses depend only on the size of the input data and its location in
 memory, not on the actual data bits. This implies a performance penalty
 in several of the building blocks.
 
+@node ECDSA, Curve 25519, Side-channel silence, Elliptic curves
+@comment  node-name,  next,  previous,  up
 @subsubsection ECDSA
 
 ECDSA is a variant of the DSA digital signature scheme (@pxref{DSA}),
@@ -4227,7 +4246,7 @@ Represents a point on an elliptic curve. In particular, it is used to
 represent an ECDSA public key.
 @end deftp
 
-@deftypefun void ecc_point_init (struct ecc_point *@var{p}, const structecc_curve *@var{ecc})
+@deftypefun void ecc_point_init (struct ecc_point *@var{p}, const struct ecc_curve *@var{ecc})
 Initializes @var{p} to represent points on the given curve @var{ecc}.
 Allocates storage for the coordinates, using the same allocation
 functions as GMP.
@@ -4241,7 +4260,7 @@ Deallocate storage.
 Check that the given coordinates represent a point on the curve. If so,
 the coordinates are copied and converted to internal representation, and
 the function returns 1. Otherwise, it returns 0. Currently, the
-infinity point (or zero point, with additive notation) i snot allowed.
+infinity point (or zero point, with additive notation) is not allowed.
 @end deftypefun
 
 @deftypefun void ecc_point_get (const struct ecc_point *@var{p}, mpz_t @var{x}, mpz_t @var{y})
@@ -4302,32 +4321,57 @@ random octets and store them at @code{dst}. For advice, see
 @xref{Randomness}.
 @end deftypefun
 
+@node Curve 25519, , ECDSA, Elliptic curves
+@comment  node-name,  next,  previous,  up
 @subsubsection Curve25519
+@cindex Curve 25519
+
+@c FIXME: Make 2^255 pretty in all output formats. Use @sup?
+@c There are other places too (2^32, 2^130).
 
 Curve25519 is an elliptic curve of Montgomery type, @math{y^2 = x^3 +
 486662 x^2 + x @pmod{p}}, with @math{p = 2^255 - 19}. Montgomery curves
 have the advantage of simple and efficient point addition based on the
-x-coordinate only. This particular curve was proposed by D.~J.~Bernstein
-in 2006, for fast Diffie-Hellman key exchange. The group generator is
-defined by @math{x = 9} (there are actually two points with @math{x =
-9}, differing by the sign of the y-coordinate, but that doesn't matter
-for the curve25519 operations which work with the x-coordinate only).
+x-coordinate only. This particular curve was proposed by D. J. Bernstein
+in 2006, for fast Diffie-Hellman key exchange, and is also described in
+@cite{RFC 7748}. The group generator is defined by @math{x = 9} (there
+are actually two points with @math{x = 9}, differing by the sign of the
+y-coordinate, but that doesn't matter for the curve25519 operations
+which work with the x-coordinate only).
 
 The curve25519 functions are defined as operations on octet strings,
-which are interpreted as x-coordinates in little-endian byte order.
+representing 255-bit scalars or x-coordinates, in little-endian byte
+order. The most significant input bit, i.e, the most significant bit of
+the last octet, is always ignored.
 
-Of all the possible input strings, only about half correspond to points
-on curve25519, i.e., a value that can be produced by
-@code{curve25519_mul_g}. The other half corresponds to points on a
-related ``twist curve''. The current implementation of
+For scalars, in addition, the least significant three bits are ignored,
+and treated as zero, and the second most significant bit is ignored too,
+and treated as one. Then the scalar input string always represents 8
+times a number in the range @math{2^251 <= s < 2^252}.
+
+Of all the possible input strings, only about half correspond to
+x-coordinates of points on curve25519, i.e., a value @math{x} for which
+the the curve equation can be solved for @math{y}. The other half
+correspond to points on a related ``twist curve''. The function
 @code{curve25519_mul} uses a Montgomery ladder for the scalar
-multiplication, as suggested in the curve25519 literature, and produces
-a well defined output for all possible inputs, no matter if points are
-on the proper curve or on its twist. However, at the time of writing, it
-is not yet ruled out that other implementations could be faster, and
-therefore the behaviour for inputs corresponding to points on the twist
-curve must be considered an implementation idiosyncrasy, and may change
-in future versions.
+multiplication, as suggested in the curve25519 literature, and required
+by @cite{RFC 7748}. The output is therefore well defined for
+@emph{all} possible inputs, no matter if the input string represents a
+valid point on the curve or not.
+
+Note that the curve25519 implementation in earlier versions of Nettle
+deviates slightly from @cite{RFC 7748}, in that bit 255 of the @math{x}
+coordinate of the point input to curve25519_mul was not ignored. The
+@file{nette/curve25519.h} defines a preprocessor symbol
+@code{NETTLE_CURVE25519_RFC7748} to indicate conformance with the
+standard.
+
+Nettle defines Curve 25519 in @file{<nettle/curve25519.h>}.
+
+@defvr Constant NETTLE_CURVE25519_RFC7748
+Defined to 1 in Nettle versions conforming to RFC 7748. Undefined in
+earlier versions.
+@end defvr
 
 @defvr Constant CURVE25519_SIZE
 The size of the strings representing curve25519 points and scalars, 32.
@@ -4351,10 +4395,6 @@ argument @var{q} use a little-endian representation of the scalar and
 the x-coordinates, respectively. They are all of size
 @code{CURVE25519_SIZE}.
 
-The output value is defined only when the input @var{p} is a string
-produced by @code{curve25519_mul_g}. (See discussion above, about the
-twist curve).
-
 This function is intended to be compatible with the function
 @code{crypto_scalar_mult} in the NaCl library.
 @end deftypefun
@@ -4362,7 +4402,7 @@ This function is intended to be compatible with the function
 @subsubsection EdDSA
 @cindex eddsa
 
-EdDSA is a signature scheme proposed by D.~J.~Bernstein et al. in 2011.
+EdDSA is a signature scheme proposed by D. J. Bernstein et al. in 2011.
 It is defined using a ``Twisted Edwards curve'', of the form @math{-x^2
 + y^2 = 1 + d x^2 y^2}. The specific signature scheme Ed25519 uses a
 curve which is equivalent to curve25519: The two groups used differ only
@@ -4898,8 +4938,16 @@ Like @code{memxor}, but takes two source areas and separate
 destination area.
 @end deftypefun
 
+@deftypefun int memeql_sec (const void *@var{a}, const void *@var{b}, size_t @var{n})
+Side-channel silent comparison of the @var{n} bytes at @var{a} and
+@var{b}. I.e., instructions executed and memory accesses are identical
+no matter where the areas differ, @pxref{Side-channel silence}. Return
+non-zero if the areas are equal, and zero if they differ.
+@end deftypefun
 
-@code{memxor} is declared in @file{<nettle/memxor.h>}.
+These functions are declared in @file{<nettle/memops.h>}. For
+compatibility with earlier versions of Nettle, @code{memxor} and
+@code{memxor3} are also declared in @file{<nettle/memxor.h>}.
 
 @node Compatibility functions,  , Miscellaneous functions, Reference
 @comment  node-name,  next,  previous,  up

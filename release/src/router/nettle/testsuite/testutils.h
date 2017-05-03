@@ -160,7 +160,7 @@ void
 test_armor(const struct nettle_armor *armor,
            size_t data_length,
            const uint8_t *data,
-           const uint8_t *ascii);
+           const char *ascii);
 
 #if WITH_HOGWEED
 #ifndef mpn_zero_p
@@ -267,10 +267,17 @@ void
 test_ecc_mul_h (unsigned curve, unsigned n, const mp_limb_t *p);
 
 #endif /* WITH_HOGWEED */
+
+/* String literal of type unsigned char. The GNUC version is safer. */
+#if __GNUC__
+#define US(s) ({ static const unsigned char us_s[] = s; us_s; })
+#else
+#define US(s) ((const uint8_t *) (s))
+#endif
   
 /* LDATA needs to handle NUL characters. */
 #define LLENGTH(x) (sizeof(x) - 1)
-#define LDATA(x) LLENGTH(x), x
+#define LDATA(x) LLENGTH(x), US(x)
 #define LDUP(x) strlen(x), strdup(x)
 
 #define SHEX(x) (tstring_hex(x))
