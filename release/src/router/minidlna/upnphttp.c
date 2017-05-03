@@ -80,11 +80,9 @@
 #include "tivo_commands.h"
 #include "clients.h"
 #include "process.h"
-
 #include "sendfile.h"
 
-#define MAX_BUFFER_SIZE 4194304 // 4MB -- Too much?
-//#define MAX_BUFFER_SIZE 2147483647 // 2GB -- Too much?
+#define MAX_BUFFER_SIZE 2147483647
 #define MIN_BUFFER_SIZE 65536
 
 #define INIT_STR(s, d) { s.data = d; s.size = sizeof(d); s.off = 0; }
@@ -475,6 +473,21 @@ Send400(struct upnphttp * h)
 	h->respflags = FLAG_HTML;
 	BuildResp2_upnphttp(h, 400, "Bad Request",
 	                    body400, sizeof(body400) - 1);
+	SendResp_upnphttp(h);
+	CloseSocket_upnphttp(h);
+}
+
+/* very minimalistic 403 error message */
+static void
+Send403(struct upnphttp * h)
+{
+	static const char body403[] =
+		"<HTML><HEAD><TITLE>403 Forbidden</TITLE></HEAD>"
+		"<BODY><H1>Forbidden</H1>You don't have permission to access this resource."
+		"</BODY></HTML>\r\n";
+	h->respflags = FLAG_HTML;
+	BuildResp2_upnphttp(h, 403, "Forbidden",
+	                    body403, sizeof(body403) - 1);
 	SendResp_upnphttp(h);
 	CloseSocket_upnphttp(h);
 }
@@ -1330,6 +1343,46 @@ start_dlna_header(struct string_s *str, int respcode, const char *tmode, const c
 	             respcode, date, tmode, mime);
 }
 
+static int
+_open_file(const char *orig_path)
+{
+	struct media_dir_s *media_path;
+	char buf[PATH_MAX];
+	const char *path;
+	int fd;
+
+	if (!GETFLAG(WIDE_LINKS_MASK))
+	{
+		path = realpath(orig_path, buf);
+		if (!path)
+		{
+			DPRINTF(E_ERROR, L_HTTP, "Error resolving path %s: %s\n",
+						orig_path, strerror(errno));
+			return -1;
+		}
+
+		for (media_path = media_dirs; media_path; media_path = media_path->next)
+		{
+			if (strncmp(path, media_path->path, strlen(media_path->path)) == 0)
+				break;
+		}
+               if (!media_path && strncmp(path, db_path, strlen(db_path)))
+		{
+			DPRINTF(E_ERROR, L_HTTP, "Rejecting wide link %s -> %s\n",
+						orig_path, path);
+			return -403;
+		}
+	}
+	else
+		path = orig_path;
+
+	fd = open(path, O_RDONLY);
+	if (fd < 0)
+		DPRINTF(E_ERROR, L_HTTP, "Error opening %s\n", path);
+
+	return fd;
+}
+
 static void
 SendResp_icon(struct upnphttp * h, char * icon)
 {
@@ -1415,11 +1468,13 @@ SendResp_albumArt(struct upnphttp * h, char * object)
 	}
 	DPRINTF(E_INFO, L_HTTP, "Serving album art ID: %lld [%s]\n", id, path);
 
-	fd = open(path, O_RDONLY);
+	fd = _open_file(path);
 	if( fd < 0 ) {
-		DPRINTF(E_ERROR, L_HTTP, "Error opening %s\n", path);
 		sqlite3_free(path);
-		Send404(h);
+		if (fd == -403)
+			Send403(h);
+		else
+			Send404(h);
 		return;
 	}
 	sqlite3_free(path);
@@ -1463,11 +1518,13 @@ SendResp_caption(struct upnphttp * h, char * object)
 	}
 	DPRINTF(E_INFO, L_HTTP, "Serving caption ID: %lld [%s]\n", id, path);
 
-	fd = open(path, O_RDONLY);
+	fd = _open_file(path);
 	if( fd < 0 ) {
-		DPRINTF(E_ERROR, L_HTTP, "Error opening %s\n", path);
 		sqlite3_free(path);
-		Send404(h);
+		if (fd == -403)
+			Send403(h);
+		else
+			Send404(h);
 		return;
 	}
 	sqlite3_free(path);
@@ -1916,10 +1973,12 @@ SendResp_dlnafile(struct upnphttp *h, char *object)
 	}
 
 	offset = h->req_RangeStart;
-	sendfh = open(last_file.path, O_RDONLY);
+	sendfh = _open_file(last_file.path);
 	if( sendfh < 0 ) {
-		DPRINTF(E_ERROR, L_HTTP, "Error opening %s\n", last_file.path);
-		Send404(h);
+		if (sendfh == -403)
+			Send403(h);
+		else
+			Send404(h);
 		goto error;
 	}
 	size = lseek(sendfh, 0, SEEK_END);
