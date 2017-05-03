@@ -2371,7 +2371,7 @@ tinc/stamp-h1: openssl zlib lzo
 
 tinc: tinc/stamp-h1
 	@$(SEP)
-	@$(MAKE) -C tinc LIBS="-lcrypto $(TOP)/zlib/libz.a -llzo2" $(PARALLEL_BUILD)
+	@$(MAKE) -C tinc LIBS="-lcrypto $(TOP)/zlib/libz.a -llzo2 -lm" $(PARALLEL_BUILD)
 
 tinc-clean:
 	-@$(MAKE) -C tinc clean
