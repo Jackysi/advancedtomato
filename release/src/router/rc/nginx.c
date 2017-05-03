@@ -308,7 +308,6 @@ int build_nginx_conf(void) {
 		}
 		fprintf( phpini_file, "post_max_size = %sM\n", nvram_safe_get("nginx_upload"));
 		fprintf( phpini_file, "upload_max_filesize = %sM\n", nvram_safe_get("nginx_upload"));
-		fprintf( phpini_file, "upload_max_filesize = %sM\n", nvram_safe_get("nginx_upload"));
 		fprintf( phpini_file, "mysql.default_port = 3309\n");
 		fprintf( phpini_file, "mysql.default_socket = /var/run/mysqld.sock\n");
 		fprintf( phpini_file, "%s\n", nvram_safe_get("nginx_phpconf"));

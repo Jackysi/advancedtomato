@@ -136,7 +136,7 @@ function init()
 
 <script type='text/javascript'>
 createFieldTable('', [
-	{ title: 'Enable TOR', name: 'f_tor_enable', type: 'checkbox', value: nvram.tor_enable == '1' },
+	{ title: 'Enable Tor', name: 'f_tor_enable', type: 'checkbox', value: nvram.tor_enable == '1' },
 	null,
 	{ title: 'Socks Port', name: 'tor_socksport', type: 'text', maxlen: 5, size: 7, value: fixPort(nvram.tor_socksport, 9050) },
 	{ title: 'Trans Port', name: 'tor_transport', type: 'text', maxlen: 5, size: 7, value: fixPort(nvram.tor_transport, 9040) },
@@ -167,7 +167,7 @@ createFieldTable('', [
 <div class='section-title'>Notes</div>
 <div class='section'>
 <ul>
-	<li><b>Enable TOR</b> - Be patient. Starting the TOR client can take from several seconds to several minutes.
+	<li><b>Enable Tor</b> - Be patient. Starting the Tor client can take from several seconds to several minutes.
 	<li><b>Selected IP`s</b> - ex: 1.2.3.4,1.1.0/24,1.2.3.1-1.2.3.4
 	<li><b>Selected Ports</b> - ex: one port (80), few ports (80,443,8888), range of ports (80:88), mix (80,8000:9000,9999)
 	<li><b><u>Caution!</u></b> - If your router has only 32MB of RAM, you'll have to use swap.

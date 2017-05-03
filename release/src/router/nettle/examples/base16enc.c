@@ -88,7 +88,7 @@ main(int argc UNUSED, char **argv UNUSED)
 	      werror ("Error reading file: %s\n", strerror(errno));
 	      return EXIT_FAILURE;
 	    }
-	  if (!write_string (stdout, encoded_bytes, result)
+	  if (!write_data (stdout, encoded_bytes, result)
 	      || fflush (stdout) != 0)
 	    {
 	      werror ("Error writing file: %s\n", strerror(errno));
@@ -97,7 +97,7 @@ main(int argc UNUSED, char **argv UNUSED)
 	  return EXIT_SUCCESS;
 	}
       /* The result vector is printed */
-      if (!write_string(stdout,encoded_bytes, result))
+      if (!write_data(stdout, encoded_bytes, result))
 	{
 	  werror ("Error writing file: %s\n", strerror(errno));
 	  return EXIT_FAILURE;

@@ -1,6 +1,6 @@
 /*
     logger.c -- logging code
-    Copyright (C) 2004-2013 Guus Sliepen <guus@tinc-vpn.org>
+    Copyright (C) 2004-2015 Guus Sliepen <guus@tinc-vpn.org>
                   2004-2005 Ivo Timmermans
 
     This program is free software; you can redistribute it and/or modify
@@ -26,6 +26,7 @@
 #include "logger.h"
 #include "connection.h"
 #include "control_common.h"
+#include "process.h"
 #include "sptps.h"
 
 debug_t debug_level = DEBUG_NOTHING;
@@ -37,7 +38,7 @@ static HANDLE loghandle = NULL;
 #endif
 static const char *logident = NULL;
 bool logcontrol = false;
-
+int umbilical = 0;
 
 static void real_logger(int level, int priority, const char *message) {
 	char timestr[32] = "";
@@ -79,6 +80,11 @@ static void real_logger(int level, int priority, const char *message) {
 			case LOGMODE_NULL:
 				break;
 		}
+
+		if(umbilical && do_detach) {
+			write(umbilical, message, strlen(message));
+			write(umbilical, "\n", 1);
+		}
 	}
 
 	if(logcontrol) {
@@ -114,9 +120,19 @@ void logger(int level, int priority, const char *format, ...) {
 
 static void sptps_logger(sptps_t *s, int s_errno, const char *format, va_list ap) {
 	char message[1024] = "";
-	int len = vsnprintf(message, sizeof message, format, ap);
-	if(len > 0 && len < sizeof message && message[len - 1] == '\n')
-		message[len - 1] = 0;
+	size_t msglen = sizeof message;
+
+	int len = vsnprintf(message, msglen, format, ap);
+	if(len > 0 && len < sizeof message) {
+		if(message[len - 1] == '\n')
+			message[--len] = 0;
+
+		// WARNING: s->handle can point to a connection_t or a node_t,
+		// but both types have the name and hostname fields at the same offsets.
+		connection_t *c = s->handle;
+		if(c)
+			snprintf(message + len, sizeof message - len, " from %s (%s)", c->name, c->hostname);
+	}
 
 	real_logger(DEBUG_ALWAYS, LOG_ERR, message);
 }
@@ -193,7 +209,6 @@ void closelogger(void) {
 #endif
 		case LOGMODE_NULL:
 		case LOGMODE_STDERR:
-			break;
 			break;
 	}
 }

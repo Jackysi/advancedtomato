@@ -3,7 +3,7 @@
 STATUS=`nvram get nfs_enable`
 if [ "$STATUS" == "0" ]; then
 
-    logger Stoping NFS Server ...
+    logger Stopping NFS Server ...
 
     /usr/bin/killall portmap 2>/dev/null
 
@@ -13,7 +13,7 @@ if [ "$STATUS" == "0" ]; then
 
     /usr/bin/killall mountd 2>/dev/null
 
-    logger NFS Server stoped ...
+    logger NFS Server stopped ...
 else
 
     logger Starting NFS Server ...
@@ -54,6 +54,6 @@ else
         mountd
     fi
 
-    logger NFS Server Started ...
+    logger NFS Server started ...
 
 fi

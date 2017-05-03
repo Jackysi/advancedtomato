@@ -32,7 +32,12 @@ static AppContext app_context;
 static void
 query_cb_err_print(const int err)
 {
-    fprintf(stderr, "[%s]\n", evdns_err_to_string(err));
+    if (err == DNS_ERR_UNKNOWN || err == DNS_ERR_TRUNCATED) {
+        fprintf(stderr, "Response might be truncated.\n"
+                "If you just started dnscrypt-proxy, this is expected; you may want to retry.\n");
+    } else {
+        fprintf(stderr, "[%s]\n", evdns_err_to_string(err));
+    }
     exit(1);
 }
 
@@ -107,6 +112,8 @@ int main(int argc, char *argv[])
         perror("evdns_base");
         return 1;
     }
+    evdns_base_set_option(evdns_base, "use-tcp", "on-tc");
+    evdns_base_set_option(evdns_base, "randomize-case", "0");
     if (evdns_base_nameserver_ip_add(evdns_base,
                                      app_context.resolver_ip) != 0) {
         fprintf(stderr, "Unable to use [%s] as a resolver\n",

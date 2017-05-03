@@ -1,45 +1,46 @@
 # Irish translations for libiconv 
 # Copyright (C) 2003 Free Software Foundation, Inc.
 # This file is distributed under the same license as the libiconv package.
-# Kevin Patrick Scannell <scannell@SLU.EDU>, 2003, 2006, 2007, 2008.
+# Kevin Patrick Scannell <scannell@SLU.EDU>, 2003, 2006, 2007, 2008, 2017.
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: libiconv 1.12\n"
+"Project-Id-Version: libiconv 1.15-pre1\n"
 "Report-Msgid-Bugs-To: bug-gnu-libiconv@gnu.org\n"
-"POT-Creation-Date: 2011-08-07 15:24+0200\n"
-"PO-Revision-Date: 2008-01-02 14:58-0500\n"
+"POT-Creation-Date: 2016-12-04 17:16+0100\n"
+"PO-Revision-Date: 2017-01-08 14:58-0500\n"
 "Last-Translator: Kevin Scannell <kscanne@gmail.com>\n"
 "Language-Team: Irish <gaeilge-gnulinux@lists.sourceforge.net>\n"
 "Language: ga\n"
 "MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=ISO-8859-1\n"
+"Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"X-Bugs: Report translation errors to the Language-Team address.\n"
 "Plural-Forms: nplurals=5; plural=n==1 ? 0 : n==2 ? 1 : (n>2 && n<7) ? 2 : "
 "(n>6 && n <11) ? 3 : 4;\n"
 
 #. TRANSLATORS: The first line of the short usage message.
 #: src/iconv.c:104
 msgid "Usage: iconv [-c] [-s] [-f fromcode] [-t tocode] [file ...]"
-msgstr "Úsáid: iconv [-c] [-s] [-f cód] [-t cód] [comhad ...]"
+msgstr "ÃšsÃ¡id: iconv [-c] [-s] [-f cÃ³d] [-t cÃ³d] [comhad ...]"
 
 #. TRANSLATORS: The second line of the short usage message.
 #. Align it correctly against the first line.
 #: src/iconv.c:108
 msgid "or:    iconv -l"
-msgstr "nó:    iconv -l"
+msgstr "nÃ³:    iconv -l"
 
 #: src/iconv.c:110
 #, c-format
-msgid "Try `%s --help' for more information.\n"
-msgstr "Bain triail as `%s --help' chun tuilleadh eolais a fháil.\n"
+msgid "Try '%s --help' for more information.\n"
+msgstr "Bain triail as '%s --help' chun tuilleadh eolais a fhÃ¡il.\n"
 
 #. TRANSLATORS: The first line of the long usage message.
 #. The %s placeholder expands to the program name.
 #: src/iconv.c:115
 #, c-format, no-wrap
 msgid "Usage: %s [OPTION...] [-f ENCODING] [-t ENCODING] [INPUTFILE...]\n"
-msgstr "Úsáid: %s [ROGHA...] [-f IONCHÓDÚ] [-t IONCHÓDÚ] [INCHOMHAD...]\n"
+msgstr "ÃšsÃ¡id: %s [ROGHA...] [-f IONCHÃ“DÃš] [-t IONCHÃ“DÃš] [INCHOMHAD...]\n"
 
 #. TRANSLATORS: The second line of the long usage message.
 #. Align it correctly against the first line.
@@ -47,18 +48,18 @@ msgstr "Úsáid: %s [ROGHA...] [-f IONCHÓDÚ] [-t IONCHÓDÚ] [INCHOMHAD...]\n"
 #: src/iconv.c:122
 #, c-format, no-wrap
 msgid "or:    %s -l\n"
-msgstr "nó:    %s -l\n"
+msgstr "nÃ³:    %s -l\n"
 
 #. TRANSLATORS: Description of the iconv program.
 #: src/iconv.c:128
 #, c-format, no-wrap
 msgid "Converts text from one encoding to another encoding.\n"
-msgstr "Tiontaigh ó ionchódú go ceann eile.\n"
+msgstr "Tiontaigh Ã³ ionchÃ³dÃº go ceann eile.\n"
 
 #: src/iconv.c:132
 #, c-format, no-wrap
 msgid "Options controlling the input and output format:\n"
-msgstr "Roghanna a rialaíonn formáid ionchurtha/aschurtha:\n"
+msgstr "Roghanna a rialaÃ­onn formÃ¡id ionchurtha/aschurtha:\n"
 
 #: src/iconv.c:135
 #, c-format, no-wrap
@@ -66,8 +67,8 @@ msgid ""
 "  -f ENCODING, --from-code=ENCODING\n"
 "                              the encoding of the input\n"
 msgstr ""
-"  -f IONCHÓDÚ, --from-code=IONCHÓDÚ\n"
-"                              ionchódú an ionchuir\n"
+"  -f IONCHÃ“DÃš, --from-code=IONCHÃ“DÃš\n"
+"                              ionchÃ³dÃº an ionchuir\n"
 
 #: src/iconv.c:139
 #, c-format, no-wrap
@@ -75,18 +76,18 @@ msgid ""
 "  -t ENCODING, --to-code=ENCODING\n"
 "                              the encoding of the output\n"
 msgstr ""
-"  -t IONCHÓDÚ, --to-code=IONCHÓDÚ\n"
-"                              ionchódú an aschuir\n"
+"  -t IONCHÃ“DÃš, --to-code=IONCHÃ“DÃš\n"
+"                              ionchÃ³dÃº an aschuir\n"
 
 #: src/iconv.c:144
 #, c-format, no-wrap
 msgid "Options controlling conversion problems:\n"
-msgstr "Roghanna a rialaíonn fadhbanna tiontaithe:\n"
+msgstr "Roghanna a rialaÃ­onn fadhbanna tiontaithe:\n"
 
 #: src/iconv.c:147
 #, c-format, no-wrap
 msgid "  -c                          discard unconvertible characters\n"
-msgstr "  -c                        ná coinnigh carachtair dhothiontaithe\n"
+msgstr "  -c                        nÃ¡ coinnigh carachtair dhothiontaithe\n"
 
 #: src/iconv.c:150
 #, c-format, no-wrap
@@ -94,13 +95,13 @@ msgid ""
 "  --unicode-subst=FORMATSTRING\n"
 "                              substitution for unconvertible Unicode characters\n"
 msgstr ""
-"  --unicode-subst=TEAGHRÁN\n"
-"                              ionadaíocht do charachtair dhothiontaithe Unicode\n"
+"  --unicode-subst=TEAGHRÃN\n"
+"                              ionadaÃ­ocht do charachtair dhothiontaithe Unicode\n"
 
 #: src/iconv.c:154
 #, c-format, no-wrap
 msgid "  --byte-subst=FORMATSTRING   substitution for unconvertible bytes\n"
-msgstr "  --byte-subst=TEAGHRÁN       ionadaíocht do bhearta dothiontaithe\n"
+msgstr "  --byte-subst=TEAGHRÃN       ionadaÃ­ocht do bhearta dothiontaithe\n"
 
 #: src/iconv.c:157
 #, c-format, no-wrap
@@ -108,38 +109,38 @@ msgid ""
 "  --widechar-subst=FORMATSTRING\n"
 "                              substitution for unconvertible wide characters\n"
 msgstr ""
-"  --widechar-subst=TEAGHRÁN\n"
-"                             ionadaíocht do charachtair leathana dhothiontaithe\n"
+"  --widechar-subst=TEAGHRÃN\n"
+"                             ionadaÃ­ocht do charachtair leathana dhothiontaithe\n"
 
 #: src/iconv.c:162
 #, c-format, no-wrap
 msgid "Options controlling error output:\n"
-msgstr "Roghanna a rialaíonn aschur d'earráidí:\n"
+msgstr "Roghanna a rialaÃ­onn aschur d'earrÃ¡idÃ­:\n"
 
 #: src/iconv.c:165
 #, c-format, no-wrap
 msgid "  -s, --silent                suppress error messages about conversion problems\n"
-msgstr "  -s, --silent                ná taispeáin teachtaireachtaí faoi fhadhbanna tiontaithe\n"
+msgstr "  -s, --silent                nÃ¡ taispeÃ¡in teachtaireachtaÃ­ faoi fhadhbanna tiontaithe\n"
 
 #: src/iconv.c:169
 #, c-format, no-wrap
 msgid "Informative output:\n"
-msgstr "Aschur faisnéiseach:\n"
+msgstr "Aschur faisnÃ©iseach:\n"
 
 #: src/iconv.c:172
 #, c-format, no-wrap
 msgid "  -l, --list                  list the supported encodings\n"
-msgstr "  -l, --list                  taispeáin na hionchóduithe a dtacaítear leo\n"
+msgstr "  -l, --list                  taispeÃ¡in na hionchÃ³duithe a dtacaÃ­tear leo\n"
 
 #: src/iconv.c:175
 #, c-format, no-wrap
 msgid "  --help                      display this help and exit\n"
-msgstr "  --help                      taispeáin an chabhair seo agus scoir\n"
+msgstr "  --help                      taispeÃ¡in an chabhair seo agus scoir\n"
 
 #: src/iconv.c:178
 #, c-format, no-wrap
 msgid "  --version                   output version information and exit\n"
-msgstr "  --version                   taispeáin eolas faoin leagan agus scoir\n"
+msgstr "  --version                   taispeÃ¡in eolas faoin leagan agus scoir\n"
 
 #. TRANSLATORS: The placeholder indicates the bug-reporting address
 #. for this package.  Please add _another line_ saying
@@ -147,18 +148,18 @@ msgstr "  --version                   taispeáin eolas faoin leagan agus scoir\n"
 #. bugs (typically your translation team's web or email address).
 #: src/iconv.c:185
 msgid "Report bugs to <bug-gnu-libiconv@gnu.org>.\n"
-msgstr "Seol tuairiscí fabhtanna chuig <bug-gnu-libiconv@gnu.org>.\n"
+msgstr "Seol tuairiscÃ­ fabhtanna chuig <bug-gnu-libiconv@gnu.org>.\n"
 
 #: src/iconv.c:196
-#, fuzzy, no-wrap
+#, no-wrap
 msgid ""
 "License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>\n"
 "This is free software: you are free to change and redistribute it.\n"
 "There is NO WARRANTY, to the extent permitted by law.\n"
 msgstr ""
-"Ceadúnas GPLv2+: GNU GPL leagan 2 nó níos nuaí <http://gnu.org/licenses/gpl.html>\n"
-"Is saorbhogearra é seo: ceadaítear duit é a athrú agus a athdháileadh.\n"
-"Níl baránta AR BITH ann, an oiread atá ceadaithe de réir dlí.\n"
+"CeadÃºnas GPLv3+: GNU GPL leagan 3 nÃ³ nÃ­os dÃ©anaÃ­ <http://gnu.org/licenses/gpl.html>\n"
+"Is saorbhogearra Ã© seo: ceadaÃ­tear duit Ã© a athrÃº agus a athdhÃ¡ileadh.\n"
+"NÃ­l barÃ¡nta AR BITH ann, an oiread atÃ¡ ceadaithe de rÃ©ir dlÃ­.\n"
 
 #. TRANSLATORS: The %s placeholder expands to an author's name.
 #: src/iconv.c:202
@@ -173,7 +174,7 @@ msgstr "Le %s.\n"
 msgid ""
 "%s argument: A format directive with a variable width is not allowed here."
 msgstr ""
-"argóint %s: Ní cheadaítear treoir fhormáidithe le leithead athraitheach "
+"argÃ³int %s: NÃ­ cheadaÃ­tear treoir fhormÃ¡idithe le leithead athraitheach "
 "anseo."
 
 #. TRANSLATORS: An error message.
@@ -184,7 +185,7 @@ msgid ""
 "%s argument: A format directive with a variable precision is not allowed "
 "here."
 msgstr ""
-"argóint %s: Ní cheadaítear treoir fhormáidithe le beachtas athraitheach "
+"argÃ³int %s: NÃ­ cheadaÃ­tear treoir fhormÃ¡idithe le beachtas athraitheach "
 "anseo."
 
 #. TRANSLATORS: An error message.
@@ -192,14 +193,14 @@ msgstr ""
 #: src/iconv.c:327
 #, c-format
 msgid "%s argument: A format directive with a size is not allowed here."
-msgstr "argóint %s: Ní cheadaítear treoir fhormáidithe le méid anseo."
+msgstr "argÃ³int %s: NÃ­ cheadaÃ­tear treoir fhormÃ¡idithe le mÃ©id anseo."
 
 #. TRANSLATORS: An error message.
 #. The %s placeholder expands to a command-line option.
 #: src/iconv.c:369
 #, c-format
 msgid "%s argument: The string ends in the middle of a directive."
-msgstr "argóint %s: Deireadh an teaghráin i lár treorach."
+msgstr "argÃ³int %s: Deireadh an teaghrÃ¡in i lÃ¡r treorach."
 
 #. TRANSLATORS: An error message.
 #. The %s placeholder expands to a command-line option.
@@ -207,7 +208,7 @@ msgstr "argóint %s: Deireadh an teaghráin i lár treorach."
 #: src/iconv.c:376
 #, c-format
 msgid "%s argument: The character '%c' is not a valid conversion specifier."
-msgstr "argóint %s: Níl carachtar '%c' bailí mar shonraitheoir tiontaithe."
+msgstr "argÃ³int %s: NÃ­l carachtar '%c' bailÃ­ mar shonraitheoir tiontaithe."
 
 #. TRANSLATORS: An error message.
 #. The %s placeholder expands to a command-line option.
@@ -217,7 +218,7 @@ msgid ""
 "%s argument: The character that terminates the format directive is not a "
 "valid conversion specifier."
 msgstr ""
-"argóint %s: An carachtar ag deireadh na treorach formáidithe, níl sé bailí "
+"argÃ³int %s: An carachtar ag deireadh na treorach formÃ¡idithe, nÃ­l sÃ© bailÃ­ "
 "mar shonraitheoir tiontaithe."
 
 #. TRANSLATORS: An error message.
@@ -230,62 +231,62 @@ msgid ""
 msgid_plural ""
 "%s argument: The format string consumes more than one argument: %u arguments."
 msgstr[0] ""
-"argóint %s: Úsáideann an teaghrán formáidithe níos mó ná aon argóint amháin: "
-"%u argóint."
+"argÃ³int %s: ÃšsÃ¡ideann an teaghrÃ¡n formÃ¡idithe nÃ­os mÃ³ nÃ¡ aon argÃ³int amhÃ¡in: "
+"%u argÃ³int."
 msgstr[1] ""
-"argóint %s: Úsáideann an teaghrán formáidithe níos mó ná aon argóint amháin: "
-"%u argóint."
+"argÃ³int %s: ÃšsÃ¡ideann an teaghrÃ¡n formÃ¡idithe nÃ­os mÃ³ nÃ¡ aon argÃ³int amhÃ¡in: "
+"%u argÃ³int."
 msgstr[2] ""
-"argóint %s: Úsáideann an teaghrán formáidithe níos mó ná aon argóint amháin: "
-"%u argóint."
+"argÃ³int %s: ÃšsÃ¡ideann an teaghrÃ¡n formÃ¡idithe nÃ­os mÃ³ nÃ¡ aon argÃ³int amhÃ¡in: "
+"%u argÃ³int."
 msgstr[3] ""
-"argóint %s: Úsáideann an teaghrán formáidithe níos mó ná aon argóint amháin: "
-"%u n-argóint."
+"argÃ³int %s: ÃšsÃ¡ideann an teaghrÃ¡n formÃ¡idithe nÃ­os mÃ³ nÃ¡ aon argÃ³int amhÃ¡in: "
+"%u n-argÃ³int."
 msgstr[4] ""
-"argóint %s: Úsáideann an teaghrán formáidithe níos mó ná aon argóint amháin: "
-"%u argóint."
+"argÃ³int %s: ÃšsÃ¡ideann an teaghrÃ¡n formÃ¡idithe nÃ­os mÃ³ nÃ¡ aon argÃ³int amhÃ¡in: "
+"%u argÃ³int."
 
 #. TRANSLATORS: An error message.
 #. The %s placeholder expands to a piece of text, specified through --byte-subst.
 #: src/iconv.c:456
 #, c-format
 msgid "cannot convert byte substitution to Unicode: %s"
-msgstr "ní féidir ionadaíocht bhirt a thiontú go Unicode: %s"
+msgstr "nÃ­ fÃ©idir ionadaÃ­ocht bhirt a thiontÃº go Unicode: %s"
 
 #. TRANSLATORS: An error message.
 #. The %s placeholder expands to a piece of text, specified through --unicode-subst.
 #: src/iconv.c:496
 #, c-format
 msgid "cannot convert unicode substitution to target encoding: %s"
-msgstr "ní féidir ionadaíocht unicode a thiontú go dtí an sprioc-ionchódú: %s"
+msgstr "nÃ­ fÃ©idir ionadaÃ­ocht unicode a thiontÃº go dtÃ­ an sprioc-ionchÃ³dÃº: %s"
 
 #. TRANSLATORS: An error message.
 #. The %s placeholder expands to a piece of text, specified through --byte-subst.
 #: src/iconv.c:537
 #, c-format
 msgid "cannot convert byte substitution to wide string: %s"
-msgstr "ní féidir ionadaíocht bhirt a thiontú go teaghrán leathan: %s"
+msgstr "nÃ­ fÃ©idir ionadaÃ­ocht bhirt a thiontÃº go teaghrÃ¡n leathan: %s"
 
 #. TRANSLATORS: An error message.
 #. The %s placeholder expands to a piece of text, specified through --widechar-subst.
 #: src/iconv.c:578
 #, c-format
 msgid "cannot convert widechar substitution to target encoding: %s"
-msgstr "ní féidir ionadaíocht widechar a thiontú go dtí an sprioc-ionchódú: %s"
+msgstr "nÃ­ fÃ©idir ionadaÃ­ocht widechar a thiontÃº go dtÃ­ an sprioc-ionchÃ³dÃº: %s"
 
 #. TRANSLATORS: An error message.
 #. The %s placeholder expands to a piece of text, specified through --byte-subst.
 #: src/iconv.c:619
 #, c-format
 msgid "cannot convert byte substitution to target encoding: %s"
-msgstr "ní féidir ionadaíocht bhirt a thiontú go dtí an sprioc-ionchódú: %s"
+msgstr "nÃ­ fÃ©idir ionadaÃ­ocht bhirt a thiontÃº go dtÃ­ an sprioc-ionchÃ³dÃº: %s"
 
 #. TRANSLATORS: An error message.
 #. The placeholders expand to the input file name, a line number, and a column number.
 #: src/iconv.c:638
 #, c-format
 msgid "%s:%u:%u: cannot convert"
-msgstr "%s:%u:%u: ní féidir tiontú"
+msgstr "%s:%u:%u: nÃ­ fÃ©idir tiontÃº"
 
 #. TRANSLATORS: An error message.
 #. The placeholders expand to the input file name, a line number, and a column number.
@@ -294,7 +295,7 @@ msgstr "%s:%u:%u: ní féidir tiontú"
 #: src/iconv.c:652
 #, c-format
 msgid "%s:%u:%u: incomplete character or shift sequence"
-msgstr "%s:%u:%u: carachtar nó seicheamh neamhiomlán"
+msgstr "%s:%u:%u: carachtar nÃ³ seicheamh neamhiomlÃ¡n"
 
 #. TRANSLATORS: The first part of an error message.
 #. It is followed by a colon and a detail message.
@@ -309,56 +310,56 @@ msgstr "%s:%u:%u"
 #: src/iconv.c:826
 #, c-format
 msgid "%s: I/O error"
-msgstr "%s: Earráid I/A"
+msgstr "%s: EarrÃ¡id I/A"
 
 #. TRANSLATORS: An error message.
 #. The placeholder expands to the encoding name, specified through --from-code.
-#: src/iconv.c:1014
+#: src/iconv.c:1015
 #, c-format
 msgid "conversion from %s unsupported"
-msgstr "ní thacaítear le tiontú ó %s"
+msgstr "nÃ­ thacaÃ­tear le tiontÃº Ã³ %s"
 
 #. TRANSLATORS: An error message.
 #. The placeholder expands to the encoding name, specified through --to-code.
-#: src/iconv.c:1020
+#: src/iconv.c:1021
 #, c-format
 msgid "conversion to %s unsupported"
-msgstr "ní thacaítear le tiontú go %s"
+msgstr "nÃ­ thacaÃ­tear le tiontÃº go %s"
 
 #. TRANSLATORS: An error message.
 #. The placeholders expand to the encoding names, specified through --from-code and --to-code, respectively.
-#: src/iconv.c:1026
+#: src/iconv.c:1027
 #, c-format
 msgid "conversion from %s to %s unsupported"
-msgstr "ní thacaítear le tiontú ó %s go %s"
+msgstr "nÃ­ thacaÃ­tear le tiontÃº Ã³ %s go %s"
 
 #. TRANSLATORS: Additional advice after an error message.
 #. The %s placeholder expands to the program name.
-#: src/iconv.c:1031
+#: src/iconv.c:1032
 #, c-format
 msgid "try '%s -l' to get the list of supported encodings"
 msgstr ""
-"bain triail as '%s -l' chun liosta de na hionchóduithe a dtacaítear leo a "
-"thaispeáint"
+"bain triail as '%s -l' chun liosta de na hionchÃ³duithe a dtacaÃ­tear leo a "
+"thaispeÃ¡int"
 
 #. TRANSLATORS: A filename substitute denoting standard input.
-#: src/iconv.c:1088
+#: src/iconv.c:1089
 msgid "(stdin)"
 msgstr "(stdin)"
 
 #. TRANSLATORS: The first part of an error message.
 #. It is followed by a colon and a detail message.
 #. The %s placeholder expands to the input file name.
-#: src/iconv.c:1100
+#: src/iconv.c:1101
 #, c-format
 msgid "%s"
 msgstr "%s"
 
 #. TRANSLATORS: An error message.
-#: src/iconv.c:1114
+#: src/iconv.c:1115
 #, c-format
 msgid "I/O error"
-msgstr "Earráid I/A"
+msgstr "EarrÃ¡id I/A"
 
 #~ msgid ""
 #~ "This is free software; see the source for copying conditions.  There is "
@@ -366,13 +367,13 @@ msgstr "Earráid I/A"
 #~ "warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR "
 #~ "PURPOSE.\n"
 #~ msgstr ""
-#~ "Is saorbhogearra an ríomhchlár seo; féach ar an bhunchód le haghaidh\n"
-#~ "coinníollacha cóipeála.  Níl baránta ar bith ann; go fiú níl baránta ann\n"
-#~ "d'INDÍOLTACHT nó FEILIÚNACHT D'FHEIDHM AR LEITH.\n"
+#~ "Is saorbhogearra an rÃ­omhchlÃ¡r seo; fÃ©ach ar an bhunchÃ³d le haghaidh\n"
+#~ "coinnÃ­ollacha cÃ³ipeÃ¡la.  NÃ­l barÃ¡nta ar bith ann; go fiÃº nÃ­l barÃ¡nta ann\n"
+#~ "d'INDÃOLTACHT nÃ³ FEILIÃšNACHT D'FHEIDHM AR LEITH.\n"
 
 #~ msgid ""
 #~ "Usage: iconv [--binary] [-c] [-s] [-f fromcode] [-t tocode] [file ...]"
-#~ msgstr "Úsáid: iconv [--binary] [-c] [-s] [-f cód] [-t cód] [comhad ...]"
+#~ msgstr "ÃšsÃ¡id: iconv [--binary] [-c] [-s] [-f cÃ³d] [-t cÃ³d] [comhad ...]"
 
 #~ msgid "iconv: %s: "
 #~ msgstr "iconv: %s: "

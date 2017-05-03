@@ -12,7 +12,7 @@
  *
  * Plugins are modules that have to implement (at least) dcplugin_init().
  *
- * Plugins can be dynamicaly loaded by dnscrypt-proxy using
+ * Plugins can be dynamically loaded by dnscrypt-proxy using
  * --plugin=library[,arguments]
  * Ex:
  * --plugin=/usr/local/lib/dnscrypt-proxy/test.dll,-a,-H,--user=42

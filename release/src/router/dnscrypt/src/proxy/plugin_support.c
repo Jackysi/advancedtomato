@@ -177,7 +177,7 @@ plugin_support_load(DCPluginSupport * const dcps)
 }
 
 static int
-plugin_support_unload(DCPluginSupport * const dcps)
+plugin_support_call_destroy(DCPluginSupport * const dcps)
 {
     DCPluginDestroy dcplugin_destroy;
 
@@ -187,6 +187,15 @@ plugin_support_unload(DCPluginSupport * const dcps)
     dcplugin_destroy = plugin_support_load_symbol(dcps, "dcplugin_destroy");
     if (dcplugin_destroy != NULL) {
         dcplugin_destroy(dcps->plugin);
+    }
+    return 0;
+}
+
+static int
+plugin_support_unload(DCPluginSupport * const dcps)
+{
+    if (plugin_support_call_destroy(dcps) != 0) {
+        return -1;
     }
     if (lt_dlclose(dcps->handle) != 0) {
         return -1;
@@ -312,6 +321,23 @@ plugin_support_context_remove(DCPluginSupportContext * const dcps_context,
     SLIST_REMOVE(&dcps_context->dcps_list, dcps, DCPluginSupport_, next);
 
     return 0;
+}
+
+int
+plugin_support_context_reload(DCPluginSupportContext * const dcps_context)
+{
+    DCPluginSupport *dcps;
+    DCPluginSupport *dcps_tmp;
+    int              ret = 0;
+    int              ret_ = 0;
+
+    SLIST_FOREACH_SAFE(dcps, &dcps_context->dcps_list, next, dcps_tmp) {
+        if ((ret_ = plugin_support_call_destroy(dcps)) == 0) {
+            ret_ = plugin_support_call_init(dcps);
+        }
+        ret |= ret_;
+    }
+    return ret;
 }
 
 void

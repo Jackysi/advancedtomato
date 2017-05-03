@@ -1989,7 +1989,7 @@ createFieldTable('', [
 	{ title: 'Check connections every', name: 'mwan_cktime', type: 'select', options: [
 		['0','Disabled'],['60','1 minute'],['120','2 minutes'],['180','3 minutes'],['300','5 minutes'],
 		['600','10 minutes'],['900','15 minutes'],['1800','30 minutes'],['3600','1 hour']],
-		suffix: ' <small>(when the network conditionsis poor, try use long detection period)</small>',
+		suffix: ' <small>(when the network conditionsis poor, try use longer detection period)</small>',
 		value: nvram.mwan_cktime },
 	{ title: 'Target 1', indent: 2, name: 'f_mwan_ckdst_1', type: 'text', maxlen: 30, size: 30, value: ckdst[0] || ''},
 	{ title: 'Target 2', indent: 2, name: 'f_mwan_ckdst_2', type: 'text', maxlen: 30, size: 30, value: ckdst[1] || ''}
@@ -2027,7 +2027,7 @@ for(var uidx = 1; uidx <= maxwan_num; ++uidx) {
 		{ title: 'Load Balance Weight', name: 'wan'+u+'_weight', type: 'text', maxlen: 3, size: 8, value: nvram['wan'+u+'_weight'], suffix: ' <i>(Failover: 0; Load balancing: 1 - 256)</i>' },
 		{ title: 'PIN Code', name: 'wan'+u+'_modem_pin', type: 'text', maxlen: 6, size: 8, value: nvram['wan'+u+'_modem_pin'], suffix: ' <i>Advised to turn off PIN Code</i>' },
 		{ title: 'Modem init string', name: 'wan'+u+'_modem_init', type: 'text', maxlen: 25, size: 32, value: nvram['wan'+u+'_modem_init'] },
-		{ title: 'APN', name: 'wan'+u+'_modem_apn', type: 'text', maxlen: 25, size: 32, value: nvram['wan'+u+'_modem_apn'] },
+		{ title: 'APN', name: 'wan'+u+'_modem_apn', type: 'text', maxlen: 25, size: 32, suffix: ' <i>(if empty, AT+CGDCONT will not be sent)</i>', value: nvram['wan'+u+'_modem_apn'] },
 		{ title: 'Network Type', name: 'wan'+u+'_modem_speed', type: 'select', options: [['00', 'Auto'],['030201', '4G/3G/2G'],['0302', '4G/3G only'],['03', '4G only'],['02', '3G only']], value: nvram['wan'+u+'_modem_speed'], suffix: ' <i>works only with non-Hilink modems</i>' },
 		{ title: 'Username', name: 'wan'+u+'_ppp_username', type: 'text', maxlen: 60, size: 64, value: nvram['wan'+u+'_ppp_username'] },
 		{ title: 'Password', name: 'wan'+u+'_ppp_passwd', type: 'password', maxlen: 60, size: 64, peekaboo: 1, value: nvram['wan'+u+'_ppp_passwd'] },

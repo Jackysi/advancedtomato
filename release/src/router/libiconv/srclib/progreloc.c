@@ -1,5 +1,5 @@
 /* Provide relocatable programs.
-   Copyright (C) 2003-2011 Free Software Foundation, Inc.
+   Copyright (C) 2003-2017 Free Software Foundation, Inc.
    Written by Bruno Haible <bruno@clisp.org>, 2003.
 
    This program is free software: you can redistribute it and/or modify
@@ -30,18 +30,23 @@
 #include <unistd.h>
 #include <sys/stat.h>
 
-/* Get declaration of _NSGetExecutablePath on MacOS X 10.2 or newer.  */
+/* Get declaration of _NSGetExecutablePath on Mac OS X 10.2 or newer.  */
 #if HAVE_MACH_O_DYLD_H
 # include <mach-o/dyld.h>
 #endif
 
 #if (defined _WIN32 || defined __WIN32__) && !defined __CYGWIN__
-# define WIN32_NATIVE
+# define WINDOWS_NATIVE
 #endif
 
-#ifdef WIN32_NATIVE
+#ifdef WINDOWS_NATIVE
 # define WIN32_LEAN_AND_MEAN
 # include <windows.h>
+#endif
+
+#ifdef __EMX__
+# define INCL_DOS
+# include <os2.h>
 #endif
 
 #include "relocatable.h"
@@ -74,7 +79,7 @@ extern char * canonicalize_file_name (const char *name);
    IS_PATH_WITH_DIR(P)  tests whether P contains a directory specification.
  */
 #if ((defined _WIN32 || defined __WIN32__) && !defined __CYGWIN__) || defined __EMX__ || defined __DJGPP__
-  /* Win32, OS/2, DOS */
+  /* Native Windows, OS/2, DOS */
 # define ISSLASH(C) ((C) == '/' || (C) == '\\')
 # define HAS_DEVICE(P) \
     ((((P)[0] >= 'A' && (P)[0] <= 'Z') || ((P)[0] >= 'a' && (P)[0] <= 'z')) \
@@ -88,11 +93,6 @@ extern char * canonicalize_file_name (const char *name);
 # define IS_PATH_WITH_DIR(P) (strchr (P, '/') != NULL)
 # define FILE_SYSTEM_PREFIX_LEN(P) 0
 #endif
-
-/* The results of open() in this file are not used with fchdir,
-   therefore save some unnecessary work in fchdir.c.  */
-#undef open
-#undef close
 
 /* Use the system functions, not the gnulib overrides in this file.  */
 #undef sprintf
@@ -112,8 +112,8 @@ static int executable_fd = -1;
 static bool
 maybe_executable (const char *filename)
 {
-  /* Woe32 lacks the access() function.  */
-#if !defined WIN32_NATIVE
+  /* The native Windows API lacks the access() function.  */
+#if !defined WINDOWS_NATIVE
   if (access (filename, X_OK) < 0)
     return false;
 #endif
@@ -143,16 +143,16 @@ maybe_executable (const char *filename)
 
 /* Determine the full pathname of the current executable, freshly allocated.
    Return NULL if unknown.
-   Guaranteed to work on Linux and Woe32.  Likely to work on the other
-   Unixes (maybe except BeOS), under most conditions.  */
+   Guaranteed to work on Linux and native Windows.  Likely to work on the
+   other Unixes (maybe except BeOS), under most conditions.  */
 static char *
 find_executable (const char *argv0)
 {
-#if defined WIN32_NATIVE
-  /* Native Win32 only.
+#if defined WINDOWS_NATIVE
+  /* Native Windows only.
      On Cygwin, it is better to use the Cygwin provided /proc interface, than
-     to use native Win32 API and cygwin_conv_to_posix_path, because it supports
-     longer file names
+     to use native Windows API and cygwin_conv_to_posix_path, because it
+     supports longer file names
      (see <http://cygwin.com/ml/cygwin/2011-01/msg00410.html>).  */
   char location[MAX_PATH];
   int length = GetModuleFileName (NULL, location, sizeof (location));
@@ -161,6 +161,23 @@ find_executable (const char *argv0)
   if (!IS_PATH_WITH_DIR (location))
     /* Shouldn't happen.  */
     return NULL;
+  return xstrdup (location);
+#elif defined __EMX__
+  PPIB ppib;
+  char location[CCHMAXPATH];
+
+  /* See http://cyberkinetica.homeunix.net/os2tk45/cp1/619_L2H_DosGetInfoBlocksSynt.html
+     for specification of DosGetInfoBlocks().  */
+  if (DosGetInfoBlocks (NULL, &ppib))
+    return NULL;
+
+  /* See http://cyberkinetica.homeunix.net/os2tk45/cp1/1247_L2H_DosQueryModuleNameSy.html
+     for specification of DosQueryModuleName().  */
+  if (DosQueryModuleName (ppib->pib_hmte, sizeof (location), location))
+    return NULL;
+
+  _fnslashify (location);
+
   return xstrdup (location);
 #else /* Unix */
 # ifdef __linux__
@@ -202,7 +219,7 @@ find_executable (const char *argv0)
   }
 # endif
 # if HAVE_MACH_O_DYLD_H && HAVE__NSGETEXECUTABLEPATH
-  /* On MacOS X 10.2 or newer, the function
+  /* On Mac OS X 10.2 or newer, the function
        int _NSGetExecutablePath (char *buf, uint32_t *bufsize);
      can be used to retrieve the executable's full path.  */
   char location[4096];

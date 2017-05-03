@@ -65,12 +65,16 @@
 #            so it has been removed.
 # 2013-10-08 PH got rid of the "source" command, which is a bash-ism (use ".")
 # 2013-11-05 PH added support for PARENS_NEST_LIMIT
+# 2016-03-01 PH applied Chris Wilson's patch for MSVC static build
+# 2016-06-24 PH applied Chris Wilson's revised patch (adds a separate option)
 
 PROJECT(PCRE C CXX)
 
-# Increased minimum to 2.8.0 to support newer add_test features
+# Increased minimum to 2.8.0 to support newer add_test features. Set policy
+# CMP0026 to avoid warnings for the use of LOCATION in GET_TARGET_PROPERTY.
 
 CMAKE_MINIMUM_REQUIRED(VERSION 2.8.0)
+CMAKE_POLICY(SET CMP0026 OLD)
 
 SET(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake) # for FindReadline.cmake
 
@@ -187,6 +191,9 @@ IF (MINGW)
 ENDIF(MINGW)
 
 IF(MSVC)
+  OPTION(PCRE_STATIC_RUNTIME OFF CACHE BOOL
+	"ON=Compile against the static runtime (/MT)."
+	OFF)
   OPTION(INSTALL_MSVC_PDB
          "ON=Install .pdb files built by MSVC, if generated"
          OFF)
@@ -566,6 +573,20 @@ SET(PCREPOSIX_SOURCES
   ${PCREPOSIX_SOURCES} pcreposix.rc)
 ENDIF (EXISTS ${PROJECT_SOURCE_DIR}/pcreposix.rc)
 ENDIF(MSVC AND NOT PCRE_STATIC)
+
+# Fix static compilation with MSVC: https://bugs.exim.org/show_bug.cgi?id=1681
+# This code was taken from the CMake wiki, not from WebM.
+
+IF(MSVC AND PCRE_STATIC_RUNTIME)
+  MESSAGE(STATUS "** MSVC and PCRE_STATIC_RUNTIME: modifying compiler flags to use static runtime library")
+  foreach(flag_var
+          CMAKE_C_FLAGS CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_RELEASE
+          CMAKE_C_FLAGS_MINSIZEREL CMAKE_C_FLAGS_RELWITHDEBINFO
+          CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE
+          CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO)
+    string(REGEX REPLACE "/MD" "/MT" ${flag_var} "${${flag_var}}")
+  endforeach()
+ENDIF(MSVC AND PCRE_STATIC_RUNTIME)
 
 SET(PCRECPP_HEADERS
   pcrecpp.h

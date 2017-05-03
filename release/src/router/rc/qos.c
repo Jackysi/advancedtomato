@@ -873,7 +873,7 @@ void start_qos(char *prefix)
 
 		fprintf(
 			f,
-			"\t$TFA_IMQ parent 1: prio %u handle %u fw flowid 1:%u \n",
+			"\t$TFA_IMQ parent 1: prio %u protocol ip handle %u fw flowid 1:%u \n",
 			classid, priority, classid);
 
 #ifdef TCONFIG_IPV6

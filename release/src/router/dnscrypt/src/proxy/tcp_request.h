@@ -10,7 +10,11 @@
 # define TCP_REQUEST_BACKLOG 128
 #endif
 #ifndef TCP_FASTOPEN_QUEUES
-# define TCP_FASTOPEN_QUEUES TCP_REQUEST_BACKLOG
+# ifdef __APPLE__
+#  define TCP_FASTOPEN_QUEUES 1
+# else
+#  define TCP_FASTOPEN_QUEUES 5
+# endif
 #endif
 
 int tcp_listener_bind(ProxyContext * const proxy_context);

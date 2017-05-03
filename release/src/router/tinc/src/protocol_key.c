@@ -36,6 +36,7 @@
 static bool mykeyused = false;
 
 void send_key_changed(void) {
+#ifndef DISABLE_LEGACY
 	send_request(everyone, "%d %x %s", KEY_CHANGED, rand(), myself->name);
 
 	/* Immediately send new keys to directly connected nodes to keep UDP mappings alive */
@@ -43,6 +44,7 @@ void send_key_changed(void) {
 	for list_each(connection_t, c, connection_list)
 		if(c->edge && c->node && c->node->status.reachable && !c->node->status.sptps)
 			send_ans_key(c->node);
+#endif
 
 	/* Force key exchange for connections using SPTPS */
 
@@ -87,9 +89,13 @@ bool key_changed_h(connection_t *c, const char *request) {
 	return true;
 }
 
+static bool send_sptps_data_myself(void *handle, uint8_t type, const void *data, size_t len) {
+	return send_sptps_data(handle, myself, type, data, len);
+}
+
 static bool send_initial_sptps_data(void *handle, uint8_t type, const void *data, size_t len) {
 	node_t *to = handle;
-	to->sptps.send_data = send_sptps_data;
+	to->sptps.send_data = send_sptps_data_myself;
 	char buf[len * 4 / 3 + 5];
 	b64encode(data, buf, len);
 	return send_request(to->nexthop->connection, "%d %s %s %d %s", REQ_KEY, myself->name, to->name, REQ_KEY, buf);
@@ -102,9 +108,6 @@ bool send_req_key(node_t *to) {
 			send_request(to->nexthop->connection, "%d %s %s %d", REQ_KEY, myself->name, to->name, REQ_PUBKEY);
 			return true;
 		}
-
-		if(to->sptps.label)
-			logger(DEBUG_ALWAYS, LOG_DEBUG, "send_req_key(%s) called while sptps->label != NULL!", to->name);
 
 		char label[25 + strlen(myself->name) + strlen(to->name)];
 		snprintf(label, sizeof label, "tinc UDP key expansion %s %s", myself->name, to->name);
@@ -121,7 +124,52 @@ bool send_req_key(node_t *to) {
 
 /* REQ_KEY is overloaded to allow arbitrary requests to be routed between two nodes. */
 
-static bool req_key_ext_h(connection_t *c, const char *request, node_t *from, int reqno) {
+static bool req_key_ext_h(connection_t *c, const char *request, node_t *from, node_t *to, int reqno) {
+	/* If this is a SPTPS packet, see if sending UDP info helps.
+	   Note that we only do this if we're the destination or the static relay;
+	   otherwise every hop would initiate its own UDP info message, resulting in elevated chatter. */
+	if((reqno == REQ_KEY || reqno == SPTPS_PACKET) && to->via == myself)
+		send_udp_info(myself, from);
+
+	if(reqno == SPTPS_PACKET) {
+		/* This is a SPTPS data packet. */
+
+		char buf[MAX_STRING_SIZE];
+		int len;
+		if(sscanf(request, "%*d %*s %*s %*d " MAX_STRING, buf) != 1 || !(len = b64decode(buf, buf, strlen(buf)))) {
+			logger(DEBUG_ALWAYS, LOG_ERR, "Got bad %s from %s (%s) to %s (%s): %s", "SPTPS_PACKET", from->name, from->hostname, to->name, to->hostname, "invalid SPTPS data");
+			return true;
+		}
+
+		if(to != myself) {
+			/* We don't just forward the request, because we want to use UDP if it's available. */
+			send_sptps_data(to, from, 0, buf, len);
+			try_tx(to, true);
+		} else {
+			/* The packet is for us */
+			if(!sptps_receive_data(&from->sptps, buf, len)) {
+				/* Uh-oh. It might be that the tunnel is stuck in some corrupted state,
+				   so let's restart SPTPS in case that helps. But don't do that too often
+				   to prevent storms. */
+				if(from->last_req_key < now.tv_sec - 10) {
+					logger(DEBUG_PROTOCOL, LOG_ERR, "Failed to decode TCP packet from %s (%s), restarting SPTPS", from->name, from->hostname);
+					send_req_key(from);
+				}
+				return true;
+			}
+			send_mtu_info(myself, from, MTU);
+		}
+
+		return true;
+	}
+
+	/* Requests that are not SPTPS data packets are forwarded as-is. */
+
+	if (to != myself)
+		return send_request(to->nexthop->connection, "%s", request);
+
+	/* The request is for us */
+
 	switch(reqno) {
 		case REQ_PUBKEY: {
 			if(!node_read_ecdsa_public_key(from)) {
@@ -176,24 +224,9 @@ static bool req_key_ext_h(connection_t *c, const char *request, node_t *from, in
 			from->status.validkey = false;
 			from->status.waitingforkey = true;
 			from->last_req_key = now.tv_sec;
-			sptps_start(&from->sptps, from, false, true, myself->connection->ecdsa, from->ecdsa, label, sizeof label, send_sptps_data, receive_sptps_record);
+			sptps_start(&from->sptps, from, false, true, myself->connection->ecdsa, from->ecdsa, label, sizeof label, send_sptps_data_myself, receive_sptps_record);
 			sptps_receive_data(&from->sptps, buf, len);
-			return true;
-		}
-
-		case REQ_SPTPS: {
-			if(!from->status.validkey) {
-				logger(DEBUG_PROTOCOL, LOG_ERR, "Got REQ_SPTPS from %s (%s) but we don't have a valid key yet", from->name, from->hostname);
-				return true;
-			}
-
-			char buf[MAX_STRING_SIZE];
-			int len;
-			if(sscanf(request, "%*d %*s %*s %*d " MAX_STRING, buf) != 1 || !(len = b64decode(buf, buf, strlen(buf)))) {
-				logger(DEBUG_ALWAYS, LOG_ERR, "Got bad %s from %s (%s): %s", "REQ_SPTPS", from->name, from->hostname, "invalid SPTPS data");
-				return true;
-			}
-			sptps_receive_data(&from->sptps, buf, len);
+			send_mtu_info(myself, from, MTU);
 			return true;
 		}
 
@@ -241,7 +274,7 @@ bool req_key_h(connection_t *c, const char *request) {
 	if(to == myself) {                      /* Yes */
 		/* Is this an extended REQ_KEY message? */
 		if(experimental && reqno)
-			return req_key_ext_h(c, request, from, reqno);
+			return req_key_ext_h(c, request, from, to, reqno);
 
 		/* No, just send our key back */
 		send_ans_key(from);
@@ -255,7 +288,10 @@ bool req_key_h(connection_t *c, const char *request) {
 			return true;
 		}
 
-		/* TODO: forwarding SPTPS packets in this way is inefficient because we send them over TCP without checking for UDP connectivity */
+		/* Is this an extended REQ_KEY message? */
+		if(experimental && reqno)
+			return req_key_ext_h(c, request, from, to, reqno);
+
 		send_request(to->nexthop->connection, "%s", request);
 	}
 
@@ -266,6 +302,9 @@ bool send_ans_key(node_t *to) {
 	if(to->status.sptps)
 		abort();
 
+#ifdef DISABLE_LEGACY
+	return false;
+#else
 	size_t keylen = myself->incipher ? cipher_keylength(myself->incipher) : 1;
 	char key[keylen * 2 + 1];
 
@@ -300,12 +339,15 @@ bool send_ans_key(node_t *to) {
 	to->received = 0;
 	if(replaywin) memset(to->late, 0, replaywin);
 
+	to->status.validkey_in = true;
+
 	return send_request(to->nexthop->connection, "%d %s %s %s %d %d %d %d", ANS_KEY,
 						myself->name, to->name, key,
 						cipher_get_nid(to->incipher),
 						digest_get_nid(to->indigest),
 						(int)digest_length(to->indigest),
 						to->incompression);
+#endif
 }
 
 bool ans_key_h(connection_t *c, const char *request) {
@@ -358,7 +400,7 @@ bool ans_key_h(connection_t *c, const char *request) {
 			return true;
 		}
 
-		if(!*address && from->address.sa.sa_family != AF_UNSPEC) {
+		if(!*address && from->address.sa.sa_family != AF_UNSPEC && to->minmtu) {
 			char *address, *port;
 			logger(DEBUG_PROTOCOL, LOG_DEBUG, "Appending reflexive UDP address to ANS_KEY from %s to %s", from->name, to->name);
 			sockaddr2str(&from->address, &address, &port);
@@ -371,10 +413,12 @@ bool ans_key_h(connection_t *c, const char *request) {
 		return send_request(to->nexthop->connection, "%s", request);
 	}
 
+#ifndef DISABLE_LEGACY
 	/* Don't use key material until every check has passed. */
 	cipher_close(from->outcipher);
 	digest_close(from->outdigest);
-	from->status.validkey = false;
+#endif
+	if (!from->status.sptps) from->status.validkey = false;
 
 	if(compression < 0 || compression > 11) {
 		logger(DEBUG_ALWAYS, LOG_ERR, "Node %s (%s) uses bogus compression level!", from->name, from->hostname);
@@ -388,9 +432,18 @@ bool ans_key_h(connection_t *c, const char *request) {
 	if(from->status.sptps) {
 		char buf[strlen(key)];
 		int len = b64decode(key, buf, strlen(key));
-
-		if(!len || !sptps_receive_data(&from->sptps, buf, len))
-			logger(DEBUG_ALWAYS, LOG_ERR, "Error processing SPTPS data from %s (%s)", from->name, from->hostname);
+		if(!len || !sptps_receive_data(&from->sptps, buf, len)) {
+			/* Uh-oh. It might be that the tunnel is stuck in some corrupted state,
+			   so let's restart SPTPS in case that helps. But don't do that too often
+			   to prevent storms.
+			   Note that simply relying on handshake timeout is not enough, because
+			   that doesn't apply to key regeneration. */
+			if(from->last_req_key < now.tv_sec - 10) {
+				logger(DEBUG_PROTOCOL, LOG_ERR, "Failed to decode handshake TCP packet from %s (%s), restarting SPTPS", from->name, from->hostname);
+				send_req_key(from);
+			}
+			return true;
+		}
 
 		if(from->status.validkey) {
 			if(*address && *port) {
@@ -398,16 +451,17 @@ bool ans_key_h(connection_t *c, const char *request) {
 				sockaddr_t sa = str2sockaddr(address, port);
 				update_node_udp(from, &sa);
 			}
-
-			/* Don't send probes if we can't send UDP packets directly to that node.
-			   TODO: the indirect (via) condition can change at any time as edges are added and removed, so this should probably be moved to graph.c. */
-			if((from->via == myself || from->via == from) && from->options & OPTION_PMTU_DISCOVERY && !(from->options & OPTION_TCPONLY))
-				send_mtu_probe(from);
 		}
+
+		send_mtu_info(myself, from, MTU);
 
 		return true;
 	}
 
+#ifdef DISABLE_LEGACY
+	logger(DEBUG_ALWAYS, LOG_ERR, "Node %s (%s) uses legacy protocol!", from->name, from->hostname);
+	return false;
+#else
 	/* Check and lookup cipher and digest algorithms */
 
 	if(cipher) {
@@ -458,8 +512,6 @@ bool ans_key_h(connection_t *c, const char *request) {
 		update_node_udp(from, &sa);
 	}
 
-	if(from->options & OPTION_PMTU_DISCOVERY && !(from->options & OPTION_TCPONLY))
-		send_mtu_probe(from);
-
 	return true;
+#endif
 }

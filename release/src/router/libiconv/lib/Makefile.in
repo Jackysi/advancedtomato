@@ -50,7 +50,7 @@ SHELL = /bin/sh
 
 # Before making a release, change this according to the libtool documentation,
 # section "Library interface versions".
-LIBICONV_VERSION_INFO = 7:1:5
+LIBICONV_VERSION_INFO = 8:0:6
 
 PACKAGE_VERSION = @VERSION@
 
@@ -96,14 +96,14 @@ libiconv.res.lo : $(srcdir)/../windows/libiconv.rc
 # $(libdir) and $(includedir) - don't use $(prefix) and $(exec_prefix) here.
 install-lib : all force
 	if [ ! -d $(libdir) ] ; then $(mkinstalldirs) $(libdir) ; fi
-	$(LIBTOOL_INSTALL) $(INSTALL_DATA) libiconv.la $(libdir)/libiconv.la
+	$(LIBTOOL_INSTALL) $(INSTALL) libiconv.la $(libdir)/libiconv.la
 
 # On AIX, libiconv.a must include the object files of /lib/libiconv.a,
 # otherwise the setlocale() call fails when invoked from executables linked
 # with -rpath $(libdir), even if linked without -liconv.
 install : all force
 	if [ ! -d $(DESTDIR)$(libdir) ] ; then $(mkinstalldirs) $(DESTDIR)$(libdir) ; fi
-	$(LIBTOOL_INSTALL) $(INSTALL_DATA) libiconv.la $(DESTDIR)$(libdir)/libiconv.la
+	$(LIBTOOL_INSTALL) $(INSTALL) libiconv.la $(DESTDIR)$(libdir)/libiconv.la
 	case "@host_os@" in \
 	  aix*) (cd $(DESTDIR)$(libdir) && \
 	         objects=`ar t libiconv.a`" "`ar t /lib/libiconv.a` && \
@@ -130,9 +130,243 @@ clean : force
 	$(RM) -r .libs _libs
 
 distclean : clean
-	$(RM) Makefile config.h libtool
+	$(RM) Makefile config.h
 
 maintainer-clean : distclean
+
+# List of source files.
+SOURCE_FILES = \
+  Makefile.in config.h.in \
+  encodings.def \
+  encodings_aix.def \
+  encodings_osf1.def \
+  encodings_dos.def \
+  encodings_extra.def \
+  encodings_local.def \
+  translit.def \
+  genaliases.c \
+  genaliases2.c \
+  genflags.c \
+  gentranslit.c \
+  iconv.c \
+    converters.h \
+      ascii.h \
+      utf8.h \
+      ucs2.h \
+      ucs2be.h \
+      ucs2le.h \
+      ucs4.h \
+      ucs4be.h \
+      ucs4le.h \
+      utf16.h \
+      utf16be.h \
+      utf16le.h \
+      utf32.h \
+      utf32be.h \
+      utf32le.h \
+      utf7.h \
+      ucs2internal.h \
+      ucs2swapped.h \
+      ucs4internal.h \
+      ucs4swapped.h \
+      c99.h \
+      java.h \
+      iso8859_1.h \
+      iso8859_2.h \
+      iso8859_3.h \
+      iso8859_4.h \
+      iso8859_5.h \
+      iso8859_6.h \
+      iso8859_7.h \
+      iso8859_8.h \
+      iso8859_9.h \
+      iso8859_10.h \
+      iso8859_11.h \
+      iso8859_13.h \
+      iso8859_14.h \
+      iso8859_15.h \
+      iso8859_16.h \
+      koi8_r.h \
+      koi8_u.h \
+      koi8_ru.h \
+      cp1250.h \
+      cp1251.h \
+      cp1252.h \
+      cp1253.h \
+      cp1254.h \
+      cp1255.h \
+      cp1256.h \
+      cp1257.h \
+      cp1258.h \
+        vietcomb.h \
+      cp850.h \
+      cp862.h \
+      cp866.h \
+      cp1131.h \
+      mac_roman.h \
+      mac_centraleurope.h \
+      mac_iceland.h \
+      mac_croatian.h \
+      mac_romania.h \
+      mac_cyrillic.h \
+      mac_ukraine.h \
+      mac_greek.h \
+      mac_turkish.h \
+      mac_hebrew.h \
+      mac_arabic.h \
+      mac_thai.h \
+      hp_roman8.h \
+      nextstep.h \
+      armscii_8.h \
+      georgian_academy.h \
+      georgian_ps.h \
+      koi8_t.h \
+      pt154.h \
+      rk1048.h \
+      mulelao.h \
+      cp1133.h \
+      tis620.h \
+      cp874.h \
+      viscii.h \
+      tcvn.h \
+      iso646_jp.h \
+      jisx0201.h \
+      jisx0208.h \
+      jisx0212.h \
+      iso646_cn.h \
+      gb2312.h \
+      isoir165.h \
+        isoir165ext.h \
+      gb12345.h \
+        gb12345ext.h \
+      gbk.h \
+        gbkext1.h \
+        gbkext2.h \
+        gbkext_inv.h \
+        cp936ext.h \
+      cns11643.h \
+        cns11643_1.h \
+        cns11643_2.h \
+        cns11643_3.h \
+        cns11643_4.h \
+          cns11643_4a.h \
+          cns11643_4b.h \
+        cns11643_5.h \
+        cns11643_6.h \
+        cns11643_7.h \
+        cns11643_15.h \
+        cns11643_inv.h \
+      big5.h \
+      ksc5601.h \
+      johab_hangul.h \
+      euc_jp.h \
+      sjis.h \
+      cp932.h \
+        cp932ext.h \
+      iso2022_jp.h \
+      iso2022_jp1.h \
+      iso2022_jp2.h \
+      iso2022_jpms.h \
+        cp50221_0208_ext.h \
+        cp50221_0212_ext.h \
+      euc_cn.h \
+      ces_gbk.h \
+      cp936.h \
+      gb18030.h \
+        gb18030ext.h \
+        gb18030uni.h \
+      iso2022_cn.h \
+      iso2022_cnext.h \
+      hz.h \
+      euc_tw.h \
+      ces_big5.h \
+      cp950.h \
+        cp950ext.h \
+      big5hkscs1999.h \
+        hkscs1999.h \
+      big5hkscs2001.h \
+        hkscs2001.h \
+      big5hkscs2004.h \
+        hkscs2004.h \
+      big5hkscs2008.h \
+        hkscs2008.h \
+      euc_kr.h \
+      cp949.h \
+        uhc_1.h \
+        uhc_2.h \
+      johab.h \
+      iso2022_kr.h \
+      cp856.h \
+      cp922.h \
+      cp943.h \
+      cp1046.h \
+      cp1124.h \
+      cp1129.h \
+      cp1161.h \
+      cp1162.h \
+      cp1163.h \
+      dec_kanji.h \
+      dec_hanyu.h \
+      cp437.h \
+      cp737.h \
+      cp775.h \
+      cp852.h \
+      cp853.h \
+      cp855.h \
+      cp857.h \
+      cp858.h \
+      cp860.h \
+      cp861.h \
+      cp863.h \
+      cp864.h \
+      cp865.h \
+      cp869.h \
+      cp1125.h \
+      euc_jisx0213.h \
+        jisx0213.h \
+      shift_jisx0213.h \
+      iso2022_jp3.h \
+      big5_2003.h \
+      tds565.h \
+      atarist.h \
+      riscos1.h \
+    flushwc.h \
+    cjk_variants.h \
+    loops.h \
+      loop_unicode.h \
+      loop_wchar.h \
+    aliases2.h \
+    iconv_open1.h \
+    iconv_open2.h \
+  relocatable.h relocatable.c
+# List of distributed files imported from other packages.
+IMPORTED_FILES =
+# List of distributed files generated by autotools or Makefile.devel.
+GENERATED_FILES = \
+  aliases.gperf aliases_sysaix.gperf aliases_syshpux.gperf aliases_sysosf1.gperf aliases_syssolaris.gperf \
+  aliases.h aliases_sysaix.h aliases_syshpux.h aliases_sysosf1.h aliases_syssolaris.h \
+  aliases_aix.h aliases_aix_sysaix.h \
+  aliases_osf1.h aliases_osf1_sysosf1.h \
+  aliases_dos.h \
+  aliases_extra.h \
+  canonical.h canonical_sysaix.h canonical_syshpux.h canonical_sysosf1.h canonical_syssolaris.h \
+  canonical_aix.h canonical_aix_sysaix.h \
+  canonical_osf1.h canonical_osf1_sysosf1.h \
+  canonical_dos.h \
+  canonical_extra.h \
+  canonical_local.h canonical_local_sysaix.h canonical_local_syshpux.h canonical_local_sysosf1.h canonical_local_syssolaris.h \
+  flags.h \
+  translit.h
+# List of distributed files generated by "make".
+DISTRIBUTED_BUILT_FILES =
+# List of distributed files.
+DISTFILES = $(SOURCE_FILES) $(IMPORTED_FILES) $(GENERATED_FILES) $(DISTRIBUTED_BUILT_FILES)
+
+distdir : $(DISTFILES)
+	for file in $(DISTFILES); do \
+	  if test -f $$file; then dir='.'; else dir='$(srcdir)'; fi; \
+	  cp -p "$$dir/$$file" '$(distdir)'/$$file || exit 1; \
+	done
 
 force :
 

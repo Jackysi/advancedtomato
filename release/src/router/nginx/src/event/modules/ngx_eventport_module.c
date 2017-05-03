@@ -49,7 +49,7 @@ typedef struct  port_notify {
     void       *portnfy_user;   /* user defined */
 } port_notify_t;
 
-#if (__FreeBSD_version < 700005)
+#if (__FreeBSD__ && __FreeBSD_version < 700005) || (NGX_DARWIN)
 
 typedef struct itimerspec {     /* definition per POSIX.4 */
     struct timespec it_interval;/* timer period */
@@ -89,6 +89,13 @@ int port_getn(int port, port_event_t list[], uint_t max, uint_t *nget,
 
 int port_getn(int port, port_event_t list[], uint_t max, uint_t *nget,
     struct timespec *timeout)
+{
+    return -1;
+}
+
+int port_send(int port, int events, void *user);
+
+int port_send(int port, int events, void *user)
 {
     return -1;
 }
@@ -133,6 +140,7 @@ static ngx_int_t ngx_eventport_add_event(ngx_event_t *ev, ngx_int_t event,
     ngx_uint_t flags);
 static ngx_int_t ngx_eventport_del_event(ngx_event_t *ev, ngx_int_t event,
     ngx_uint_t flags);
+static ngx_int_t ngx_eventport_notify(ngx_event_handler_pt handler);
 static ngx_int_t ngx_eventport_process_events(ngx_cycle_t *cycle,
     ngx_msec_t timer, ngx_uint_t flags);
 
@@ -143,6 +151,7 @@ static int            ep = -1;
 static port_event_t  *event_list;
 static ngx_uint_t     nevents;
 static timer_t        event_timer = (timer_t) -1;
+static ngx_event_t    notify_event;
 
 static ngx_str_t      eventport_name = ngx_string("eventport");
 
@@ -172,7 +181,7 @@ ngx_event_module_t  ngx_eventport_module_ctx = {
         ngx_eventport_del_event,           /* disable an event */
         NULL,                              /* add an connection */
         NULL,                              /* delete an connection */
-        NULL,                              /* process the changes */
+        ngx_eventport_notify,              /* trigger a notify */
         ngx_eventport_process_events,      /* process the events */
         ngx_eventport_init,                /* init the events */
         ngx_eventport_done,                /* done the events */
@@ -214,6 +223,9 @@ ngx_eventport_init(ngx_cycle_t *cycle, ngx_msec_t timer)
                           "port_create() failed");
             return NGX_ERROR;
         }
+
+        notify_event.active = 1;
+        notify_event.log = cycle->log;
     }
 
     if (nevents < epcf->events) {
@@ -405,6 +417,21 @@ ngx_eventport_del_event(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags)
 }
 
 
+static ngx_int_t
+ngx_eventport_notify(ngx_event_handler_pt handler)
+{
+    notify_event.handler = handler;
+
+    if (port_send(ep, 0, &notify_event) != 0) {
+        ngx_log_error(NGX_LOG_ALERT, notify_event.log, ngx_errno,
+                      "port_send() failed");
+        return NGX_ERROR;
+    }
+
+    return NGX_OK;
+}
+
+
 ngx_int_t
 ngx_eventport_process_events(ngx_cycle_t *cycle, ngx_msec_t timer,
     ngx_uint_t flags)
@@ -414,7 +441,8 @@ ngx_eventport_process_events(ngx_cycle_t *cycle, ngx_msec_t timer,
     ngx_err_t           err;
     ngx_int_t           instance;
     ngx_uint_t          i, level;
-    ngx_event_t        *ev, *rev, *wev, **queue;
+    ngx_event_t        *ev, *rev, *wev;
+    ngx_queue_t        *queue;
     ngx_connection_t   *c;
     struct timespec     ts, *tp;
 
@@ -466,8 +494,6 @@ ngx_eventport_process_events(ngx_cycle_t *cycle, ngx_msec_t timer,
         return NGX_ERROR;
     }
 
-    ngx_mutex_lock(ngx_posted_events_mutex);
-
     for (i = 0; i < events; i++) {
 
         if (event_list[i].portev_source == PORT_SOURCE_TIMER) {
@@ -500,18 +526,18 @@ ngx_eventport_process_events(ngx_cycle_t *cycle, ngx_msec_t timer,
 
             ngx_log_debug2(NGX_LOG_DEBUG_EVENT, cycle->log, 0,
                            "eventport: fd:%d, ev:%04Xd",
-                           event_list[i].portev_object, revents);
+                           (int) event_list[i].portev_object, revents);
 
             if (revents & (POLLERR|POLLHUP|POLLNVAL)) {
                 ngx_log_debug2(NGX_LOG_DEBUG_EVENT, cycle->log, 0,
                                "port_getn() error fd:%d ev:%04Xd",
-                               event_list[i].portev_object, revents);
+                               (int) event_list[i].portev_object, revents);
             }
 
             if (revents & ~(POLLIN|POLLOUT|POLLERR|POLLHUP|POLLNVAL)) {
                 ngx_log_error(NGX_LOG_ALERT, cycle->log, 0,
                               "strange port_getn() events fd:%d ev:%04Xd",
-                              event_list[i].portev_object, revents);
+                              (int) event_list[i].portev_object, revents);
             }
 
             if ((revents & (POLLERR|POLLHUP|POLLNVAL))
@@ -534,19 +560,13 @@ ngx_eventport_process_events(ngx_cycle_t *cycle, ngx_msec_t timer,
             wev->active = 0;
 
             if (revents & POLLIN) {
-
-                if ((flags & NGX_POST_THREAD_EVENTS) && !rev->accept) {
-                    rev->posted_ready = 1;
-
-                } else {
-                    rev->ready = 1;
-                }
+                rev->ready = 1;
 
                 if (flags & NGX_POST_EVENTS) {
-                    queue = (ngx_event_t **) (rev->accept ?
-                               &ngx_posted_accept_events : &ngx_posted_events);
+                    queue = rev->accept ? &ngx_posted_accept_events
+                                        : &ngx_posted_events;
 
-                    ngx_locked_post_event(rev, queue);
+                    ngx_post_event(rev, queue);
 
                 } else {
                     rev->handler(rev);
@@ -574,16 +594,10 @@ ngx_eventport_process_events(ngx_cycle_t *cycle, ngx_msec_t timer,
             }
 
             if (revents & POLLOUT) {
-
-                if (flags & NGX_POST_THREAD_EVENTS) {
-                    wev->posted_ready = 1;
-
-                } else {
-                    wev->ready = 1;
-                }
+                wev->ready = 1;
 
                 if (flags & NGX_POST_EVENTS) {
-                    ngx_locked_post_event(wev, &ngx_posted_events);
+                    ngx_post_event(wev, &ngx_posted_events);
 
                 } else {
                     wev->handler(wev);
@@ -592,15 +606,19 @@ ngx_eventport_process_events(ngx_cycle_t *cycle, ngx_msec_t timer,
 
             continue;
 
+        case PORT_SOURCE_USER:
+
+            ev->handler(ev);
+
+            continue;
+
         default:
             ngx_log_error(NGX_LOG_ALERT, cycle->log, 0,
-                          "unexpected even_port object %d",
-                          event_list[i].portev_object);
+                          "unexpected eventport object %d",
+                          (int) event_list[i].portev_object);
             continue;
         }
     }
-
-    ngx_mutex_unlock(ngx_posted_events_mutex);
 
     return NGX_OK;
 }

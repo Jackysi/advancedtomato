@@ -1,7 +1,7 @@
 /*
     net.h -- header for net.c
     Copyright (C) 1998-2005 Ivo Timmermans
-                  2000-2014 Guus Sliepen <guus@tinc-vpn.org>
+                  2000-2016 Guus Sliepen <guus@tinc-vpn.org>
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -115,6 +115,7 @@ typedef struct listen_socket_t {
 	io_t udp;
 	sockaddr_t sa;
 	bool bindto;
+	int priority;
 } listen_socket_t;
 
 #include "conf.h"
@@ -137,6 +138,14 @@ extern int seconds_till_retry;
 extern int addressfamily;
 extern unsigned replaywin;
 extern bool localdiscovery;
+
+extern bool udp_discovery;
+extern int udp_discovery_keepalive_interval;
+extern int udp_discovery_interval;
+extern int udp_discovery_timeout;
+
+extern int mtu_info_interval;
+extern int udp_info_interval;
 
 extern listen_socket_t listen_socket[MAXSOCKETS];
 extern int listen_sockets;
@@ -183,10 +192,11 @@ extern void handle_new_meta_connection(void *, int);
 extern void handle_new_unix_connection(void *, int);
 extern int setup_listen_socket(const sockaddr_t *);
 extern int setup_vpn_in_socket(const sockaddr_t *);
-extern bool send_sptps_data(void *handle, uint8_t type, const void *data, size_t len);
+extern bool send_sptps_data(node_t *to, node_t *from, int type, const void *data, size_t len);
 extern bool receive_sptps_record(void *handle, uint8_t type, const void *data, uint16_t len);
 extern void send_packet(struct node_t *, vpn_packet_t *);
 extern void receive_tcppacket(struct connection_t *, const char *, int);
+extern bool receive_tcppacket_sptps(struct connection_t *, const char *, int);
 extern void broadcast_packet(const struct node_t *, vpn_packet_t *);
 extern char *get_name(void);
 extern void device_enable(void);
@@ -201,15 +211,14 @@ extern void terminate_connection(struct connection_t *, bool);
 extern bool node_read_ecdsa_public_key(struct node_t *);
 extern bool read_ecdsa_public_key(struct connection_t *);
 extern bool read_rsa_public_key(struct connection_t *);
-extern void send_mtu_probe(struct node_t *);
 extern void handle_device_data(void *, int);
 extern void handle_meta_connection_data(struct connection_t *);
 extern void regenerate_key(void);
 extern void purge(void);
 extern void retry(void);
 extern int reload_configuration(void);
-extern void load_all_subnets(void);
 extern void load_all_nodes(void);
+extern void try_tx(struct node_t *n, bool);
 
 #ifndef HAVE_MINGW
 #define closesocket(s) close(s)

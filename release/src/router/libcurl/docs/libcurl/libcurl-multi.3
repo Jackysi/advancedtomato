@@ -42,7 +42,7 @@ and when to ask libcurl to get/send data.
 complicated for the application.
 
 3. Enable the application to wait for action on its own file descriptors and
-curl's file descriptors simultaneous easily.
+curl's file descriptors simultaneously.
 
 4. Enable event-based handling and scaling transfers up to and beyond
 thousands of parallel connections.
@@ -153,7 +153,7 @@ timeout expires, your application should call the
 \fIcurl_multi_socket_action(3)\fP function saying it was due to a timeout.
 
 This API is typically used with an event-driven underlying functionality (like
-libevent, libev, kqueue, epoll or similar) which which the application
+libevent, libev, kqueue, epoll or similar) with which the application
 "subscribes" on socket changes. This allows applications and libcurl to much
 better scale upward and beyond thousands of simultaneous transfers without
 losing performance.
@@ -173,7 +173,6 @@ the future, you should be aware of the following current restrictions:
 
 .nf
  - Name resolves unless the c-ares or threaded-resolver backends are used
- - NSS SSL connections
  - HTTP proxy CONNECT operations
  - SOCKS proxy handshakes
  - file:// transfers

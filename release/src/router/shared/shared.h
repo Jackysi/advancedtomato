@@ -108,6 +108,7 @@ extern int calc_6rd_local_prefix(const struct in6_addr *prefix,
 extern int using_dhcpc(char *prefix);
 extern void notice_set(const char *path, const char *format, ...);
 extern int check_wanup(char *prefix);
+extern long check_wanup_time(void);
 extern const dns_list_t *get_dns(char *prefix);
 extern void set_action(int a);
 extern int check_action(void);

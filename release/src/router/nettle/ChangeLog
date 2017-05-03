@@ -1,3 +1,210 @@
+2016-10-01  Niels Möller  <nisse@lysator.liu.se>
+
+	* Released nettle-3.3.
+
+2016-09-13  Niels Möller  <nisse@lysator.liu.se>
+
+	* nettle-meta-hashes.c (nettle_hashes): Added SHA3 hashes.
+	Reported missing by Thomas Walter.
+	* testsuite/meta-hash-test.c: Update test accordingly.
+
+2016-09-07  Niels Möller  <nisse@lysator.liu.se>
+
+	* nettle.texinfo (Elliptic curves): Split into sub-nodes.
+	(Miscellaneous functions): Document memeql_sec.
+	* NEWS: Mention memeql_sec.
+
+2016-09-06  Niels Möller  <nisse@lysator.liu.se>
+
+	* NEWS: Update for 3.3.
+
+	* configure.ac: Bump package version to 3.3.
+	(LIBNETTLE_MINOR): Bump library version to 6.3.
+	(LIBHOGWEED_MINOR): Bump library version to 4.3.
+
+2016-09-05  Niels Möller  <nisse@lysator.liu.se>
+
+	* curve25519.h (NETTLE_CURVE25519_RFC7748): New preprocessor
+	constant.
+	* nettle.texinfo: Document it.
+
+2016-09-03  Niels Möller  <nisse@lysator.liu.se>
+
+	* config.make.in (.SUFFIXES): Delete no longer used .p$(OBJEXT).
+
+	* sexp.h (TOKEN_CHAR): Delete macro and declaration of
+	sexp_token_chars. They belong in tools/misc.h, not here.
+
+	* examples/ecc-benchmark.c (die): Deleted unused function.
+
+	* testsuite/testutils.h (US): New macro, for unsigned string
+	literals.
+	(LDATA): Use the US macro, to eliminate pointer signedness
+	warnings.
+
+	* testsuite/eddsa-verify-test.c (test_eddsa): Use LDATA.
+	* testsuite/pbkdf2-test.c (test_main): Likewise.
+	* testsuite/pkcs1-test.c (test_main): Likewise.
+
+	* testsuite/md5-compat-test.c (test_main): Use US macro.
+
+	* testsuite/sexp-test.c (test_main): Use const char * for assoc
+	keys. Overlooked in 2016-08-16 change.
+
+	* testsuite/yarrow-test.c (test_main): Fix pointer
+	signednesss warnings.
+	* testsuite/sexp-format-test.c (test_main): Likewise.
+	* testsuite/rsa-encrypt-test.c (test_main): Likewise.
+	* tools/nettle-lfib-stream.c (main): Likewise.
+	* tools/output.c (sexp_put_string): Likewise.
+
+	* testsuite/testutils.c (test_armor): Change ascii argument to
+	const char *.
+	* testsuite/base16-test.c (test_main): Use LDATA for the non-ascii
+	argument to test_armor.
+	* testsuite/base64-test.c (test_main): Likewise.
+
+	* tools/nettle-pbkdf2.c (main): Fix some pointer signedness warning.
+	* tools/nettle-hash.c (hash_file): Likewise.
+
+	* examples/rsa-decrypt.c (process_file): Use memeql_sec to check
+	the digest.
+
+	* memeql-sec.c (memeql_sec): New public function, moved from...
+	* ccm.c (memeql_sec): ... previous location.
+
+	* memops.h: New header file, generalizing memxor.h.
+
+	* testsuite/memeql-test.c (test_main): New test case.
+	(memeql_sec_for_test): Wrapper to get valgrind to check for
+	side-channel silence.
+
+2016-08-29  Niels Möller  <nisse@lysator.liu.se>
+
+	* sexp-format.c (strlen_u8): New helper function.
+	(sexp_vformat): Use uint8_t * for strings instead of char *.
+
+2016-08-16  Niels Möller  <nisse@lysator.liu.se>
+
+	* examples/io.c (hash_file): Use uint8_t for buffer.
+
+	* sexp.c (sexp_iterator_check_type, sexp_iterator_check_types)
+	(sexp_iterator_assoc): Use const char * for caller's expression
+	types. Updated all callers.
+
+	* rsa2openpgp.c (rsa_keypair_to_openpgp): Added cast to const
+	uint8_t *.
+
+	* pgp-encode.c (write_string): New helper function, replacing...
+	(WRITE): ... deleted macro.
+
+	* examples/io.c (write_data): Renamed, and use const void * for
+	the input data. Updated all callers.
+	(write_string): ... old name.
+	(write_file): Use const void * for the input data.
+
+2016-08-05  Niels Möller  <nisse@lysator.liu.se>
+
+	* examples/hogweed-benchmark.c: Use uint8_t for curve25519 values.
+	(bench_rsa_init): Use unsigned char for sexp strings.
+	(bench_dsa_init): Likewise.
+	(hash_string): Delete length argument, calling strlen instead.
+	Cast string to const uint8_t *. Updated callers.
+
+	* examples/io.c (read_file): Use size_t for sizes, and uint8_t for
+	the contents.
+
+2016-08-04  Niels Möller  <nisse@lysator.liu.se>
+
+	* dsa-sign.c (dsa_sign): Return failure if p is even, so that an
+	invalid key doesn't result in a crash inside mpz_powm_sec.
+
+	* rsa-sign-tr.c (rsa_compute_root_tr): Return failure if any of p,
+	q or n is even, to avoid crashing inside mpz_powm_sec. Invalid
+	keys with even modulo are rejected by rsa_public_key_prepare and
+	rsa_private_key_prepare, but some applications, notably gnutls,
+	don't use them.
+
+2016-07-31  Niels Möller  <nisse@lysator.liu.se>
+
+	* rsa.c (_rsa_check_size): Check that n is odd. Otherwise, using
+	an invalid key may crash in mpz_powm_sec. Problem reported by
+	Hanno Böck.
+
+2016-07-13  Niels Möller  <nisse@lysator.liu.se>
+
+	* bignum.c (nettle_mpz_from_octets): Unconditionally use
+	mpz_import.
+	* gmp-glue.c (mpn_copyd, mpn_copyi, mpn_zero): Deleted
+	compatibility definitions for older versions of GMP.
+	* gmp-glue.h (mpn_sqr): Deleted compatibility definition.
+	* testsuite/testutils.c (mpz_combit): Deleted compatibility
+	definition.
+
+2016-07-12  Niels Möller  <nisse@lysator.liu.se>
+
+	* configure.ac: Check for mpz_powm_sec, and require GMP-5.0 or
+	later.
+	* bignum.h (mpz_powm_sec): Fall back to plain mpz_powm for
+	mini-gmp build.
+	* dsa-sign.c (dsa_sign): Use mpz_powm_sec.
+	* rsa-sign.c (rsa_compute_root): Likewise.
+	* rsa-sign-tr.c (rsa_blind, rsa_compute_root_tr): Likewise.
+	* rsa-blind.c (_rsa_blind): Likewise.
+
+2016-05-02  Niels Möller  <nisse@lysator.liu.se>
+
+	* nettle.texinfo: Update Curve25519 documentation.
+
+	* testsuite/curve25519-dh-test.c: Test that inputs bits which must
+	be ignored really are ignored.
+
+2016-04-25  Niels Möller  <nisse@lysator.liu.se>
+
+	* curve25519-mul.c (curve25519_mul): Ignore top bit of the input x
+	coordinate, as required by RFC 7748.
+
+2016-03-30  Niels Möller  <nisse@lysator.liu.se>
+
+	From Nikos Mavrogiannopoulos.
+	* configure.ac: Change dll names to follow the libtool convention
+	with only major version number in the name.
+
+2016-03-15  Niels Möller  <nisse@lysator.liu.se>
+
+	* twofish.c (gf_multiply): Change return value to uint32_t, to
+	make shifting of the return value well defined, without any type
+	casts. Fixes an undefined shift in compute_s, reported by Nikos
+	Mavrogiannopoulos.
+	(h_byte): Deleted type casts.
+
+	* blowfish.c (blowfish_encrypt, blowfish_decrypt): Use READ_UINT32
+	macro. Fixes an undefined shift, reported by Nikos
+	Mavrogiannopoulos.
+
+	From Nikos Mavrogiannopoulos.
+	* configure.ac (HOGWEED_EXTRA_SYMBOLS): Add "mp_*", when building
+	with mini-gmp.
+	* des.c (des_weak_p): Check that the hash value is in the proper
+	range before using it. Fixes an out-of-bounds read.
+
+2016-03-14  Niels Möller  <nisse@lysator.liu.se>
+
+	* getopt.c (_getopt_internal_r): Fix c99-ism, move declarations to
+	top of block. Reported by Henrik Grubbström.
+
+2016-02-16  Niels Möller  <nisse@lysator.liu.se>
+
+	* tools/input.c (sexp_get_string_length): Process advanced string
+	syntax only when in advanced mode. Fixes an assertion failure
+	reported by Hanno Böck, for input where advanced syntax is
+	improperly wrapped inside transport syntax.
+
+	* tools/parse.c (sexp_parse): Fail with an error message for
+	unexpected ']' characters. Fixes crash reported by Hanno Böck.
+	Also handle SEXP_DISPLAY (internal error) explicitly, without a
+	default clause.
+
 2016-01-28  Niels Möller  <nisse@lysator.liu.se>
 
 	* Released nettle-3.2.

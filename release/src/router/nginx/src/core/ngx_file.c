@@ -114,7 +114,7 @@ ngx_write_chain_to_temp_file(ngx_temp_file_t *tf, ngx_chain_t *chain)
         rc = ngx_create_temp_file(&tf->file, tf->path, tf->pool,
                                   tf->persistent, tf->clean, tf->access);
 
-        if (rc == NGX_ERROR || rc == NGX_AGAIN) {
+        if (rc != NGX_OK) {
             return rc;
         }
 
@@ -123,6 +123,15 @@ ngx_write_chain_to_temp_file(ngx_temp_file_t *tf, ngx_chain_t *chain)
                           tf->warn, &tf->file.name);
         }
     }
+
+#if (NGX_THREADS && NGX_HAVE_PWRITEV)
+
+    if (tf->thread_write) {
+        return ngx_thread_write_chain_to_file(&tf->file, chain, tf->offset,
+                                              tf->pool);
+    }
+
+#endif
 
     return ngx_write_chain_to_file(&tf->file, chain, tf->offset, tf->pool);
 }
@@ -146,7 +155,7 @@ ngx_create_temp_file(ngx_file_t *file, ngx_path_t *path, ngx_pool_t *pool,
 
 #if 0
     for (i = 0; i < file->name.len; i++) {
-         file->name.data[i] = 'X';
+        file->name.data[i] = 'X';
     }
 #endif
 
@@ -187,7 +196,7 @@ ngx_create_temp_file(ngx_file_t *file, ngx_path_t *path, ngx_pool_t *pool,
 
         err = ngx_errno;
 
-        if (err == NGX_EEXIST) {
+        if (err == NGX_EEXIST_FILE) {
             n = (uint32_t) ngx_next_temp_number(1);
             continue;
         }
@@ -356,7 +365,7 @@ ngx_conf_set_path_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     }
 
     if (ngx_conf_full_name(cf->cycle, &path->name, 0) != NGX_OK) {
-        return NULL;
+        return NGX_CONF_ERROR;
     }
 
     path->conf_file = cf->conf_file->file.name.data;
@@ -372,8 +381,8 @@ ngx_conf_set_path_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         path->len += level + 1;
     }
 
-    while (i < 3) {
-        path->level[i++] = 0;
+    if (path->len > 10 + i) {
+        return "invalid value";
     }
 
     *slot = path;
@@ -683,7 +692,7 @@ ngx_ext_rename_file(ngx_str_t *src, ngx_str_t *to, ngx_ext_rename_file_t *ext)
 
 #if (NGX_WIN32)
 
-    if (err == NGX_EEXIST) {
+    if (err == NGX_EEXIST || err == NGX_EEXIST_FILE) {
         err = ngx_win32_rename_file(src, to, ext->log);
 
         if (err == 0) {
@@ -832,7 +841,7 @@ ngx_copy_file(u_char *from, u_char *to, ngx_copy_file_t *cf)
 
         if ((size_t) n != len) {
             ngx_log_error(NGX_LOG_ALERT, cf->log, 0,
-                          ngx_read_fd_n " has read only %z of %uz from %s",
+                          ngx_read_fd_n " has read only %z of %O from %s",
                           n, size, from);
             goto failed;
         }
@@ -847,7 +856,7 @@ ngx_copy_file(u_char *from, u_char *to, ngx_copy_file_t *cf)
 
         if ((size_t) n != len) {
             ngx_log_error(NGX_LOG_ALERT, cf->log, 0,
-                          ngx_write_fd_n " has written only %z of %uz to %s",
+                          ngx_write_fd_n " has written only %z of %O to %s",
                           n, size, to);
             goto failed;
         }
@@ -1035,8 +1044,16 @@ ngx_walk_tree(ngx_tree_ctx_t *ctx, ngx_str_t *tree)
             ctx->access = ngx_de_access(&dir);
             ctx->mtime = ngx_de_mtime(&dir);
 
-            if (ctx->pre_tree_handler(ctx, &file) == NGX_ABORT) {
+            rc = ctx->pre_tree_handler(ctx, &file);
+
+            if (rc == NGX_ABORT) {
                 goto failed;
+            }
+
+            if (rc == NGX_DECLINED) {
+                ngx_log_debug1(NGX_LOG_DEBUG_CORE, ctx->log, 0,
+                               "tree skip dir \"%s\"", file.data);
+                continue;
             }
 
             if (ngx_walk_tree(ctx, &file) == NGX_ABORT) {

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: libiconv 1.9.1\n"
 "Report-Msgid-Bugs-To: bug-gnu-libiconv@gnu.org\n"
-"POT-Creation-Date: 2011-08-07 15:24+0200\n"
+"POT-Creation-Date: 2016-12-04 17:16+0100\n"
 "PO-Revision-Date: 2004-03-08 13:42+0200\n"
 "Last-Translator: Petri Jooste <rkwjpj@puk.ac.za>\n"
 "Language-Team: Afrikaans <i18n@af.org.za>\n"
@@ -29,7 +29,7 @@ msgstr "of:    iconv -l"
 
 #: src/iconv.c:110
 #, c-format
-msgid "Try `%s --help' for more information.\n"
+msgid "Try '%s --help' for more information.\n"
 msgstr ""
 
 #. TRANSLATORS: The first line of the long usage message.
@@ -281,47 +281,47 @@ msgstr "iconv: %s: T/A-fout\n"
 
 #. TRANSLATORS: An error message.
 #. The placeholder expands to the encoding name, specified through --from-code.
-#: src/iconv.c:1014
+#: src/iconv.c:1015
 #, fuzzy, c-format
 msgid "conversion from %s unsupported"
 msgstr "iconv: omskakeling van %s word nie ondersteun nie\n"
 
 #. TRANSLATORS: An error message.
 #. The placeholder expands to the encoding name, specified through --to-code.
-#: src/iconv.c:1020
+#: src/iconv.c:1021
 #, fuzzy, c-format
 msgid "conversion to %s unsupported"
 msgstr "iconv: omskakeling na %s word nie ondersteun nie\n"
 
 #. TRANSLATORS: An error message.
 #. The placeholders expand to the encoding names, specified through --from-code and --to-code, respectively.
-#: src/iconv.c:1026
+#: src/iconv.c:1027
 #, fuzzy, c-format
 msgid "conversion from %s to %s unsupported"
 msgstr "iconv: omskakeling van %s na %s word nie ondersteun nie\n"
 
 #. TRANSLATORS: Additional advice after an error message.
 #. The %s placeholder expands to the program name.
-#: src/iconv.c:1031
+#: src/iconv.c:1032
 #, c-format
 msgid "try '%s -l' to get the list of supported encodings"
 msgstr ""
 
 #. TRANSLATORS: A filename substitute denoting standard input.
-#: src/iconv.c:1088
+#: src/iconv.c:1089
 msgid "(stdin)"
 msgstr "(stdin)"
 
 #. TRANSLATORS: The first part of an error message.
 #. It is followed by a colon and a detail message.
 #. The %s placeholder expands to the input file name.
-#: src/iconv.c:1100
+#: src/iconv.c:1101
 #, c-format
 msgid "%s"
 msgstr ""
 
 #. TRANSLATORS: An error message.
-#: src/iconv.c:1114
+#: src/iconv.c:1115
 #, fuzzy, c-format
 msgid "I/O error"
 msgstr "iconv: T/A-fout\n"

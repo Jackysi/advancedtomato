@@ -1,7 +1,7 @@
 /*
     net_setup.c -- Setup.
     Copyright (C) 1998-2005 Ivo Timmermans,
-                  2000-2014 Guus Sliepen <guus@tinc-vpn.org>
+                  2000-2016 Guus Sliepen <guus@tinc-vpn.org>
                   2006      Scott Lamb <slamb@slamb.org>
                   2010      Brandon Black <blblack@gmail.com>
 
@@ -42,6 +42,10 @@
 #include "subnet.h"
 #include "utils.h"
 #include "xalloc.h"
+
+#ifdef HAVE_MINIUPNPC
+#include "upnp.h"
+#endif
 
 char *myport;
 static char *myname;
@@ -137,18 +141,17 @@ bool read_ecdsa_public_key(connection_t *c) {
 	}
 
 	c->ecdsa = ecdsa_read_pem_public_key(fp);
-	fclose(fp);
 
-	if(!c->ecdsa)
+	if(!c->ecdsa && errno != ENOENT)
 		logger(DEBUG_ALWAYS, LOG_ERR, "Parsing Ed25519 public key file `%s' failed.", fname);
+
+	fclose(fp);
 	free(fname);
 	return c->ecdsa;
 }
 
+#ifndef DISABLE_LEGACY
 bool read_rsa_public_key(connection_t *c) {
-	if(ecdsa_active(c->ecdsa))
-		return true;
-
 	FILE *fp;
 	char *fname;
 	char *n;
@@ -182,6 +185,7 @@ bool read_rsa_public_key(connection_t *c) {
 	free(fname);
 	return c->rsa;
 }
+#endif
 
 static bool read_ecdsa_private_key(void) {
 	FILE *fp;
@@ -226,14 +230,14 @@ static bool read_ecdsa_private_key(void) {
 
 static bool read_invitation_key(void) {
 	FILE *fp;
-	char *fname;
+	char fname[PATH_MAX];
 
 	if(invitation_key) {
 		ecdsa_free(invitation_key);
 		invitation_key = NULL;
 	}
 
-	xasprintf(&fname, "%s" SLASH "invitations" SLASH "ed25519_key.priv", confbase);
+	snprintf(fname, sizeof fname, "%s" SLASH "invitations" SLASH "ed25519_key.priv", confbase);
 
 	fp = fopen(fname, "r");
 
@@ -244,10 +248,10 @@ static bool read_invitation_key(void) {
 			logger(DEBUG_ALWAYS, LOG_ERR, "Reading Ed25519 private key file `%s' failed", fname);
 	}
 
-	free(fname);
 	return invitation_key;
 }
 
+#ifndef DISABLE_LEGACY
 static bool read_rsa_private_key(void) {
 	FILE *fp;
 	char *fname;
@@ -304,6 +308,7 @@ static bool read_rsa_private_key(void) {
 	free(fname);
 	return myself->connection->rsa;
 }
+#endif
 
 static timeout_t keyexpire_timeout;
 
@@ -315,21 +320,19 @@ static void keyexpire_handler(void *data) {
 void regenerate_key(void) {
 	logger(DEBUG_STATUS, LOG_INFO, "Expiring symmetric keys");
 	send_key_changed();
+	for splay_each(node_t, n, node_tree)
+		n->status.validkey_in = false;
 }
 
-/*
-  Read Subnets from all host config files
-*/
-void load_all_subnets(void) {
+void load_all_nodes(void) {
 	DIR *dir;
 	struct dirent *ent;
-	char *dname;
+	char dname[PATH_MAX];
 
-	xasprintf(&dname, "%s" SLASH "hosts", confbase);
+	snprintf(dname, sizeof dname, "%s" SLASH "hosts", confbase);
 	dir = opendir(dname);
 	if(!dir) {
 		logger(DEBUG_ALWAYS, LOG_ERR, "Could not open %s: %s", dname, strerror(errno));
-		free(dname);
 		return;
 	}
 
@@ -338,10 +341,6 @@ void load_all_subnets(void) {
 			continue;
 
 		node_t *n = lookup_node(ent->d_name);
-		#ifdef _DIRENT_HAVE_D_TYPE
-		//if(ent->d_type != DT_REG)
-		//	continue;
-		#endif
 
 		splay_tree_t *config_tree;
 		init_configuration(&config_tree);
@@ -354,54 +353,30 @@ void load_all_subnets(void) {
 			node_add(n);
 		}
 
-		for(config_t *cfg = lookup_config(config_tree, "Subnet"); cfg; cfg = lookup_config_next(config_tree, cfg)) {
-			subnet_t *s, *s2;
+		if(strictsubnets) {
+			for(config_t *cfg = lookup_config(config_tree, "Subnet"); cfg; cfg = lookup_config_next(config_tree, cfg)) {
+				subnet_t *s, *s2;
 
-			if(!get_config_subnet(cfg, &s))
-				continue;
+				if(!get_config_subnet(cfg, &s))
+					continue;
 
-			if((s2 = lookup_subnet(n, s))) {
-				s2->expires = -1;
-			} else {
-				subnet_add(n, s);
+				if((s2 = lookup_subnet(n, s))) {
+					s2->expires = -1;
+					free(s);
+				} else {
+					subnet_add(n, s);
+				}
 			}
 		}
+
+		if(lookup_config(config_tree, "Address"))
+			n->status.has_address = true;
 
 		exit_configuration(&config_tree);
 	}
 
 	closedir(dir);
 }
-
-void load_all_nodes(void) {
-	DIR *dir;
-	struct dirent *ent;
-	char *dname;
-
-	xasprintf(&dname, "%s" SLASH "hosts", confbase);
-	dir = opendir(dname);
-	if(!dir) {
-		logger(DEBUG_ALWAYS, LOG_ERR, "Could not open %s: %s", dname, strerror(errno));
-		free(dname);
-		return;
-	}
-
-	while((ent = readdir(dir))) {
-		if(!check_id(ent->d_name))
-			continue;
-
-		node_t *n = lookup_node(ent->d_name);
-		if(n)
-			continue;
-
-		n = new_node();
-		n->name = xstrdup(ent->d_name);
-		node_add(n);
-	}
-
-	closedir(dir);
-}
-
 
 char *get_name(void) {
 	char *name = NULL;
@@ -506,6 +481,14 @@ bool setup_myself_reloadable(void) {
 	if(myself->options & OPTION_TCPONLY)
 		myself->options |= OPTION_INDIRECT;
 
+	get_config_bool(lookup_config(config_tree, "UDPDiscovery"), &udp_discovery);
+	get_config_int(lookup_config(config_tree, "UDPDiscoveryKeepaliveInterval"), &udp_discovery_keepalive_interval);
+	get_config_int(lookup_config(config_tree, "UDPDiscoveryInterval"), &udp_discovery_interval);
+	get_config_int(lookup_config(config_tree, "UDPDiscoveryTimeout"), &udp_discovery_timeout);
+
+	get_config_int(lookup_config(config_tree, "MTUInfoInterval"), &mtu_info_interval);
+	get_config_int(lookup_config(config_tree, "UDPInfoInterval"), &udp_info_interval);
+
 	get_config_bool(lookup_config(config_tree, "DirectOnly"), &directonly);
 	get_config_bool(lookup_config(config_tree, "LocalDiscovery"), &localdiscovery);
 
@@ -577,9 +560,14 @@ bool setup_myself_reloadable(void) {
 		subnet_add(NULL, s);
 	}
 
-#if !defined(SOL_IP) || !defined(IP_TOS)
+#if !defined(IPPROTO_IP) || !defined(IP_TOS)
 	if(priorityinheritance)
-		logger(DEBUG_ALWAYS, LOG_WARNING, "%s not supported on this platform", "PriorityInheritance");
+		logger(DEBUG_ALWAYS, LOG_WARNING, "%s not supported on this platform for IPv4 connections", "PriorityInheritance");
+#endif
+
+#if !defined(IPPROTO_IPV6) || !defined(IPV6_TCLASS)
+	if(priorityinheritance)
+		logger(DEBUG_ALWAYS, LOG_WARNING, "%s not supported on this platform for IPv6 connections", "PriorityInheritance");
 #endif
 
 	if(!get_config_int(lookup_config(config_tree, "MACExpire"), &macexpire))
@@ -652,6 +640,9 @@ static bool add_listen_address(char *address, bool bindto) {
 	hint.ai_protocol = IPPROTO_TCP;
 	hint.ai_flags = AI_PASSIVE;
 
+#if HAVE_DECL_RES_INIT
+	res_init();
+#endif
 	int err = getaddrinfo(address && *address ? address : NULL, port, &hint, &ai);
 	free(address);
 
@@ -773,6 +764,13 @@ static bool setup_myself(void) {
 
 	myself->options |= PROT_MINOR << 24;
 
+#ifdef DISABLE_LEGACY
+	experimental = read_ecdsa_private_key();
+	if(!experimental) {
+		logger(DEBUG_ALWAYS, LOG_ERR, "No private key available, cannot start tinc!");
+		return false;
+	}
+#else
 	if(!get_config_bool(lookup_config(config_tree, "ExperimentalProtocol"), &experimental)) {
 		experimental = read_ecdsa_private_key();
 		if(!experimental)
@@ -790,6 +788,7 @@ static bool setup_myself(void) {
 			return false;
 		}
 	}
+#endif
 
 	/* Ensure myport is numeric */
 
@@ -831,14 +830,14 @@ static bool setup_myself(void) {
 	}
 
 	if(get_config_int(lookup_config(config_tree, "UDPRcvBuf"), &udp_rcvbuf)) {
-		if(udp_rcvbuf <= 0) {
+		if(udp_rcvbuf < 0) {
 			logger(DEBUG_ALWAYS, LOG_ERR, "UDPRcvBuf cannot be negative!");
 			return false;
 		}
 	}
 
 	if(get_config_int(lookup_config(config_tree, "UDPSndBuf"), &udp_sndbuf)) {
-		if(udp_sndbuf <= 0) {
+		if(udp_sndbuf < 0) {
 			logger(DEBUG_ALWAYS, LOG_ERR, "UDPSndBuf cannot be negative!");
 			return false;
 		}
@@ -854,6 +853,7 @@ static bool setup_myself(void) {
 		sptps_replaywin = replaywin;
 	}
 
+#ifndef DISABLE_LEGACY
 	/* Generate packet encryption key */
 
 	if(!get_config_string(lookup_config(config_tree, "Cipher"), &cipher))
@@ -891,6 +891,7 @@ static bool setup_myself(void) {
 	}
 
 	free(digest);
+#endif
 
 	/* Compression */
 
@@ -915,10 +916,7 @@ static bool setup_myself(void) {
 
 	graph();
 
-	if(strictsubnets)
-		load_all_subnets();
-	else if(autoconnect)
-		load_all_nodes();
+	load_all_nodes();
 
 	/* Open device */
 
@@ -939,6 +937,7 @@ static bool setup_myself(void) {
 		else if(!strcasecmp(type, "vde"))
 			devops = vde_devops;
 #endif
+		free(type);
 	}
 
 	get_config_bool(lookup_config(config_tree, "DeviceStandby"), &device_standby);
@@ -1035,6 +1034,25 @@ static bool setup_myself(void) {
 	xasprintf(&myself->hostname, "MYSELF port %s", myport);
 	myself->connection->hostname = xstrdup(myself->hostname);
 
+	char *upnp = NULL;
+	get_config_string(lookup_config(config_tree, "UPnP"), &upnp);
+	bool upnp_tcp = false;
+	bool upnp_udp = false;
+	if (upnp) {
+		if (!strcasecmp(upnp, "yes"))
+			upnp_tcp = upnp_udp = true;
+		else if (!strcasecmp(upnp, "udponly"))
+			upnp_udp = true;
+		free(upnp);
+	}
+	if (upnp_tcp || upnp_udp) {
+#ifdef HAVE_MINIUPNPC
+		upnp_init(upnp_tcp, upnp_udp);
+#else
+		logger(DEBUG_ALWAYS, LOG_WARNING, "UPnP was requested, but tinc isn't built with miniupnpc support!");
+#endif
+	}
+
 	/* Done. */
 
 	last_config_check = now.tv_sec;
@@ -1102,8 +1120,7 @@ void close_network_connections(void) {
 
 	if(myself && myself->connection) {
 		subnet_update(myself, NULL, false);
-		terminate_connection(myself->connection, false);
-		free_connection(myself->connection);
+		connection_del(myself->connection);
 	}
 
 	for(int i = 0; i < listen_sockets; i++) {

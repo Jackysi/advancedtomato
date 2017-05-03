@@ -29,7 +29,7 @@ EXTRA_DIST = ftpserver.pl httpserver.pl secureserver.pl runtests.pl getpart.pm \
  $(HTMLPAGES) $(PDFPAGES) \
  serverhelp.pm tftpserver.pl rtspserver.pl directories.pm symbol-scan.pl \
  CMakeLists.txt mem-include-scan.pl valgrind.supp http_pipe.py extern-scan.pl \
- manpage-scan.pl nroff-scan.pl
+ manpage-scan.pl nroff-scan.pl http2-server.pl
 
 DISTCLEANFILES = configurehelp.pm
 
@@ -99,3 +99,8 @@ checksrc:
 	cd libtest && $(MAKE) checksrc
 	cd unit && $(MAKE) checksrc
 	cd server && $(MAKE) checksrc
+
+if CURLDEBUG
+# for debug builds, we scan the sources on all regular make invokes
+all-local: checksrc
+endif

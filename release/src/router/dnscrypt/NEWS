@@ -1,4 +1,147 @@
 
+* Version 1.9.4
+ - The default installation script in version 1.9.3 unconditionally replaced
+the configuration file with the example one. This has been fixed.
+ - The resolver name can be set to "random" in order to pick a random resolver.
+ - Paths are not hardcoded any more in the sample systemd and plist files.
+ - The dnscrypt-update-resolvers.sh and resolvers-check.sh scripts have been
+moved to the contrib/ directory.
+ - An IPV4_ONLY environment variable can be set to skip IPv6-only entries in
+resolvers-check.sh.
+ - Precompiled iOS/Android/Windows packages have become more consistent, and
+now include basic documentation.
+ - Tests are now run using random resolvers.
+
+* Version 1.9.3
+ - This version can be compiled on Linux distributions using the musl C
+library.
+ - Version 1.9.3 also restores compatibility with ancient Linux kernels that
+didn't support `SO_REUSEPORT`, without having to explicitly compile the package
+with `NO_REUSEPORT`.
+ - On Linux, the service now prints when the system doesn't have enough entropy
+to initialize the PRNG.
+
+* Version 1.9.2
+ - Compatibility with ancient libsodium versions (1.0.0, as still shipped
+in Debian Jessie) has been restored.
+ - With newer libsodium versions, the XChaCha20-Poly1305 can now actually
+be used on servers supporting this construction.
+ - The configuration file can now recursively include other configuration
+files, with the `Include` keyword.
+ - Error messages were improved.
+ - The generate-domains-blacklist.py script now supports whitelists in
+addition to blacklists, and provides more example feeds.
+ - The blocking plugin sometimes didn't match overlapping rules. This should
+have been fixed for good.
+ - The `IgnoreTimestamps` and `LogLevel` options can now be controlled using
+Windows registry keys.
+ - Log error messages whose level is lower than `LOG_NOTICE` now go to
+`stderr` instead of `stdout`.
+ - On Linux, a BPF filter is attached to the client-side UDP socket in order
+to drop invalid DNS queries right away.
+ - The `NO_REUSEPORT` preprocessor macro can be defined in order to avoid
+enabling `SO_REUSEPORT` on older linux-sunxi kernels.
+ - The package can be compiled on Debian 6.
+ - `--version` now reports useful information about the way the server was
+compiled.
+
+* Version 1.9.1
+ - The blocking plugin introduced in version 1.9.0 didn't properly
+handle overlapping rules. This has been fixed.
+ - The documentation and examples were updated.
+ - The minimum time to keep a record in cache can be specified in the
+cache plugin, with the `--min-ttl` option.
+ - The example generate-domains-blacklist.py script produces a more
+optimized list, without overlapping names.
+
+* Version 1.9.0
+ - Support for TCP was added to the `hostip` tool.
+ - New plugin: `example-ldns-forwarding`. This plugin forwards queries for
+a specific set of domain names to one or more non-DNSCrypt resolvers.
+This can be used to send queries for private domains to the router or
+to an internal DNS server.
+ - New plugin: `example-cache`. This plugin implements a simple,
+zero-configuration DNS response cache.
+ - The default plugin paths, as loaded via the configuration file, use
+the native module file names instead of libtool's `.la` files. Installing the
+`.la` files has now become optional.
+ - Many changes and simplifications were made to the documentation.
+ - `-Z` (syslog prefix) doesn't imply `-S` any more.
+ - The `ResolverAddress` option can now be used even if a full
+configuration was provided via `ResolverName` in order to override the
+resolver IP and port.
+ - A new `contrib` folder is born, and currently contains a Python
+script to automatically generate a malware/spam/ads/tracker blacklist
+from public lists. More contributions would be more than welcome!
+ - Example startup scripts now use the configuration file.
+ - A `SIGHUP` signal sent to the proxy now reloads all the plugins.
+This can be used after a plugin configuration update, or to rotate the log
+files.
+ - `--ignore-timestamps` didn't work as expected. This has been fixed,
+thanks to Toni Uhlig.
+ - `make install` does not overwrite an existing `dnscrypt-proxy.conf`
+file any more. An up-to-date example is installed as
+`dnscrypt-proxy.conf.example`.
+ - The query log and the logfile of hits for blacklisted domains/IPs
+are now more detailed and more readable. As an alternative to human-readable
+records, prefixing a log file name with "ltsv:" causes the log entries to use
+the LTSV structured format. These logs can thus be easily sent to
+Flowgger/ElasticSearch for visualization and reporting.
+ - The domain/ip blocking plugin was completely rewritten, and is now
+extremely fast even with very lasrge blacklists of names and IP addresses.
+It can now be used to locally block malware/spam/ads/trackers and other
+unwanted content, based on prefixes, suffixes and keywords.
+
+* Version 1.8.1
+ - Version 1.8.0 didn't use the same Windows registry key as past
+versions. This has been fixed. In order to upgrade from 1.8.0,
+it is recommended to uninstall the service before upgrading
+(using the `dnscrypt-proxy --uninstall` command).
+ - The SDK used to build Android binaries was downgraded in order to
+retain compatibility with Android 4.1 (Jelly Bean).
+
+* Version 1.8.0:
+ - All the features of the proxy can now be enabled using a
+configuration file.
+ - On Windows, a new option, `--service-name` can be used to set the
+service name, so that multiple instances can run simultaneously.
+ - On Windows, `--install-with-config-file` can be used to install a
+service using a configuration file.
+ - The protocol can now use the XChaCha20 cipher as a faster alternative
+to XSalsa20.
+ - Time stamps are now being added to log files, including log files
+from plugins.
+ - `SIGINT` & `SIGTERM` handlers have been added to give plugins a chance
+to call a teardown function.
+ - A message is now displayed when servers are using a very long key
+rotation period.
+ - The domain blocking plugin is now a `pre_filter`: blocked queries are
+not sent to upstream resolvers any more [breaking change for logging
+resolvers].
+ - The domain blocking plugin do not consider empty files an error any
+more.
+ - The domain blocking plugin has a new option (`--logfile`) to log
+queries sent to blacklisted IPs and names.
+ - Android's update-binary file is not part of the source distribution
+any more.
+ - libevent2 has been updated.
+ - The resolvers list was updated to the latest version.
+ - iOS builds now require iOS 6.0.0.
+ - Windows builds now link ldns against LibreSSL.
+
+* Version 1.7.0:
+ - Plugins are now enabled by default.
+ - Windows: new registry key: `LogFile`.
+ - New command-line option: `--ignore-timestamps` to ignore timestamps
+when performing certificate validation.
+ - New command-line option: `--syslog-prefix` to add a prefix to log
+messages.
+ - Certificates can now be retrieved using TCP.
+ - Libevent was updated to version 2.0.23.
+ - Certificates serial numbers are printed as a string if possible.
+ - The list of known public resolvers was updated.
+ - Builds for Win64 are now available.
+
 * Version 1.6.1:
  - Security: malformed packets could cause the OpenDNS deviceid,
 OpenDNS set-client-ip, blocking and AAAA blocking plugins to use

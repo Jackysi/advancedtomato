@@ -909,25 +909,45 @@ static void nat_table(void)
 #endif
 		) {
 			if (nvram_match("dns_intcpt", "1")) {
+				// Vindicator 2017: Need to intercept both TCP and UDP DNS requests for all lan interfaces
+				ipt_write("-A PREROUTING -p tcp -s %s/%s ! -d %s/%s --dport 53 -j DNAT --to-destination %s\n",
+					lanaddr, lanmask,
+					lanaddr, lanmask,
+					lanaddr);
 				ipt_write("-A PREROUTING -p udp -s %s/%s ! -d %s/%s --dport 53 -j DNAT --to-destination %s\n",
 					lanaddr, lanmask,
 					lanaddr, lanmask,
 					lanaddr);
-				if(strcmp(lan1addr,"")!=0)
+				if(strcmp(lan1addr,"")!=0) {
+					ipt_write("-A PREROUTING -p tcp -s %s/%s ! -d %s/%s --dport 53 -j DNAT --to-destination %s\n",
+						lan1addr, lan1mask,
+						lan1addr, lan1mask,
+						lan1addr);
 					ipt_write("-A PREROUTING -p udp -s %s/%s ! -d %s/%s --dport 53 -j DNAT --to-destination %s\n",
 						lan1addr, lan1mask,
 						lan1addr, lan1mask,
 						lan1addr);
-				if(strcmp(lan2addr,"")!=0)
+				}
+				if(strcmp(lan2addr,"")!=0) {
+					ipt_write("-A PREROUTING -p tcp -s %s/%s ! -d %s/%s --dport 53 -j DNAT --to-destination %s\n",
+						lan2addr, lan2mask,
+						lan2addr, lan2mask,
+						lan2addr);
 					ipt_write("-A PREROUTING -p udp -s %s/%s ! -d %s/%s --dport 53 -j DNAT --to-destination %s\n",
 						lan2addr, lan2mask,
 						lan2addr, lan2mask,
 						lan2addr);
-				if(strcmp(lan3addr,"")!=0)
+				}
+				if(strcmp(lan3addr,"")!=0) {
+					ipt_write("-A PREROUTING -p tcp -s %s/%s ! -d %s/%s --dport 53 -j DNAT --to-destination %s\n",
+						lan3addr, lan3mask,
+						lan3addr, lan3mask,
+						lan3addr);
 					ipt_write("-A PREROUTING -p udp -s %s/%s ! -d %s/%s --dport 53 -j DNAT --to-destination %s\n",
 						lan3addr, lan3mask,
 						lan3addr, lan3mask,
 						lan3addr);
+				}
 			}
 
 			// ICMP packets are always redirected to INPUT chains

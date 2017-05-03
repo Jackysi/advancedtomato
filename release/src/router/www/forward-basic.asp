@@ -64,7 +64,7 @@ fog.sortCompare = function(a, b) {
 		r = cmpIP(da[col], db[col]);
 		break;
 	case 0:	// on
-	case 1: // proto
+	case 1: // protocol
 	case 3:	// ext prt
 	case 4:	// int prt
 		r = cmpInt(da[col], db[col]);
@@ -139,7 +139,7 @@ fog.setup = function() {
 		{ type: 'text', maxlen: 5 },
 		{ type: 'text', maxlen: 15 },
 		{ type: 'text', maxlen: 32 }]);
-	this.headerSet(['On', 'Proto', 'Src Address', 'Ext Ports', 'Int Port', 'Int Address', 'Description']);
+	this.headerSet(['On', 'Protocol', 'Src Address', 'Ext Ports', 'Int Port', 'Int Address', 'Description']);
 	var nv = nvram.portforward.split('>');
 	for (var i = 0; i < nv.length; ++i) {
 		var r;

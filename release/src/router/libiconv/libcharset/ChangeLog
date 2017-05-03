@@ -1,3 +1,95 @@
+2016-12-14  Bruno Haible  <bruno@clisp.org>
+
+	Avoid error during initial autogen.sh invocation.
+	* Makefile.devel (autoconf/aclocal.m4): Ensure directory 'autoconf'
+	exists.
+	Reported by Daiki Ueno.
+
+2016-12-03  Bruno Haible  <bruno@clisp.org>
+
+	Create tarballs through an Automake-like "make dist" command.
+	* Makefile.in (SOURCE_FILES, LIBTOOL_IMPORTED_FILES, IMPORTED_FILES,
+	GENERATED_FILES, DISTRIBUTED_BUILT_FILES, DISTFILES): New macros.
+	(distdir): New target.
+
+2016-12-04  Bruno Haible  <bruno@clisp.org>
+
+	Remove imported files from version control.
+	* INSTALL.generic: Remove from version control.
+	* build-aux/config.guess: Likewise.
+	* build-aux/config.libpath: Likewise.
+	* build-aux/config.sub: Likewise.
+	* build-aux/install-sh: Likewise.
+	* build-aux/mkinstalldirs: Likewise.
+	* m4/codeset.m4: Likewise.
+	* m4/fcntl-o.m4: Likewise.
+	* m4/glibc21.m4: Likewise.
+	* m4/relocatable-lib.m4: Likewise.
+	* m4/visibility.m4: Likewise.
+
+2016-12-03  Bruno Haible  <bruno@clisp.org>
+
+	Make Makefile.devel more useful for the users of the released tarball.
+	* Makefile.devel (totally-clean): New target.
+	* autogen.sh: Invoke it and 'all'.
+
+2016-12-03  Bruno Haible  <bruno@clisp.org>
+
+	Modernize configure.ac.
+	* configure.ac: Require autoconf >= 2.60. Use 2-argument AC_INIT.
+	Use AC_CONFIG_SRCDIR.
+
+2016-12-03  Bruno Haible  <bruno@clisp.org>
+
+	Update documentation.
+	* README: Update the libiconv version number.
+	* HACKING: Refer to the Git repository.
+	* INTEGRATE: Mention the Gnulib module.
+
+2016-11-23  Bruno Haible  <bruno@clisp.org>
+
+	Update installation instructions for Windows.
+	* README.windows: Generic reference to top-level file.
+
+2016-11-23  Bruno Haible  <bruno@clisp.org>
+
+	Drop the nickname "woe32".
+	* README.windows: Renamed from README.woe32.
+
+2016-10-22  Bruno Haible  <bruno@clisp.org>
+
+	Switch to libtool 2.4.6.
+	* m4/libtool.m4: Update from libtool-2.4.6, with modifications:
+	2008-04-06  Bruno Haible  <bruno@clisp.org>
+		* m4/libtool.m4 (LT_INIT): When setting LIBTOOL, use
+		CONFIG_SHELL; don't assume that the Makefile.in will set SHELL
+		to ${CONFIG_SHELL}..
+	* m4/ltoptions.m4: Likewise.
+	* m4/ltversion.m4: Likewise.
+	* build-aux/ltmain.sh: Likewise.
+
+2016-10-01  Bruno Haible  <bruno@clisp.org>
+
+	Switch to automake 1.15.
+	* Makefile.devel (ACLOCAL): Switch to version 1.15.
+
+2012-04-28  Bruno Haible  <bruno@clisp.org>
+
+	Switch to autoconf 2.69 and automake 1.12.
+	* Makefile.devel (AUTOCONF, AUTOHEADER): Switch to version 2.69.
+	(ACLOCAL): Switch to version 1.12.
+
+2011-10-18  Bruno Haible  <bruno@clisp.org>
+
+	* m4/libtool.m4: Update from libtool-2.4.2, with modifications:
+	2008-04-06  Bruno Haible  <bruno@clisp.org>
+		* m4/libtool.m4 (LT_INIT): When setting LIBTOOL, use
+		CONFIG_SHELL; don't assume that the Makefile.in will set SHELL
+		to ${CONFIG_SHELL}..
+	* m4/ltoptions.m4: Likewise.
+	* m4/ltversion.m4: Likewise.
+	* build-aux/ltmain.sh: Likewise.
+
 2010-09-23  Bruno Haible  <bruno@clisp.org>
 
 	Switch to autoconf 2.68.

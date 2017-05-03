@@ -5,7 +5,7 @@
 #                            | (__| |_| |  _ <| |___
 #                             \___|\___/|_| \_\_____|
 #
-# Copyright (C) 1998 - 2016, Daniel Stenberg, <daniel@haxx.se>, et al.
+# Copyright (C) 1998 - 2017, Daniel Stenberg, <daniel@haxx.se>, et al.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution. The terms
@@ -24,10 +24,13 @@ AUTOMAKE_OPTIONS = foreign
 
 ACLOCAL_AMFLAGS = -I m4
 
-CMAKE_DIST = CMakeLists.txt CMake/CMakeConfigurableFile.in	\
- CMake/CurlTests.c CMake/FindGSS.cmake CMake/OtherTests.cmake	\
- CMake/Platforms/WindowsCache.cmake CMake/Utilities.cmake	\
- include/curl/curlbuild.h.cmake CMake/Macros.cmake
+CMAKE_DIST = CMakeLists.txt CMake/CMakeConfigurableFile.in      \
+ CMake/CurlTests.c CMake/FindGSS.cmake CMake/OtherTests.cmake   \
+ CMake/Platforms/WindowsCache.cmake CMake/Utilities.cmake       \
+ include/curl/curlbuild.h.cmake CMake/Macros.cmake              \
+ CMake/CurlSymbolHiding.cmake CMake/FindCARES.cmake             \
+ CMake/FindLibSSH2.cmake CMake/FindNGHTTP2.cmake
+
 
 VC6_LIBTMPL = projects/Windows/VC6/lib/libcurl.tmpl
 VC6_LIBDSP = projects/Windows/VC6/lib/libcurl.dsp.dist
@@ -133,8 +136,7 @@ VC_DIST = projects/README                           \
  projects/Windows/VC14/src/curl.vcxproj.filters
 
 WINBUILD_DIST = winbuild/BUILD.WINDOWS.txt winbuild/gen_resp_file.bat	\
- winbuild/MakefileBuild.vc winbuild/Makefile.vc				\
- winbuild/Makefile.msvc.names
+ winbuild/MakefileBuild.vc winbuild/Makefile.vc
 
 EXTRA_DIST = CHANGES COPYING maketgz Makefile.dist curl-config.in	\
  RELEASE-NOTES buildconf libcurl.pc.in MacOSX-Framework scripts/zsh.pl	\
@@ -150,7 +152,7 @@ CLEANFILES = $(VC6_LIBDSP) $(VC6_SRCDSP) $(VC7_LIBVCPROJ) $(VC7_SRCVCPROJ)	\
 bin_SCRIPTS = curl-config
 
 SUBDIRS = lib src include
-DIST_SUBDIRS = $(SUBDIRS) tests packages docs scripts
+DIST_SUBDIRS = $(SUBDIRS) tests packages scripts
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = libcurl.pc
@@ -168,13 +170,7 @@ dist-hook:
 	  cp $$file $(distdir)$$strip; \
 	done)
 
-html:
-	cd docs && make html
-
-pdf:
-	cd docs && make pdf
-
-check: test examples check-docs
+check: test examples
 
 if CROSSCOMPILING
 test-full: test
@@ -199,19 +195,12 @@ test-am:
 
 endif
 
-examples:
-	@(cd docs/examples; $(MAKE) check)
-
-check-docs:
-	@(cd docs/libcurl; $(MAKE) check)
-
 # This is a hook to have 'make clean' also clean up the docs and the tests
 # dir. The extra check for the Makefiles being present is necessary because
 # 'make distcheck' will make clean first in these directories _before_ it runs
 # this hook.
 clean-local:
 	@(if test -f tests/Makefile; then cd tests; $(MAKE) clean; fi)
-	@(if test -f docs/Makefile; then cd docs; $(MAKE) clean; fi)
 
 #
 # Build source and binary rpms. For rpm-3.0 and above, the ~/.rpmmacros
@@ -264,12 +253,10 @@ cygwinbin:
 # We extend the standard install with a custom hook:
 install-data-hook:
 	cd include && $(MAKE) install
-	cd docs && $(MAKE) install
 
 # We extend the standard uninstall with a custom hook:
 uninstall-hook:
 	cd include && $(MAKE) uninstall
-	cd docs && $(MAKE) uninstall
 
 ca-bundle: lib/mk-ca-bundle.pl
 	@echo "generating a fresh ca-bundle.crt"
@@ -284,7 +271,6 @@ checksrc:
 	cd src && $(MAKE) checksrc
 	cd tests && $(MAKE) checksrc
 	cd include/curl && $(MAKE) checksrc
-	cd docs/examples && $(MAKE) checksrc
 
 .PHONY: vc-ide
 

@@ -93,7 +93,7 @@ main(int argc UNUSED, char **argv UNUSED)
 	  return EXIT_FAILURE;
 	}
 
-      if (!write_string (stdout, decoded_bytes, result))
+      if (!write_data (stdout, decoded_bytes, result))
 	{
 	  werror ("Error writing file: %s\n", strerror(errno));
 	  return EXIT_FAILURE;

@@ -30,12 +30,11 @@
 #include "utils.h"
 #include "xalloc.h"
 
-static digest_t *sha256;
+#include "ed25519/sha512.h"
 
 splay_tree_t *node_tree;
 static splay_tree_t *node_id_tree;
-static hash_t *node_udp_cache;
-static hash_t *node_id_cache;
+static splay_tree_t *node_udp_tree;
 
 node_t *myself;
 
@@ -47,22 +46,23 @@ static int node_id_compare(const node_t *a, const node_t *b) {
 	return memcmp(&a->id, &b->id, sizeof(node_id_t));
 }
 
-void init_nodes(void) {
-	sha256 = digest_open_by_name("sha256", sizeof(node_id_t));
+static int node_udp_compare(const node_t *a, const node_t *b) {
+	int result = sockaddrcmp(&a->address, &b->address);
+	if (result)
+		return result;
+	return (a->name && b->name) ? strcmp(a->name, b->name) : 0;
+}
 
+void init_nodes(void) {
 	node_tree = splay_alloc_tree((splay_compare_t) node_compare, (splay_action_t) free_node);
 	node_id_tree = splay_alloc_tree((splay_compare_t) node_id_compare, NULL);
-	node_udp_cache = hash_alloc(0x100, sizeof(sockaddr_t));
-	node_id_cache = hash_alloc(0x100, sizeof(node_id_t));
+	node_udp_tree = splay_alloc_tree((splay_compare_t) node_udp_compare, NULL);
 }
 
 void exit_nodes(void) {
-	hash_free(node_id_cache);
-	hash_free(node_udp_cache);
+	splay_delete_tree(node_udp_tree);
 	splay_delete_tree(node_id_tree);
 	splay_delete_tree(node_tree);
-
-	digest_close(sha256);
 }
 
 node_t *new_node(void) {
@@ -86,15 +86,17 @@ void free_node(node_t *n) {
 
 	sockaddrfree(&n->address);
 
+#ifndef DISABLE_LEGACY
 	cipher_close(n->incipher);
 	digest_close(n->indigest);
 	cipher_close(n->outcipher);
 	digest_close(n->outdigest);
+#endif
 
 	ecdsa_free(n->ecdsa);
 	sptps_stop(&n->sptps);
 
-	timeout_del(&n->mtutimeout);
+	timeout_del(&n->udp_ping_timeout);
 
 	if(n->hostname)
 		free(n->hostname);
@@ -109,15 +111,16 @@ void free_node(node_t *n) {
 }
 
 void node_add(node_t *n) {
-	digest_create(sha256, n->name, strlen(n->name), &n->id);
+	unsigned char buf[64];
+	sha512(n->name, strlen(n->name),buf);
+	memcpy(&n->id, buf, sizeof n->id);
 
 	splay_insert(node_tree, n);
 	splay_insert(node_id_tree, n);
 }
 
 void node_del(node_t *n) {
-	hash_delete(node_udp_cache, &n->address);
-	hash_delete(node_id_cache, &n->id);
+	splay_delete(node_udp_tree, n);
 
 	for splay_each(subnet_t, s, n->subnet_tree)
 		subnet_del(n, s);
@@ -138,19 +141,13 @@ node_t *lookup_node(char *name) {
 }
 
 node_t *lookup_node_id(const node_id_t *id) {
-	node_t *n = hash_search(node_id_cache, id);
-	if(!n) {
-		node_t tmp = {.id = *id};
-		n = splay_search(node_id_tree, &tmp);
-		if(n)
-			hash_insert(node_id_cache, id, n);
-	}
-
-	return n;
+	node_t n = {.id = *id};
+	return splay_search(node_id_tree, &n);
 }
 
 node_t *lookup_node_udp(const sockaddr_t *sa) {
-	return hash_search(node_udp_cache, sa);
+	node_t tmp = {.address = *sa};
+	return splay_search(node_udp_tree, &tmp);
 }
 
 void update_node_udp(node_t *n, const sockaddr_t *sa) {
@@ -159,7 +156,7 @@ void update_node_udp(node_t *n, const sockaddr_t *sa) {
 		return;
 	}
 
-	hash_delete(node_udp_cache, &n->address);
+	splay_delete(node_udp_tree, n);
 
 	if(sa) {
 		n->address = *sa;
@@ -170,7 +167,7 @@ void update_node_udp(node_t *n, const sockaddr_t *sa) {
 				break;
 			}
 		}
-		hash_insert(node_udp_cache, sa, n);
+		splay_insert(node_udp_tree, n);
 		free(n->hostname);
 		n->hostname = sockaddr2hostname(&n->address);
 		logger(DEBUG_PROTOCOL, LOG_DEBUG, "UDP address of %s set to %s", n->name, n->hostname);
@@ -179,6 +176,7 @@ void update_node_udp(node_t *n, const sockaddr_t *sa) {
 	/* invalidate UDP information - note that this is a security feature as well to make sure
 	   we can't be tricked into flooding any random address with UDP packets */
 	n->status.udp_confirmed = false;
+	n->maxrecentlen = 0;
 	n->mtuprobes = 0;
 	n->minmtu = 0;
 	n->maxmtu = MTU;
@@ -188,13 +186,18 @@ bool dump_nodes(connection_t *c) {
 	for splay_each(node_t, n, node_tree) {
 		char id[2 * sizeof n->id + 1];
 		for (size_t c = 0; c < sizeof n->id; ++c)
-			sprintf(id + 2 * c, "%02hhx", n->id.x[c]);
+			snprintf(id + 2 * c, 3, "%02hhx", n->id.x[c]);
 		id[sizeof id - 1] = 0;
 		send_request(c, "%d %d %s %s %s %d %d %d %d %x %x %s %s %d %hd %hd %hd %ld", CONTROL, REQ_DUMP_NODES,
-			   n->name, id, n->hostname ?: "unknown port unknown", cipher_get_nid(n->outcipher),
-			   digest_get_nid(n->outdigest), (int)digest_length(n->outdigest), n->outcompression,
-			   n->options, bitfield_to_int(&n->status, sizeof n->status), n->nexthop ? n->nexthop->name : "-",
-			   n->via ? n->via->name ?: "-" : "-", n->distance, n->mtu, n->minmtu, n->maxmtu, (long)n->last_state_change);
+			   n->name, id, n->hostname ?: "unknown port unknown",
+#ifdef DISABLE_LEGACY
+			   0, 0, 0,
+#else
+			   cipher_get_nid(n->outcipher), digest_get_nid(n->outdigest), (int)digest_length(n->outdigest),
+#endif
+			   n->outcompression, n->options, bitfield_to_int(&n->status, sizeof n->status),
+			   n->nexthop ? n->nexthop->name : "-", n->via ? n->via->name ?: "-" : "-", n->distance,
+			   n->mtu, n->minmtu, n->maxmtu, (long)n->last_state_change);
 	}
 
 	return send_request(c, "%d %d", CONTROL, REQ_DUMP_NODES);

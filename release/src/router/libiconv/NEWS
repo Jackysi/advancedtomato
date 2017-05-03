@@ -1,3 +1,9 @@
+New in 1.15:
+* The UTF-8 converter now rejects surrogates and out-of-range code points.
+* Added ISO-2022-JP-MS converter.
+* Updated the CP1255 converter to map one more character.
+* The functions now support strings longer than 2 GB.
+
 New in 1.14:
 * The 'iconv' program now produces its output as soon as it can. It no longer
   unnecessarily waits for more input.

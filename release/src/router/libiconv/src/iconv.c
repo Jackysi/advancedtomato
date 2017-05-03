@@ -1,4 +1,4 @@
-/* Copyright (C) 2000-2009, 2011 Free Software Foundation, Inc.
+/* Copyright (C) 2000-2009, 2011-2012, 2016-2017 Free Software Foundation, Inc.
    This file is part of the GNU LIBICONV Library.
 
    This program is free software: you can redistribute it and/or modify
@@ -107,7 +107,7 @@ static void usage (int exitcode)
          Align it correctly against the first line.  */
       _("or:    iconv -l");
     fprintf(stderr, "%s\n%s\n", helpstring1, helpstring2);
-    fprintf(stderr, _("Try `%s --help' for more information.\n"), program_name);
+    fprintf(stderr, _("Try '%s --help' for more information.\n"), program_name);
   } else {
     /* xgettext: no-wrap */
     /* TRANSLATORS: The first line of the long usage message.
@@ -191,7 +191,7 @@ static void print_version (void)
 {
   printf("iconv (GNU libiconv %d.%d)\n",
          _libiconv_version >> 8, _libiconv_version & 0xff);
-  printf("Copyright (C) %s Free Software Foundation, Inc.\n", "2000-2011");
+  printf("Copyright (C) %s Free Software Foundation, Inc.\n", "2000-2017");
   /* xgettext: no-wrap */
   fputs (_("\
 License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>\n\
@@ -959,6 +959,7 @@ int main (int argc, char* argv[])
     if /* --s ... --silent */
        (len >= 3 && len <= 8 && !strncmp(argv[i],"--silent",len)) {
       silent = 1;
+      i++;
       continue;
     }
     if /* --h ... --help */

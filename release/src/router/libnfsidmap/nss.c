@@ -135,7 +135,7 @@ static char *strip_domain(const char *name, const char *domain)
 	char *l = NULL;
 	int len;
 
-	c = strchr(name, '@');
+	c = strrchr(name, '@');
 	if (c == NULL && domain != NULL)
 		goto out;
 	if (c == NULL && domain == NULL) {

@@ -180,9 +180,9 @@ ul.no-bullet {list-style: none}
       </ul></li>
       <li><a name="toc-Elliptic-curves-1" href="#Elliptic-curves">6.7.3 <acronym>Elliptic curves</acronym></a>
       <ul class="no-bullet">
-        <li><a name="toc-Side_002dchannel-silence" href="#Side_002dchannel-silence">6.7.3.1 Side-channel silence</a></li>
-        <li><a name="toc-ECDSA" href="#ECDSA">6.7.3.2 ECDSA</a></li>
-        <li><a name="toc-Curve25519" href="#Curve25519">6.7.3.3 Curve25519</a></li>
+        <li><a name="toc-Side_002dchannel-silence-1" href="#Side_002dchannel-silence">6.7.3.1 Side-channel silence</a></li>
+        <li><a name="toc-ECDSA-1" href="#ECDSA">6.7.3.2 ECDSA</a></li>
+        <li><a name="toc-Curve25519" href="#Curve-25519">6.7.3.3 Curve25519</a></li>
         <li><a name="toc-EdDSA" href="#EdDSA">6.7.3.4 EdDSA</a></li>
       </ul></li>
     </ul></li>
@@ -304,6 +304,15 @@ Public-key algorithms
 <tr><td align="left" valign="top">&bull; <a href="#DSA">DSA</a>:</td><td>&nbsp;&nbsp;</td><td align="left" valign="top">The DSA digital signature algorithm.
 </td></tr>
 <tr><td align="left" valign="top">&bull; <a href="#Elliptic-curves">Elliptic curves</a>:</td><td>&nbsp;&nbsp;</td><td align="left" valign="top">Elliptic curves and ECDSA
+</td></tr>
+<tr><th colspan="3" align="left" valign="top"><pre class="menu-comment">
+<acronym>Elliptic curves</acronym>
+
+</pre></th></tr><tr><td align="left" valign="top">&bull; <a href="#Side_002dchannel-silence">Side-channel silence</a>:</td><td>&nbsp;&nbsp;</td><td align="left" valign="top">
+</td></tr>
+<tr><td align="left" valign="top">&bull; <a href="#ECDSA">ECDSA</a>:</td><td>&nbsp;&nbsp;</td><td align="left" valign="top">
+</td></tr>
+<tr><td align="left" valign="top">&bull; <a href="#Curve-25519">Curve 25519</a>:</td><td>&nbsp;&nbsp;</td><td align="left" valign="top">
 </td></tr>
 <tr><th colspan="3" align="left" valign="top"><pre class="menu-comment">
 </pre></th></tr></table>
@@ -2480,7 +2489,7 @@ around.
 <dd>
 <p>Applies the encryption or decryption function <var>f</var> in <acronym>CBC</acronym>
 mode. The final ciphertext block processed is copied into <var>iv</var>
-before returning, so that large message be processed be a sequence of
+before returning, so that a large message can be processed by a sequence of
 calls to <code>cbc_encrypt</code>. The function <var>f</var> is of type
 </p>
 <p><code>void f (void *<var>ctx</var>, size_t <var>length</var>, uint8_t <var>dst</var>,
@@ -4999,8 +5008,25 @@ visible to nettle users. The &ldquo;bitsize of the curve&rdquo; is used as a
 shorthand for the bitsize of the curve&rsquo;s prime <em>p</em>, e.g., 256 bits
 for <code>nettle_secp_256r1</code>.
 </p>
+<table class="menu" border="0" cellspacing="0">
+<tr><td align="left" valign="top">&bull; <a href="#Side_002dchannel-silence" accesskey="1">Side-channel silence</a>:</td><td>&nbsp;&nbsp;</td><td align="left" valign="top">
+</td></tr>
+<tr><td align="left" valign="top">&bull; <a href="#ECDSA" accesskey="2">ECDSA</a>:</td><td>&nbsp;&nbsp;</td><td align="left" valign="top">
+</td></tr>
+<tr><td align="left" valign="top">&bull; <a href="#Curve-25519" accesskey="3">Curve 25519</a>:</td><td>&nbsp;&nbsp;</td><td align="left" valign="top">
+</td></tr>
+</table>
+
+<hr>
 <a name="Side_002dchannel-silence"></a>
+<div class="header">
+<p>
+Next: <a href="#ECDSA" accesskey="n" rel="next">ECDSA</a>, Up: <a href="#Elliptic-curves" accesskey="u" rel="up">Elliptic curves</a> &nbsp; [<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>][<a href="#Index" title="Index" rel="index">Index</a>]</p>
+</div>
+<a name="Side_002dchannel-silence-1"></a>
 <h4 class="subsubsection">6.7.3.1 Side-channel silence</h4>
+<a name="index-Side_002dchannel-attack"></a>
+
 <p>Nettle&rsquo;s implementation of the elliptic curve operations is intended to
 be side-channel silent. The side-channel attacks considered are:
 </p>
@@ -5017,7 +5043,8 @@ it. If you have a process operating on the secret data, and this process
 does memory accesses depending on the data, e.g, an internal lookup
 table in some cryptographic algorithm, an attacker running a separate
 process on the same system may use behavior of internal CPU caches to
-get information about your secrets.
+get information about your secrets. This type of attack can even cross
+virtual machine boundaries.
 </li></ul>
 
 <p>Nettle&rsquo;s ECC implementation is designed to be <em>side-channel silent</em>,
@@ -5026,7 +5053,13 @@ accesses depend only on the size of the input data and its location in
 memory, not on the actual data bits. This implies a performance penalty
 in several of the building blocks.
 </p>
+<hr>
 <a name="ECDSA"></a>
+<div class="header">
+<p>
+Next: <a href="#Curve-25519" accesskey="n" rel="next">Curve 25519</a>, Previous: <a href="#Side_002dchannel-silence" accesskey="p" rel="prev">Side-channel silence</a>, Up: <a href="#Elliptic-curves" accesskey="u" rel="up">Elliptic curves</a> &nbsp; [<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>][<a href="#Index" title="Index" rel="index">Index</a>]</p>
+</div>
+<a name="ECDSA-1"></a>
 <h4 class="subsubsection">6.7.3.2 ECDSA</h4>
 
 <p>ECDSA is a variant of the DSA digital signature scheme (see <a href="#DSA">DSA</a>),
@@ -5056,7 +5089,7 @@ represent an ECDSA public key.
 </p></dd></dl>
 
 <dl>
-<dt><a name="index-ecc_005fpoint_005finit"></a>Function: <em>void</em> <strong>ecc_point_init</strong> <em>(struct ecc_point *<var>p</var>, const structecc_curve *<var>ecc</var>)</em></dt>
+<dt><a name="index-ecc_005fpoint_005finit"></a>Function: <em>void</em> <strong>ecc_point_init</strong> <em>(struct ecc_point *<var>p</var>, const struct ecc_curve *<var>ecc</var>)</em></dt>
 <dd><p>Initializes <var>p</var> to represent points on the given curve <var>ecc</var>.
 Allocates storage for the coordinates, using the same allocation
 functions as GMP.
@@ -5072,7 +5105,7 @@ functions as GMP.
 <dd><p>Check that the given coordinates represent a point on the curve. If so,
 the coordinates are copied and converted to internal representation, and
 the function returns 1. Otherwise, it returns 0. Currently, the
-infinity point (or zero point, with additive notation) i snot allowed.
+infinity point (or zero point, with additive notation) is not allowed.
 </p></dd></dl>
 
 <dl>
@@ -5142,34 +5175,62 @@ random octets and store them at <code>dst</code>. For advice, see
 See <a href="#Randomness">Randomness</a>.
 </p></dd></dl>
 
+<hr>
+<a name="Curve-25519"></a>
+<div class="header">
+<p>
+Previous: <a href="#ECDSA" accesskey="p" rel="prev">ECDSA</a>, Up: <a href="#Elliptic-curves" accesskey="u" rel="up">Elliptic curves</a> &nbsp; [<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>][<a href="#Index" title="Index" rel="index">Index</a>]</p>
+</div>
 <a name="Curve25519"></a>
 <h4 class="subsubsection">6.7.3.3 Curve25519</h4>
+<a name="index-Curve-25519"></a>
+
 
 <p>Curve25519 is an elliptic curve of Montgomery type, <em>y^2 = x^3 +
 486662 x^2 + x (mod p)</em>, with <em>p = 2^255 - 19</em>. Montgomery curves
 have the advantage of simple and efficient point addition based on the
-x-coordinate only. This particular curve was proposed by D.~J.~Bernstein
-in 2006, for fast Diffie-Hellman key exchange. The group generator is
-defined by <em>x = 9</em> (there are actually two points with <em>x =
-9</em>, differing by the sign of the y-coordinate, but that doesn&rsquo;t matter
-for the curve25519 operations which work with the x-coordinate only).
+x-coordinate only. This particular curve was proposed by D. J. Bernstein
+in 2006, for fast Diffie-Hellman key exchange, and is also described in
+<cite>RFC 7748</cite>. The group generator is defined by <em>x = 9</em> (there
+are actually two points with <em>x = 9</em>, differing by the sign of the
+y-coordinate, but that doesn&rsquo;t matter for the curve25519 operations
+which work with the x-coordinate only).
 </p>
 <p>The curve25519 functions are defined as operations on octet strings,
-which are interpreted as x-coordinates in little-endian byte order.
+representing 255-bit scalars or x-coordinates, in little-endian byte
+order. The most significant input bit, i.e, the most significant bit of
+the last octet, is always ignored.
 </p>
-<p>Of all the possible input strings, only about half correspond to points
-on curve25519, i.e., a value that can be produced by
-<code>curve25519_mul_g</code>. The other half corresponds to points on a
-related &ldquo;twist curve&rdquo;. The current implementation of
+<p>For scalars, in addition, the least significant three bits are ignored,
+and treated as zero, and the second most significant bit is ignored too,
+and treated as one. Then the scalar input string always represents 8
+times a number in the range <em>2^251 &lt;= s &lt; 2^252</em>.
+</p>
+<p>Of all the possible input strings, only about half correspond to
+x-coordinates of points on curve25519, i.e., a value <em>x</em> for which
+the the curve equation can be solved for <em>y</em>. The other half
+correspond to points on a related &ldquo;twist curve&rdquo;. The function
 <code>curve25519_mul</code> uses a Montgomery ladder for the scalar
-multiplication, as suggested in the curve25519 literature, and produces
-a well defined output for all possible inputs, no matter if points are
-on the proper curve or on its twist. However, at the time of writing, it
-is not yet ruled out that other implementations could be faster, and
-therefore the behaviour for inputs corresponding to points on the twist
-curve must be considered an implementation idiosyncrasy, and may change
-in future versions.
+multiplication, as suggested in the curve25519 literature, and required
+by <cite>RFC 7748</cite>. The output is therefore well defined for
+<em>all</em> possible inputs, no matter if the input string represents a
+valid point on the curve or not.
 </p>
+<p>Note that the curve25519 implementation in earlier versions of Nettle
+deviates slightly from <cite>RFC 7748</cite>, in that bit 255 of the <em>x</em>
+coordinate of the point input to curve25519_mul was not ignored. The
+<samp>nette/curve25519.h</samp> defines a preprocessor symbol
+<code>NETTLE_CURVE25519_RFC7748</code> to indicate conformance with the
+standard.
+</p>
+<p>Nettle defines Curve 25519 in <samp>&lt;nettle/curve25519.h&gt;</samp>.
+</p>
+<dl>
+<dt><a name="index-NETTLE_005fCURVE25519_005fRFC7748"></a>Constant: <strong>NETTLE_CURVE25519_RFC7748</strong></dt>
+<dd><p>Defined to 1 in Nettle versions conforming to RFC 7748. Undefined in
+earlier versions.
+</p></dd></dl>
+
 <dl>
 <dt><a name="index-CURVE25519_005fSIZE"></a>Constant: <strong>CURVE25519_SIZE</strong></dt>
 <dd><p>The size of the strings representing curve25519 points and scalars, 32.
@@ -5195,10 +5256,6 @@ argument <var>q</var> use a little-endian representation of the scalar and
 the x-coordinates, respectively. They are all of size
 <code>CURVE25519_SIZE</code>.
 </p>
-<p>The output value is defined only when the input <var>p</var> is a string
-produced by <code>curve25519_mul_g</code>. (See discussion above, about the
-twist curve).
-</p>
 <p>This function is intended to be compatible with the function
 <code>crypto_scalar_mult</code> in the NaCl library.
 </p></dd></dl>
@@ -5207,7 +5264,7 @@ twist curve).
 <h4 class="subsubsection">6.7.3.4 EdDSA</h4>
 <a name="index-eddsa"></a>
 
-<p>EdDSA is a signature scheme proposed by D.~J.~Bernstein et al. in 2011.
+<p>EdDSA is a signature scheme proposed by D. J. Bernstein et al. in 2011.
 It is defined using a &ldquo;Twisted Edwards curve&rdquo;, of the form <em>-x^2
 + y^2 = 1 + d x^2 y^2</em>. The specific signature scheme Ed25519 uses a
 curve which is equivalent to curve25519: The two groups used differ only
@@ -5806,8 +5863,17 @@ similar to the ANSI-C <code>memcpy</code> function.
 destination area.
 </p></dd></dl>
 
+<dl>
+<dt><a name="index-memeql_005fsec"></a>Function: <em>int</em> <strong>memeql_sec</strong> <em>(const void *<var>a</var>, const void *<var>b</var>, size_t <var>n</var>)</em></dt>
+<dd><p>Side-channel silent comparison of the <var>n</var> bytes at <var>a</var> and
+<var>b</var>. I.e., instructions executed and memory accesses are identical
+no matter where the areas differ, see <a href="#Side_002dchannel-silence">Side-channel silence</a>. Return
+non-zero if the areas are equal, and zero if they differ.
+</p></dd></dl>
 
-<p><code>memxor</code> is declared in <samp>&lt;nettle/memxor.h&gt;</samp>.
+<p>These functions are declared in <samp>&lt;nettle/memops.h&gt;</samp>. For
+compatibility with earlier versions of Nettle, <code>memxor</code> and
+<code>memxor3</code> are also declared in <samp>&lt;nettle/memxor.h&gt;</samp>.
 </p>
 <hr>
 <a name="Compatibility-functions"></a>

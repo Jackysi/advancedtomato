@@ -255,10 +255,20 @@ static int config_pppd(int wan_proto, int num, char *prefix) //static int config
 			"OK \"AT\"\n"
 			"OK \"AT&FE0V1X1&D2&C1S0=0\"\n"
 			"OK \"AT\"\n"
-			"OK 'AT+CGDCONT=1,\"IP\",\"%s\"'\n"
+			);
+
+		/* Only send the AT+CGDCONT (define PDP context) command to set
+		* the APN if modem_apn is defined and non-empty.  Some ISPs
+		* (ex. BSNL EVDO in India) don't need this (the modem returns
+		* ERROR if issued).
+		*/
+		if (((p = nvram_safe_get(strcat_r(prefix, "_modem_apn", tmp))) != NULL) && (*p)) {
+			fprintf(cfp, "OK 'AT+CGDCONT=1,\"IP\",\"%s\"'\n", p);
+		}
+
+		fprintf(cfp,
 			"OK \"ATDT%s\"\n"
 			"CONNECT \\c\n",
-			nvram_safe_get(strcat_r(prefix, "_modem_apn", tmp)), //"modem_apn"
 			nvram_safe_get(strcat_r(prefix, "_modem_init", tmp)) //"modem_init"
 			);
 		fclose(cfp);
@@ -1018,10 +1028,7 @@ void start_wan(int mode)
 	xstart("mwanroute");
 
 	if(nvram_get_int("mwan_cktime") > 0)
-		xstart("watchdog", "add");
-
-	if(nvram_match("adblock_enable", "1"))
-		xstart("/usr/sbin/adblock");
+		xstart("watchdog", "add");	
 
 	led(LED_DIAG, 0);	// for 4712, 5325E (?)
 	led(LED_DMZ, nvram_match("dmz_enable", "1"));
@@ -1165,6 +1172,10 @@ void start_wan_done(char *wan_ifname, char *prefix)
 	}
 
 	dns_to_resolv();
+
+	if(nvram_match("adblock_enable", "1"))
+		xstart("/usr/sbin/adblock");
+
 	start_dnsmasq();
 
 	start_firewall();

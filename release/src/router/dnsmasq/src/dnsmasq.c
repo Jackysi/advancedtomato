@@ -752,10 +752,16 @@ int main (int argc, char **argv)
 
   if (daemon->port == 0)
     my_syslog(LOG_INFO, _("started, version %s DNS disabled"), VERSION);
-  else if (daemon->cachesize != 0)
-    my_syslog(LOG_INFO, _("started, version %s cachesize %d"), VERSION, daemon->cachesize);
-  else
-    my_syslog(LOG_INFO, _("started, version %s cache disabled"), VERSION);
+  else 
+    {
+      if (daemon->cachesize != 0)
+       my_syslog(LOG_INFO, _("started, version %s cachesize %d"), VERSION, daemon->cachesize);
+      else
+       my_syslog(LOG_INFO, _("started, version %s cache disabled"), VERSION);
+
+      if (option_bool(OPT_LOCAL_SERVICE))
+       my_syslog(LOG_INFO, _("DNS service limited to local subnets"));
+    }
   
   my_syslog(LOG_INFO, _("compile time options: %s"), compile_opts);
   
@@ -768,9 +774,6 @@ int main (int argc, char **argv)
 	my_syslog(LOG_INFO, _("DBus support enabled: bus connection pending"));
     }
 #endif
-
-  if (option_bool(OPT_LOCAL_SERVICE))
-    my_syslog(LOG_INFO, _("DNS service limited to local subnets"));
   
 #ifdef HAVE_DNSSEC
   if (option_bool(OPT_DNSSEC_VALID))
@@ -788,7 +791,8 @@ int main (int argc, char **argv)
       
       my_syslog(LOG_INFO, _("DNSSEC validation enabled"));
       
-      if (option_bool(OPT_DNSSEC_TIME))
+      daemon->dnssec_no_time_check = option_bool(OPT_DNSSEC_TIME);
+      if (option_bool(OPT_DNSSEC_TIME) && !daemon->back_to_the_future)
 	my_syslog(LOG_INFO, _("DNSSEC signature timestamps not checked until first cache reload"));
       
       if (rc == 1)
@@ -1263,11 +1267,13 @@ static void async_event(int pipe, time_t now)
     switch (ev.event)
       {
       case EVENT_RELOAD:
+	daemon->soa_sn++; /* Bump zone serial, as it may have changed. */
+	
 #ifdef HAVE_DNSSEC
-	if (option_bool(OPT_DNSSEC_VALID) && option_bool(OPT_DNSSEC_TIME))
+	if (daemon->dnssec_no_time_check && option_bool(OPT_DNSSEC_VALID) && option_bool(OPT_DNSSEC_TIME))
 	  {
 	    my_syslog(LOG_INFO, _("now checking DNSSEC signature timestamps"));
-	    reset_option_bool(OPT_DNSSEC_TIME);
+	    daemon->dnssec_no_time_check = 0;
 	  } 
 #endif
 	/* fall through */

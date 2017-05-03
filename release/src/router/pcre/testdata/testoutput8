@@ -7777,4 +7777,28 @@ Matched, but offsets vector is too small to show all matches
  1: aaa
  2: aa
 
+'\A(?:[^\"]++|\"(?:[^\"]*+|\"\")*+\")++'
+    NON QUOTED \"QUOT\"\"ED\" AFTER \"NOT MATCHED
+ 0: NON QUOTED "QUOT""ED" AFTER 
+
+'\A(?:[^\"]++|\"(?:[^\"]++|\"\")*+\")++'
+    NON QUOTED \"QUOT\"\"ED\" AFTER \"NOT MATCHED
+ 0: NON QUOTED "QUOT""ED" AFTER 
+
+/(?(?!)a|b)/
+    bbb
+ 0: b
+    aaa 
+No match
+
+/()()a+/O=
+    aaa\D
+** Show all captures ignored after DFA matching
+ 0: aaa
+ 1: aa
+ 2: a
+    a\D
+** Show all captures ignored after DFA matching
+ 0: a
+
 /-- End of testinput8 --/

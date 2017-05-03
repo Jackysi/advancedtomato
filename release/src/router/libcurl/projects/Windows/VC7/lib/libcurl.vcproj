@@ -448,7 +448,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalOptions="/MACHINE:I386 /FIXED:NO"
-				AdditionalDependencies="wldap32.lib ws2_32.lib"
+				AdditionalDependencies="wldap32.lib ws2_32.lib crypt32.lib"
 				OutputFile="$(OutDir)\$(ProjectName).dll"
 				LinkIncremental="1"
 				SuppressStartupBanner="TRUE"
@@ -499,7 +499,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalOptions="/MACHINE:I386 /FIXED:NO"
-				AdditionalDependencies="wldap32.lib ws2_32.lib"
+				AdditionalDependencies="wldap32.lib ws2_32.lib crypt32.lib"
 				OutputFile="$(OutDir)\$(ProjectName)d.dll"
 				LinkIncremental="1"
 				SuppressStartupBanner="TRUE"
@@ -943,7 +943,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalOptions="/MACHINE:I386 /FIXED:NO"
-				AdditionalDependencies="normaliz.lib wldap32.lib ws2_32.lib"
+				AdditionalDependencies="normaliz.lib wldap32.lib ws2_32.lib crypt32.lib"
 				OutputFile="$(OutDir)\$(ProjectName)d.dll"
 				LinkIncremental="1"
 				SuppressStartupBanner="TRUE"
@@ -995,7 +995,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalOptions="/MACHINE:I386 /FIXED:NO"
-				AdditionalDependencies="normaliz.lib wldap32.lib ws2_32.lib"
+				AdditionalDependencies="normaliz.lib wldap32.lib ws2_32.lib crypt32.lib"
 				OutputFile="$(OutDir)\$(ProjectName).dll"
 				LinkIncremental="1"
 				SuppressStartupBanner="TRUE"
@@ -1323,7 +1323,7 @@
 				RelativePath="..\..\..\..\lib\progress.c">
 			</File>
 			<File
-				RelativePath="..\..\..\..\lib\rawstr.c">
+				RelativePath="..\..\..\..\lib\rand.c">
 			</File>
 			<File
 				RelativePath="..\..\..\..\lib\rtsp.c">
@@ -1368,10 +1368,10 @@
 				RelativePath="..\..\..\..\lib\ssh.c">
 			</File>
 			<File
-				RelativePath="..\..\..\..\lib\strdup.c">
+				RelativePath="..\..\..\..\lib\strcase.c">
 			</File>
 			<File
-				RelativePath="..\..\..\..\lib\strequal.c">
+				RelativePath="..\..\..\..\lib\strdup.c">
 			</File>
 			<File
 				RelativePath="..\..\..\..\lib\strerror.c">
@@ -1627,7 +1627,7 @@
 				RelativePath="..\..\..\..\lib\progress.h">
 			</File>
 			<File
-				RelativePath="..\..\..\..\lib\rawstr.h">
+				RelativePath="..\..\..\..\lib\rand.h">
 			</File>
 			<File
 				RelativePath="..\..\..\..\lib\rtsp.h">
@@ -1672,10 +1672,10 @@
 				RelativePath="..\..\..\..\lib\ssh.h">
 			</File>
 			<File
-				RelativePath="..\..\..\..\lib\strdup.h">
+				RelativePath="..\..\..\..\lib\strcase.h">
 			</File>
 			<File
-				RelativePath="..\..\..\..\lib\strequal.h">
+				RelativePath="..\..\..\..\lib\strdup.h">
 			</File>
 			<File
 				RelativePath="..\..\..\..\lib\strerror.h">

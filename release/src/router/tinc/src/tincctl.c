@@ -1,6 +1,6 @@
 /*
     tincctl.c -- Controlling a running tincd
-    Copyright (C) 2007-2014 Guus Sliepen <guus@tinc-vpn.org>
+    Copyright (C) 2007-2016 Guus Sliepen <guus@tinc-vpn.org>
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -31,6 +31,7 @@
 #include "control_common.h"
 #include "crypto.h"
 #include "ecdsagen.h"
+#include "fsck.h"
 #include "info.h"
 #include "invitation.h"
 #include "names.h"
@@ -66,7 +67,7 @@ char line[4096];
 static int code;
 static int req;
 static int result;
-static bool force = false;
+bool force = false;
 bool tty = true;
 bool confbasegiven = false;
 bool netnamegiven = false;
@@ -87,8 +88,8 @@ static struct option const long_options[] = {
 
 static void version(void) {
 	printf("%s version %s (built %s %s, protocol %d.%d)\n", PACKAGE,
-		   VERSION, BUILD_DATE, BUILD_TIME, PROT_MAJOR, PROT_MINOR);
-	printf("Copyright (C) 1998-2014 Ivo Timmermans, Guus Sliepen and others.\n"
+		   BUILD_VERSION, BUILD_DATE, BUILD_TIME, PROT_MAJOR, PROT_MINOR);
+	printf("Copyright (C) 1998-2016 Ivo Timmermans, Guus Sliepen and others.\n"
 			"See the AUTHORS file for a complete list.\n\n"
 			"tinc comes with ABSOLUTELY NO WARRANTY.  This is free software,\n"
 			"and you are welcome to redistribute it under certain conditions;\n"
@@ -105,6 +106,7 @@ static void usage(bool status) {
 				"  -c, --config=DIR        Read configuration options from DIR.\n"
 				"  -n, --net=NETNAME       Connect to net NETNAME.\n"
 				"      --pidfile=FILENAME  Read control cookie from FILENAME.\n"
+				"      --force             Force some commands to work despite warnings.\n"
 				"      --help              Display this help and exit.\n"
 				"      --version           Output version information and exit.\n"
 				"\n"
@@ -119,8 +121,12 @@ static void usage(bool status) {
 				"  restart [tincd options]    Restart tincd.\n"
 				"  reload                     Partially reload configuration of running tincd.\n"
 				"  pid                        Show PID of currently running tincd.\n"
+#ifdef DISABLE_LEGACY
+				"  generate-keys              Generate a new Ed25519 public/private keypair.\n"
+#else
 				"  generate-keys [bits]       Generate new RSA and Ed25519 public/private keypairs.\n"
 				"  generate-rsa-keys [bits]   Generate a new RSA public/private keypair.\n"
+#endif
 				"  generate-ed25519-keys      Generate a new Ed25519 public/private keypair.\n"
 				"  dump                       Dump a list of one of the following things:\n"
 				"    [reachable] nodes        - all known nodes in the VPN\n"
@@ -128,6 +134,7 @@ static void usage(bool status) {
 				"    subnets                  - all known subnets in the VPN\n"
 				"    connections              - all meta connections with ourself\n"
 				"    [di]graph                - graph of the VPN in dotty format\n"
+				"    invitations              - outstanding invitations\n"
 				"  info NODE|SUBNET|ADDRESS   Give information about a particular NODE, SUBNET or ADDRESS.\n"
 				"  purge                      Purge unreachable nodes\n"
 				"  debug N                    Set debug level\n"
@@ -140,12 +147,15 @@ static void usage(bool status) {
 				"  log [level]                Dump log output [up to the specified level]\n"
 				"  export                     Export host configuration of local node to standard output\n"
 				"  export-all                 Export all host configuration files to standard output\n"
-				"  import [--force]           Import host configuration file(s) from standard input\n"
-				"  exchange [--force]         Same as export followed by import\n"
-				"  exchange-all [--force]     Same as export-all followed by import\n"
+				"  import                     Import host configuration file(s) from standard input\n"
+				"  exchange                   Same as export followed by import\n"
+				"  exchange-all               Same as export-all followed by import\n"
 				"  invite NODE [...]          Generate an invitation for NODE\n"
-				"  join INVITATION            Join a VPN using an INVITIATION\n"
+				"  join INVITATION            Join a VPN using an INVITATION\n"
 				"  network [NETNAME]          List all known networks, or switch to the one named NETNAME.\n"
+				"  fsck                       Check the configuration files for problems.\n"
+				"  sign [FILE]                Generate a signed version of a file.\n"
+				"  verify NODE [FILE]         Verify that a file was signed by the given NODE.\n"
 				"\n");
 		printf("Report bugs to tinc@tinc-vpn.org.\n");
 	}
@@ -225,6 +235,12 @@ FILE *fopenmask(const char *filename, const char *mode, mode_t perms) {
 	perms &= ~mask;
 	umask(~perms);
 	FILE *f = fopen(filename, mode);
+
+	if(!f) {
+		fprintf(stderr, "Could not open %s: %s\n", filename, strerror(errno));
+		return NULL;
+	}
+
 #ifdef HAVE_FCHMOD
 	if((perms & 0444) && f)
 		fchmod(fileno(f), perms);
@@ -314,7 +330,7 @@ static void disable_old_keys(const char *filename, const char *what) {
 
 static FILE *ask_and_open(const char *filename, const char *what, const char *mode, bool ask, mode_t perms) {
 	FILE *r;
-	char *directory;
+	char directory[PATH_MAX] = ".";
 	char buf[PATH_MAX];
 	char buf2[PATH_MAX];
 
@@ -342,7 +358,7 @@ static FILE *ask_and_open(const char *filename, const char *what, const char *mo
 	if(filename[0] != '/') {
 #endif
 		/* The directory is a relative path or a filename. */
-		directory = get_current_dir_name();
+		getcwd(directory, sizeof directory);
 		snprintf(buf2, sizeof buf2, "%s" SLASH "%s", directory, filename);
 		filename = buf2;
 	}
@@ -368,7 +384,7 @@ static FILE *ask_and_open(const char *filename, const char *what, const char *mo
 static bool ed25519_keygen(bool ask) {
 	ecdsa_t *key;
 	FILE *f;
-	char *pubname, *privname;
+	char fname[PATH_MAX];
 
 	fprintf(stderr, "Generating Ed25519 keypair:\n");
 
@@ -378,29 +394,25 @@ static bool ed25519_keygen(bool ask) {
 	} else
 		fprintf(stderr, "Done.\n");
 
-	xasprintf(&privname, "%s" SLASH "ed25519_key.priv", confbase);
-	f = ask_and_open(privname, "private Ed25519 key", "a", ask, 0600);
-	free(privname);
+	snprintf(fname, sizeof fname, "%s" SLASH "ed25519_key.priv", confbase);
+	f = ask_and_open(fname, "private Ed25519 key", "a", ask, 0600);
 
 	if(!f)
-		return false;
+		goto error;
 
 	if(!ecdsa_write_pem_private_key(key, f)) {
 		fprintf(stderr, "Error writing private key!\n");
-		ecdsa_free(key);
-		fclose(f);
-		return false;
+		goto error;
 	}
 
 	fclose(f);
 
 	if(name)
-		xasprintf(&pubname, "%s" SLASH "hosts" SLASH "%s", confbase, name);
+		snprintf(fname, sizeof fname, "%s" SLASH "hosts" SLASH "%s", confbase, name);
 	else
-		xasprintf(&pubname, "%s" SLASH "ed25519_key.pub", confbase);
+		snprintf(fname, sizeof fname, "%s" SLASH "ed25519_key.pub", confbase);
 
-	f = ask_and_open(pubname, "public Ed25519 key", "a", ask, 0666);
-	free(pubname);
+	f = ask_and_open(fname, "public Ed25519 key", "a", ask, 0666);
 
 	if(!f)
 		return false;
@@ -413,8 +425,15 @@ static bool ed25519_keygen(bool ask) {
 	ecdsa_free(key);
 
 	return true;
+
+error:
+	if(f)
+		fclose(f);
+	ecdsa_free(key);
+	return false;
 }
 
+#ifndef DISABLE_LEGACY
 /*
   Generate a public/private RSA keypair, and ask for a file to store
   them in.
@@ -422,7 +441,7 @@ static bool ed25519_keygen(bool ask) {
 static bool rsa_keygen(int bits, bool ask) {
 	rsa_t *key;
 	FILE *f;
-	char *pubname, *privname;
+	char fname[PATH_MAX];
 
 	// Make sure the key size is a multiple of 8 bits.
 	bits &= ~0x7;
@@ -441,45 +460,46 @@ static bool rsa_keygen(int bits, bool ask) {
 	} else
 		fprintf(stderr, "Done.\n");
 
-	xasprintf(&privname, "%s" SLASH "rsa_key.priv", confbase);
-	f = ask_and_open(privname, "private RSA key", "a", ask, 0600);
-	free(privname);
+	snprintf(fname, sizeof fname, "%s" SLASH "rsa_key.priv", confbase);
+	f = ask_and_open(fname, "private RSA key", "a", ask, 0600);
 
 	if(!f)
-		return false;
+		goto error;
 
 	if(!rsa_write_pem_private_key(key, f)) {
 		fprintf(stderr, "Error writing private key!\n");
-		fclose(f);
-		rsa_free(key);
-		return false;
+		goto error;
 	}
 
 	fclose(f);
 
 	if(name)
-		xasprintf(&pubname, "%s" SLASH "hosts" SLASH "%s", confbase, name);
+		snprintf(fname, sizeof fname, "%s" SLASH "hosts" SLASH "%s", confbase, name);
 	else
-		xasprintf(&pubname, "%s" SLASH "rsa_key.pub", confbase);
+		snprintf(fname, sizeof fname, "%s" SLASH "rsa_key.pub", confbase);
 
-	f = ask_and_open(pubname, "public RSA key", "a", ask, 0666);
-	free(pubname);
+	f = ask_and_open(fname, "public RSA key", "a", ask, 0666);
 
 	if(!f)
-		return false;
+		goto error;
 
 	if(!rsa_write_pem_public_key(key, f)) {
 		fprintf(stderr, "Error writing public key!\n");
-		fclose(f);
-		rsa_free(key);
-		return false;
+		goto error;
 	}
 
 	fclose(f);
 	rsa_free(key);
 
 	return true;
+
+error:
+	if(f)
+		fclose(f);
+	rsa_free(key);
+	return false;
 }
+#endif
 
 char buffer[4096];
 size_t blen = 0;
@@ -842,6 +862,13 @@ static int cmd_start(int argc, char *argv[]) {
 	}
 	return status;
 #else
+	int pfd[2] = {-1, -1};
+	if(socketpair(AF_UNIX, SOCK_STREAM, 0, pfd)) {
+		fprintf(stderr, "Could not create umbilical socket: %s\n", strerror(errno));
+		free(nargv);
+		return 1;
+	}
+
 	pid_t pid = fork();
 	if(pid == -1) {
 		fprintf(stderr, "Could not fork: %s\n", strerror(errno));
@@ -849,8 +876,15 @@ static int cmd_start(int argc, char *argv[]) {
 		return 1;
 	}
 
-	if(!pid)
+	if(!pid) {
+		close(pfd[0]);
+		char buf[100] = "";
+		snprintf(buf, sizeof buf, "%d", pfd[1]);
+		setenv("TINC_UMBILICAL", buf, true);
 		exit(execvp(c, nargv));
+	} else {
+		close(pfd[1]);
+	}
 
 	free(nargv);
 
@@ -858,12 +892,33 @@ static int cmd_start(int argc, char *argv[]) {
 #ifdef SIGINT
 	signal(SIGINT, SIG_IGN);
 #endif
+
+	// Pass all log messages from the umbilical to stderr.
+	// A nul-byte right before closure means tincd started succesfully.
+	bool failure = true;
+	char buf[1024];
+	ssize_t len;
+
+	while((len = read(pfd[0], buf, sizeof buf)) > 0) {
+		failure = buf[len - 1];
+		if(!failure)
+			len--;
+		write(2, buf, len);
+	}
+
+	if(len)
+		failure = true;
+
+	close(pfd[0]);
+
+	// Make sure the child process is really gone.
 	result = waitpid(pid, &status, 0);
+
 #ifdef SIGINT
 	signal(SIGINT, SIG_DFL);
 #endif
 
-	if(result != pid || !WIFEXITED(status) || WEXITSTATUS(status)) {
+	if(failure || result != pid || !WIFEXITED(status) || WEXITSTATUS(status)) {
 		fprintf(stderr, "Error starting %s\n", c);
 		return 1;
 	}
@@ -934,6 +989,65 @@ static int cmd_reload(int argc, char *argv[]) {
 
 }
 
+static int dump_invitations(void) {
+	char dname[PATH_MAX];
+	snprintf(dname, sizeof dname, "%s" SLASH "invitations", confbase);
+	DIR *dir = opendir(dname);
+	if(!dir) {
+		if(errno == ENOENT) {
+			fprintf(stderr, "No outstanding invitations.\n");
+			return 0;
+		}
+
+		fprintf(stderr, "Cannot not read directory %s: %s\n", dname, strerror(errno));
+		return 1;
+	}
+
+	struct dirent *ent;
+	bool found = false;
+
+	while((ent = readdir(dir))) {
+		char buf[MAX_STRING_SIZE];
+		if(b64decode(ent->d_name, buf, 24) != 18)
+			continue;
+
+		char fname[PATH_MAX];
+		snprintf(fname, sizeof fname, "%s" SLASH "%s", dname, ent->d_name);
+		FILE *f = fopen(fname, "r");
+		if(!f) {
+			fprintf(stderr, "Cannot open %s: %s\n", fname, strerror(errno));
+			fclose(f);
+			continue;
+		}
+
+		buf[0] = 0;
+		if(!fgets(buf, sizeof buf, f)) {
+			fprintf(stderr, "Invalid invitation file %s", fname);
+			fclose(f);
+			continue;
+		}
+		fclose(f);
+
+		char *eol = buf + strlen(buf);
+		while(strchr("\t \r\n", *--eol))
+			*eol = 0;
+		if(strncmp(buf, "Name = ", 7) || !check_id(buf + 7)) {
+			fprintf(stderr, "Invalid invitation file %s", fname);
+			continue;
+		}
+
+		found = true;
+		printf("%s %s\n", ent->d_name, buf + 7);
+	}
+
+	closedir(dir);
+
+	if(!found)
+		fprintf(stderr, "No outstanding invitations.\n");
+
+	return 0;
+}
+
 static int cmd_dump(int argc, char *argv[]) {
 	bool only_reachable = false;
 
@@ -953,6 +1067,9 @@ static int cmd_dump(int argc, char *argv[]) {
 		usage(true);
 		return 1;
 	}
+
+	if(!strcasecmp(argv[1], "invitations"))
+		return dump_invitations();
 
 	if(!connect_tincd(true))
 		return 1;
@@ -1316,6 +1433,29 @@ char *get_my_name(bool verbose) {
 	return NULL;
 }
 
+ecdsa_t *get_pubkey(FILE *f) {
+	char buf[4096];
+	char *value;
+	while(fgets(buf, sizeof buf, f)) {
+		int len = strcspn(buf, "\t =");
+		value = buf + len;
+		value += strspn(value, "\t ");
+		if(*value == '=') {
+			value++;
+			value += strspn(value, "\t ");
+		}
+		if(!rstrip(value))
+			continue;
+		buf[len] = 0;
+		if(strcasecmp(buf, "Ed25519PublicKey"))
+			continue;
+		if(*value)
+			return ecdsa_set_base64_public_key(value);
+	}
+
+	return NULL;
+}
+
 const var_t variables[] = {
 	/* Server configuration */
 	{"AddressFamily", VAR_SERVER},
@@ -1358,8 +1498,17 @@ const var_t variables[] = {
 	{"ScriptsInterpreter", VAR_SERVER},
 	{"StrictSubnets", VAR_SERVER},
 	{"TunnelServer", VAR_SERVER},
+	{"UDPDiscovery", VAR_SERVER},
+	{"UDPDiscoveryKeepaliveInterval", VAR_SERVER},
+	{"UDPDiscoveryInterval", VAR_SERVER},
+	{"UDPDiscoveryTimeout", VAR_SERVER},
+	{"MTUInfoInterval", VAR_SERVER},
+	{"UDPInfoInterval", VAR_SERVER},
 	{"UDPRcvBuf", VAR_SERVER},
 	{"UDPSndBuf", VAR_SERVER},
+	{"UPnP", VAR_SERVER},
+	{"UPnPDiscoverWait", VAR_SERVER},
+	{"UPnPRefreshPeriod", VAR_SERVER},
 	{"VDEGroup", VAR_SERVER},
 	{"VDEPort", VAR_SERVER},
 	/* Host configuration */
@@ -1519,11 +1668,11 @@ static int cmd_config(int argc, char *argv[]) {
 	}
 
 	// Open the right configuration file.
-	char *filename;
+	char filename[PATH_MAX];
 	if(node)
-		xasprintf(&filename, "%s" SLASH "%s", hosts_dir, node);
+		snprintf(filename, sizeof filename, "%s" SLASH "%s", hosts_dir, node);
 	else
-		filename = tinc_conf;
+		snprintf(filename, sizeof filename, "%s", tinc_conf);
 
 	FILE *f = fopen(filename, "r");
 	if(!f) {
@@ -1531,11 +1680,11 @@ static int cmd_config(int argc, char *argv[]) {
 		return 1;
 	}
 
-	char *tmpfile = NULL;
+	char tmpfile[PATH_MAX];
 	FILE *tf = NULL;
 
 	if(action >= -1) {
-		xasprintf(&tmpfile, "%s.config.tmp", filename);
+		snprintf(tmpfile, sizeof tmpfile, "%s.config.tmp", filename);
 		tf = fopen(tmpfile, "w");
 		if(!tf) {
 			fprintf(stderr, "Could not open temporary file %s: %s\n", tmpfile, strerror(errno));
@@ -1598,6 +1747,11 @@ static int cmd_config(int argc, char *argv[]) {
 				}
 				set = true;
 				continue;
+			// Add
+			} else if(action > 0) {
+				// Check if we've already seen this variable with the same value
+				if(!strcasecmp(bvalue, value))
+					found = true;
 			}
 		}
 
@@ -1630,7 +1784,7 @@ static int cmd_config(int argc, char *argv[]) {
 	}
 
 	// Add new variable if necessary.
-	if(action > 0 || (action == 0 && !set)) {
+	if((action > 0 && !found)|| (action == 0 && !set)) {
 		if(fprintf(tf, "%s = %s\n", variable, value) < 0) {
 			fprintf(stderr, "Error writing to temporary file %s: %s\n", tmpfile, strerror(errno));
 			return 1;
@@ -1679,7 +1833,7 @@ static int cmd_config(int argc, char *argv[]) {
 }
 
 static bool try_bind(int port) {
-	struct addrinfo *ai = NULL;
+	struct addrinfo *ai = NULL, *aip;
 	struct addrinfo hint = {
 		.ai_flags = AI_PASSIVE,
 		.ai_family = AF_UNSPEC,
@@ -1687,24 +1841,30 @@ static bool try_bind(int port) {
 		.ai_protocol = IPPROTO_TCP,
 	};
 
+	bool success = true;
 	char portstr[16];
 	snprintf(portstr, sizeof portstr, "%d", port);
 
 	if(getaddrinfo(NULL, portstr, &hint, &ai) || !ai)
 		return false;
 
-	while(ai) {
+	for(aip = ai; aip; aip = aip->ai_next) {
 		int fd = socket(ai->ai_family, SOCK_STREAM, IPPROTO_TCP);
-		if(!fd)
-			return false;
+		if(!fd) {
+			success = false;
+			break;
+		}
+
 		int result = bind(fd, ai->ai_addr, ai->ai_addrlen);
 		closesocket(fd);
-		if(result)
-			return false;
-		ai = ai->ai_next;
+		if(result) {
+			success = false;
+			break;
+		}
 	}
 
-	return true;
+	freeaddrinfo(ai);
+	return success;
 }
 
 int check_port(char *name) {
@@ -1716,11 +1876,11 @@ int check_port(char *name) {
 	for(int i = 0; i < 100; i++) {
 		int port = 0x1000 + (rand() & 0x7fff);
 		if(try_bind(port)) {
-			char *filename;
-			xasprintf(&filename, "%s" SLASH "hosts" SLASH "%s", confbase, name);
+			char filename[PATH_MAX];
+			snprintf(filename, sizeof filename, "%s" SLASH "hosts" SLASH "%s", confbase, name);
 			FILE *f = fopen(filename, "a");
-			free(filename);
 			if(!f) {
+				fprintf(stderr, "Could not open %s: %s\n", filename, strerror(errno));
 				fprintf(stderr, "Please change tinc's Port manually.\n");
 				return 0;
 			}
@@ -1800,14 +1960,19 @@ static int cmd_init(int argc, char *argv[]) {
 	fprintf(f, "Name = %s\n", name);
 	fclose(f);
 
-	if(!rsa_keygen(2048, false) || !ed25519_keygen(false))
+#ifndef DISABLE_LEGACY
+	if(!rsa_keygen(2048, false))
+		return 1;
+#endif
+
+	if(!ed25519_keygen(false))
 		return 1;
 
 	check_port(name);
 
 #ifndef HAVE_MINGW
-	char *filename;
-	xasprintf(&filename, "%s" SLASH "tinc-up", confbase);
+	char filename[PATH_MAX];
+	snprintf(filename, sizeof filename, "%s" SLASH "tinc-up", confbase);
 	if(access(filename, F_OK)) {
 		FILE *f = fopenmask(filename, "w", 0777);
 		if(!f) {
@@ -1824,7 +1989,11 @@ static int cmd_init(int argc, char *argv[]) {
 }
 
 static int cmd_generate_keys(int argc, char *argv[]) {
+#ifdef DISABLE_LEGACY
+	if(argc > 1) {
+#else
 	if(argc > 2) {
+#endif
 		fprintf(stderr, "Too many arguments!\n");
 		return 1;
 	}
@@ -1832,9 +2001,18 @@ static int cmd_generate_keys(int argc, char *argv[]) {
 	if(!name)
 		name = get_my_name(false);
 
-	return !(rsa_keygen(argc > 1 ? atoi(argv[1]) : 2048, true) && ed25519_keygen(true));
+#ifndef DISABLE_LEGACY
+	if(!rsa_keygen(argc > 1 ? atoi(argv[1]) : 2048, true))
+		return 1;
+#endif
+
+	if(!ed25519_keygen(true))
+		return 1;
+
+	return 0;
 }
 
+#ifndef DISABLE_LEGACY
 static int cmd_generate_rsa_keys(int argc, char *argv[]) {
 	if(argc > 2) {
 		fprintf(stderr, "Too many arguments!\n");
@@ -1846,6 +2024,7 @@ static int cmd_generate_rsa_keys(int argc, char *argv[]) {
 
 	return !rsa_keygen(argc > 1 ? atoi(argv[1]) : 2048, true);
 }
+#endif
 
 static int cmd_generate_ed25519_keys(int argc, char *argv[]) {
 	if(argc > 1) {
@@ -1903,12 +2082,12 @@ static int cmd_edit(int argc, char *argv[]) {
 		return 1;
 	}
 
-	char *filename = NULL;
+	char filename[PATH_MAX] = "";
 
 	if(strncmp(argv[1], "hosts" SLASH, 6)) {
 		for(int i = 0; conffiles[i]; i++) {
 			if(!strcmp(argv[1], conffiles[i])) {
-				xasprintf(&filename, "%s" SLASH "%s", confbase, argv[1]);
+				snprintf(filename, sizeof filename, "%s" SLASH "%s", confbase, argv[1]);
 				break;
 			}
 		}
@@ -1916,8 +2095,8 @@ static int cmd_edit(int argc, char *argv[]) {
 		argv[1] += 6;
 	}
 
-	if(!filename) {
-		xasprintf(&filename, "%s" SLASH "%s", hosts_dir, argv[1]);
+	if(!*filename) {
+		snprintf(filename, sizeof filename, "%s" SLASH "%s", hosts_dir, argv[1]);
 		char *dash = strchr(argv[1], '-');
 		if(dash) {
 			*dash++ = 0;
@@ -1935,6 +2114,7 @@ static int cmd_edit(int argc, char *argv[]) {
 	xasprintf(&command, "edit \"%s\"", filename);
 #endif
 	int result = system(command);
+	free(command);
 	if(result)
 		return result;
 
@@ -1946,8 +2126,8 @@ static int cmd_edit(int argc, char *argv[]) {
 }
 
 static int export(const char *name, FILE *out) {
-	char *filename;
-	xasprintf(&filename, "%s" SLASH "%s", hosts_dir, name);
+	char filename[PATH_MAX];
+	snprintf(filename, sizeof filename, "%s" SLASH "%s", hosts_dir, name);
 	FILE *in = fopen(filename, "r");
 	if(!in) {
 		fprintf(stderr, "Could not open configuration file %s: %s\n", filename, strerror(errno));
@@ -2034,7 +2214,7 @@ static int cmd_import(int argc, char *argv[]) {
 
 	char buf[4096];
 	char name[4096];
-	char *filename = NULL;
+	char filename[PATH_MAX] = "";
 	int count = 0;
 	bool firstline = true;
 
@@ -2050,8 +2230,7 @@ static int cmd_import(int argc, char *argv[]) {
 			if(out)
 				fclose(out);
 
-			free(filename);
-			xasprintf(&filename, "%s" SLASH "%s", hosts_dir, name);
+			snprintf(filename, sizeof filename, "%s" SLASH "%s", hosts_dir, name);
 
 			if(!force && !access(filename, F_OK)) {
 				fprintf(stderr, "Host configuration file %s already exists, skipping.\n", filename);
@@ -2105,27 +2284,29 @@ static int cmd_exchange_all(int argc, char *argv[]) {
 }
 
 static int switch_network(char *name) {
+	if(strcmp(name, ".")) {
+		if(!check_netname(name, false)) {
+			fprintf(stderr, "Invalid character in netname!\n");
+			return 1;
+		}
+
+		if(!check_netname(name, true))
+			fprintf(stderr, "Warning: unsafe character in netname!\n");
+	}
+
 	if(fd >= 0) {
 		close(fd);
 		fd = -1;
 	}
 
-	free(confbase);
-	confbase = NULL;
-	free(pidfilename);
-	pidfilename = NULL;
-	free(logfilename);
-	logfilename = NULL;
-	free(unixsocketname);
-	unixsocketname = NULL;
+	free_names();
+	netname = strcmp(name, ".") ? xstrdup(name) : NULL;
+	make_names(false);
+
 	free(tinc_conf);
 	free(hosts_dir);
 	free(prompt);
 
-	free(netname);
-	netname = strcmp(name, ".") ? xstrdup(name) : NULL;
-
-	make_names();
         xasprintf(&tinc_conf, "%s" SLASH "tinc.conf", confbase);
         xasprintf(&hosts_dir, "%s" SLASH "hosts", confbase);
 	xasprintf(&prompt, "%s> ", identname);
@@ -2158,15 +2339,248 @@ static int cmd_network(int argc, char *argv[]) {
 			continue;
 		}
 
-		char *fname;
-		xasprintf(&fname, "%s/%s/tinc.conf", confdir, ent->d_name);
+		char fname[PATH_MAX];
+		snprintf(fname, sizeof fname, "%s/%s/tinc.conf", confdir, ent->d_name);
 		if(!access(fname, R_OK))
 			printf("%s\n", ent->d_name);
-		free(fname);
 	}
 
 	closedir(dir);
 
+	return 0;
+}
+
+static int cmd_fsck(int argc, char *argv[]) {
+	if(argc > 1) {
+		fprintf(stderr, "Too many arguments!\n");
+		return 1;
+	}
+
+	return fsck(orig_argv[0]);
+}
+
+static void *readfile(FILE *in, size_t *len) {
+	size_t count = 0;
+	size_t alloced = 4096;
+	char *buf = xmalloc(alloced);
+
+	while(!feof(in)) {
+		size_t read = fread(buf + count, 1, alloced - count, in);
+		if(!read)
+			break;
+		count += read;
+		if(count >= alloced) {
+			alloced *= 2;
+			buf = xrealloc(buf, alloced);
+		}
+	}
+
+	if(len)
+		*len = count;
+
+	return buf;
+}
+
+static int cmd_sign(int argc, char *argv[]) {
+	if(argc > 2) {
+		fprintf(stderr, "Too many arguments!\n");
+		return 1;
+	}
+
+	if(!name) {
+		name = get_my_name(true);
+		if(!name)
+			return 1;
+	}
+
+	char fname[PATH_MAX];
+	snprintf(fname, sizeof fname, "%s" SLASH "ed25519_key.priv", confbase);
+	FILE *fp = fopen(fname, "r");
+	if(!fp) {
+		fprintf(stderr, "Could not open %s: %s\n", fname, strerror(errno));
+		return 1;
+	}
+
+	ecdsa_t *key = ecdsa_read_pem_private_key(fp);
+
+	if(!key) {
+		fprintf(stderr, "Could not read private key from %s\n", fname);
+		fclose(fp);
+		return 1;
+	}
+
+	fclose(fp);
+
+	FILE *in;
+
+	if(argc == 2) {
+		in = fopen(argv[1], "rb");
+		if(!in) {
+			fprintf(stderr, "Could not open %s: %s\n", argv[1], strerror(errno));
+			ecdsa_free(key);
+			return 1;
+		}
+	} else {
+		in = stdin;
+	}
+
+	size_t len;
+	char *data = readfile(in, &len);
+	if(in != stdin)
+		fclose(in);
+	if(!data) {
+		fprintf(stderr, "Error reading %s: %s\n", argv[1], strerror(errno));
+		ecdsa_free(key);
+		return 1;
+	}
+
+	// Ensure we sign our name and current time as well
+	long t = time(NULL);
+	char *trailer;
+	xasprintf(&trailer, " %s %ld", name, t);
+	int trailer_len = strlen(trailer);
+
+	data = xrealloc(data, len + trailer_len);
+	memcpy(data + len, trailer, trailer_len);
+	free(trailer);
+
+	char sig[87];
+	if(!ecdsa_sign(key, data, len + trailer_len, sig)) {
+		fprintf(stderr, "Error generating signature\n");
+		free(data);
+		ecdsa_free(key);
+		return 1;
+	}
+	b64encode(sig, sig, 64);
+	ecdsa_free(key);
+
+	fprintf(stdout, "Signature = %s %ld %s\n", name, t, sig);
+	fwrite(data, len, 1, stdout);
+
+	free(data);
+	return 0;
+}
+
+static int cmd_verify(int argc, char *argv[]) {
+	if(argc < 2) {
+		fprintf(stderr, "Not enough arguments!\n");
+		return 1;
+	}
+
+	if(argc > 3) {
+		fprintf(stderr, "Too many arguments!\n");
+		return 1;
+	}
+
+	char *node = argv[1];
+	if(!strcmp(node, ".")) {
+		if(!name) {
+			name = get_my_name(true);
+			if(!name)
+				return 1;
+		}
+		node = name;
+	} else if(!strcmp(node, "*")) {
+		node = NULL;
+	} else {
+		if(!check_id(node)) {
+			fprintf(stderr, "Invalid node name\n");
+			return 1;
+		}
+	}
+
+	FILE *in;
+
+	if(argc == 3) {
+		in = fopen(argv[2], "rb");
+		if(!in) {
+			fprintf(stderr, "Could not open %s: %s\n", argv[2], strerror(errno));
+			return 1;
+		}
+	} else {
+		in = stdin;
+	}
+
+	size_t len;
+	char *data = readfile(in, &len);
+	if(in != stdin)
+		fclose(in);
+	if(!data) {
+		fprintf(stderr, "Error reading %s: %s\n", argv[1], strerror(errno));
+		return 1;
+	}
+
+	char *newline = memchr(data, '\n', len);
+	if(!newline || (newline - data > MAX_STRING_SIZE - 1)) {
+		fprintf(stderr, "Invalid input\n");
+		return 1;
+	}
+
+	*newline++ = '\0';
+	size_t skip = newline - data;
+
+	char signer[MAX_STRING_SIZE] = "";
+	char sig[MAX_STRING_SIZE] = "";
+	long t = 0;
+
+	if(sscanf(data, "Signature = %s %ld %s", signer, &t, sig) != 3 || strlen(sig) != 86 || !t || !check_id(signer)) {
+		fprintf(stderr, "Invalid input\n");
+		return 1;
+	}
+
+	if(node && strcmp(node, signer)) {
+		fprintf(stderr, "Signature is not made by %s\n", node);
+		return 1;
+	}
+
+	if(!node)
+		node = signer;
+
+	char *trailer;
+	xasprintf(&trailer, " %s %ld", signer, t);
+	int trailer_len = strlen(trailer);
+
+	data = xrealloc(data, len + trailer_len);
+	memcpy(data + len, trailer, trailer_len);
+	free(trailer);
+
+	newline = data + skip;
+
+	char fname[PATH_MAX];
+	snprintf(fname, sizeof fname, "%s" SLASH "hosts" SLASH "%s", confbase, node);
+	FILE *fp = fopen(fname, "r");
+	if(!fp) {
+		fprintf(stderr, "Could not open %s: %s\n", fname, strerror(errno));
+		free(data);
+		return 1;
+	}
+
+	ecdsa_t *key = get_pubkey(fp);
+	if(!key) {
+		rewind(fp);
+		key = ecdsa_read_pem_public_key(fp);
+	}
+	if(!key) {
+		fprintf(stderr, "Could not read public key from %s\n", fname);
+		fclose(fp);
+		free(data);
+		return 1;
+	}
+
+	fclose(fp);
+
+	if(b64decode(sig, sig, 86) != 64 || !ecdsa_verify(key, newline, len + trailer_len - (newline - data), sig)) {
+		fprintf(stderr, "Invalid signature\n");
+		free(data);
+		ecdsa_free(key);
+		return 1;
+	}
+
+	ecdsa_free(key);
+
+	fwrite(newline, len - (newline - data), 1, stdout);
+
+	free(data);
 	return 0;
 }
 
@@ -2180,6 +2594,7 @@ static const struct {
 	{"restart", cmd_restart},
 	{"reload", cmd_reload},
 	{"dump", cmd_dump},
+	{"list", cmd_dump},
 	{"purge", cmd_purge},
 	{"debug", cmd_debug},
 	{"retry", cmd_retry},
@@ -2196,7 +2611,9 @@ static const struct {
 	{"set", cmd_config},
 	{"init", cmd_init},
 	{"generate-keys", cmd_generate_keys},
+#ifndef DISABLE_LEGACY
 	{"generate-rsa-keys", cmd_generate_rsa_keys},
+#endif
 	{"generate-ed25519-keys", cmd_generate_ed25519_keys},
 	{"help", cmd_help},
 	{"version", cmd_version},
@@ -2210,6 +2627,9 @@ static const struct {
 	{"invite", cmd_invite},
 	{"join", cmd_join},
 	{"network", cmd_network},
+	{"fsck", cmd_fsck},
+	{"sign", cmd_sign},
+	{"verify", cmd_verify},
 	{NULL, NULL},
 };
 
@@ -2444,7 +2864,7 @@ int main(int argc, char *argv[]) {
 	if(!parse_options(argc, argv))
 		return 1;
 
-	make_names();
+	make_names(false);
 	xasprintf(&tinc_conf, "%s" SLASH "tinc.conf", confbase);
 	xasprintf(&hosts_dir, "%s" SLASH "hosts", confbase);
 

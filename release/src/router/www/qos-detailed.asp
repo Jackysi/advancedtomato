@@ -160,7 +160,7 @@ grid.sortCompare = function(a, b) {
 	var r;
 
 	switch (col) {
-	case 0:		// Proto
+	case 0:		// Protocol
 	case 2:		// S port
 	case 4:		// D port
 	case 6:		// Rule #
@@ -247,7 +247,7 @@ grid.setName = function(ip, name) {
 
 grid.setup = function() {
 	this.init('grid', 'sort');
-	this.headerSet(['Proto', 'Source', 'S Port', 'Destination', 'D Port', 'Class', 'Rule', 'Bytes Out', 'Bytes In']);
+	this.headerSet(['Protocol', 'Source', 'S Port', 'Destination', 'D Port', 'Class', 'Rule', 'Bytes Out', 'Bytes In']);
 }
 
 var ref = new TomatoRefresh('update.cgi', '', 0, 'qos_detailed');

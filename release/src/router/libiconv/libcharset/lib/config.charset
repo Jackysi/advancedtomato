@@ -13,10 +13,8 @@
 #   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 #   Library General Public License for more details.
 #
-#   You should have received a copy of the GNU Library General Public
-#   License along with this program; if not, write to the Free Software
-#   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
-#   USA.
+#   You should have received a copy of the GNU Library General Public License
+#   along with this program; if not, see <http://www.gnu.org/licenses/>.
 #
 # The table consists of lines of the form
 #    ALIAS  CANONICAL
@@ -31,6 +29,8 @@
 # The current list of GNU canonical charset names is as follows.
 #
 #       name              MIME?             used by which systems
+#                                    (darwin = Mac OS X, woe32 = native Windows)
+#
 #   ASCII, ANSI_X3.4-1968       glibc solaris freebsd netbsd darwin cygwin
 #   ISO-8859-1              Y   glibc aix hpux irix osf solaris freebsd netbsd openbsd darwin cygwin
 #   ISO-8859-2              Y   glibc aix hpux irix osf solaris freebsd netbsd openbsd darwin cygwin
@@ -348,12 +348,10 @@ case "$os" in
     #echo "sun_eu_greek ?" # what is this?
     echo "UTF-8 UTF-8"
     ;;
-  freebsd* | os2*)
+  freebsd*)
     # FreeBSD 4.2 doesn't have nl_langinfo(CODESET); therefore
     # localcharset.c falls back to using the full locale name
     # from the environment variables.
-    # Likewise for OS/2. OS/2 has XFree86 just like FreeBSD. Just
-    # reuse FreeBSD's locale data for OS/2.
     echo "C ASCII"
     echo "US-ASCII ASCII"
     for l in la_LN lt_LN; do

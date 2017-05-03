@@ -31,7 +31,7 @@
 .\"
 .TH idmapd.conf 5 "19 Nov 2008"
 .SH NAME
-idmapd.conf
+idmapd.conf \- configuration file for libnfsidmap
 .SH SYNOPSIS
 Configuration file for libnfsidmap.  Used by idmapd and svcgssd to map NFSv4 name to and from ids.
 .SH DESCRIPTION
@@ -234,7 +234,6 @@ Number of seconds before timing out an LDAP request
 .\" -------------------------------------------------------------------
 .\"
 .SH EXAMPLES
-."
 An example
 .I /etc/idmapd.conf
 file:
@@ -266,7 +265,7 @@ johndoe@OTHER.DOMAIN.ORG = johnny
 LDAP_server = ldap.domain.org
 LDAP_base = dc=org,dc=domain
 
-.fo
+.fi
 .\"
 .\" -------------------------------------------------------------------
 .\" Additional sections
@@ -275,11 +274,11 @@ LDAP_base = dc=org,dc=domain
 .SH SEE ALSO
 .BR idmapd (8)
 .BR svcgssd (8)
-.".SH COMPATIBILITY
-.".SH STANDARDS
-.".SH ACKNOWLEDGEMENTS
-.".SH AUTHORS
-.".SH HISTORY
+.\".SH COMPATIBILITY
+.\".SH STANDARDS
+.\".SH ACKNOWLEDGEMENTS
+.\".SH AUTHORS
+.\".SH HISTORY
 .SH BUGS
 Report bugs to <nfsv4@linux-nfs.org>
-.".SH CAVEATS
+.\".SH CAVEATS

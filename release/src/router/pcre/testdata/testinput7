@@ -835,4 +835,17 @@ of case for anything other than the ASCII letters. --/
 
 /[Q-U]+/8iWBZ 
 
+/^s?c/mi8I
+    scat
+
+/a[[:punct:]b]/WBZ
+
+/a[[:punct:]b]/8WBZ
+
+/a[b[:punct:]]/8WBZ
+
+/L(?#(|++<!(2)?/B8COZ
+
+/L(?#(|++<!(2)?/B8WCZ
+
 /-- End of testinput7 --/

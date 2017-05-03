@@ -82,7 +82,7 @@
 /* --------------------------------------------------------------------- */
 
 /* If SLJIT_STD_MACROS_DEFINED is not defined, the application should
-   define SLJIT_MALLOC, SLJIT_FREE, SLJIT_MEMMOVE, and NULL. */
+   define SLJIT_MALLOC, SLJIT_FREE, SLJIT_MEMCPY, and NULL. */
 #ifndef SLJIT_STD_MACROS_DEFINED
 /* Disabled by default. */
 #define SLJIT_STD_MACROS_DEFINED 0
@@ -90,10 +90,35 @@
 
 /* Executable code allocation:
    If SLJIT_EXECUTABLE_ALLOCATOR is not defined, the application should
-   define both SLJIT_MALLOC_EXEC and SLJIT_FREE_EXEC. */
+   define SLJIT_MALLOC_EXEC, SLJIT_FREE_EXEC, and SLJIT_ENABLE_EXEC. */
 #ifndef SLJIT_EXECUTABLE_ALLOCATOR
 /* Enabled by default. */
 #define SLJIT_EXECUTABLE_ALLOCATOR 1
+
+/* When SLJIT_PROT_EXECUTABLE_ALLOCATOR is enabled SLJIT uses
+   an allocator which does not set writable and executable
+   permission flags at the same time. The trade-of is increased
+   memory consumption and disabled dynamic code modifications. */
+#ifndef SLJIT_PROT_EXECUTABLE_ALLOCATOR
+/* Disabled by default. */
+#define SLJIT_PROT_EXECUTABLE_ALLOCATOR 0
+#endif
+
+#endif
+
+/* Force cdecl calling convention even if a better calling
+   convention (e.g. fastcall) is supported by the C compiler.
+   If this option is enabled, C functions without
+   SLJIT_CALL can also be called from JIT code. */
+#ifndef SLJIT_USE_CDECL_CALLING_CONVENTION
+/* Disabled by default */
+#define SLJIT_USE_CDECL_CALLING_CONVENTION 0
+#endif
+
+/* Return with error when an invalid argument is passed. */
+#ifndef SLJIT_ARGUMENT_CHECKS
+/* Disabled by default */
+#define SLJIT_ARGUMENT_CHECKS 0
 #endif
 
 /* Debug checks (assertions, etc.). */
@@ -102,7 +127,7 @@
 #define SLJIT_DEBUG 1
 #endif
 
-/* Verbose operations */
+/* Verbose operations. */
 #ifndef SLJIT_VERBOSE
 /* Enabled by default */
 #define SLJIT_VERBOSE 1

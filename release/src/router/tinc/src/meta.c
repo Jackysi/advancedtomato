@@ -30,6 +30,10 @@
 #include "utils.h"
 #include "xalloc.h"
 
+#ifndef MIN
+#define MIN(x, y) (((x)<(y))?(x):(y))
+#endif
+
 bool send_meta_sptps(void *handle, uint8_t type, const void *buffer, size_t length) {
 	connection_t *c = handle;
 
@@ -58,6 +62,9 @@ bool send_meta(connection_t *c, const char *buffer, int length) {
 
 	/* Add our data to buffer */
 	if(c->status.encryptout) {
+#ifdef DISABLE_LEGACY
+		return false;
+#else
 		size_t outlen = length;
 
 		if(!cipher_encrypt(c->outcipher, buffer, length, buffer_prepare(&c->outbuf, length), &outlen, false) || outlen != length) {
@@ -65,6 +72,7 @@ bool send_meta(connection_t *c, const char *buffer, int length) {
 					c->name, c->hostname);
 			return false;
 		}
+#endif
 	} else {
 		buffer_add(&c->outbuf, buffer, length);
 	}
@@ -72,6 +80,20 @@ bool send_meta(connection_t *c, const char *buffer, int length) {
 	io_set(&c->io, IO_READ | IO_WRITE);
 
 	return true;
+}
+
+void send_meta_raw(connection_t *c, const char *buffer, int length) {
+	if(!c) {
+		logger(DEBUG_ALWAYS, LOG_ERR, "send_meta() called with NULL pointer!");
+		abort();
+	}
+
+	logger(DEBUG_META, LOG_DEBUG, "Sending %d bytes of raw metadata to %s (%s)", length,
+			   c->name, c->hostname);
+
+	buffer_add(&c->outbuf, buffer, length);
+
+	io_set(&c->io, IO_READ | IO_WRITE);
 }
 
 void broadcast_meta(connection_t *from, const char *buffer, int length) {
@@ -155,8 +177,33 @@ bool receive_meta(connection_t *c) {
 	}
 
 	do {
-		if(c->protocol_minor >= 2)
-			return sptps_receive_data(&c->sptps, bufp, inlen);
+		/* Are we receiving a SPTPS packet? */
+
+		if(c->sptpslen) {
+			int len = MIN(inlen, c->sptpslen - c->inbuf.len);
+			buffer_add(&c->inbuf, bufp, len);
+
+			char *sptpspacket = buffer_read(&c->inbuf, c->sptpslen);
+			if(!sptpspacket)
+				return true;
+
+			if(!receive_tcppacket_sptps(c, sptpspacket, c->sptpslen))
+				return false;
+			c->sptpslen = 0;
+
+			bufp += len;
+			inlen -= len;
+			continue;
+		}
+
+		if(c->protocol_minor >= 2) {
+			int len = sptps_receive_data(&c->sptps, bufp, inlen);
+			if(!len)
+				return false;
+			bufp += len;
+			inlen -= len;
+			continue;
+		}
 
 		if(!c->status.decryptin) {
 			endp = memchr(bufp, '\n', inlen);
@@ -170,6 +217,9 @@ bool receive_meta(connection_t *c) {
 			inlen -= endp - bufp;
 			bufp = endp;
 		} else {
+#ifdef DISABLE_LEGACY
+			return false;
+#else
 			size_t outlen = inlen;
 
 			if(!cipher_decrypt(c->incipher, bufp, inlen, buffer_prepare(&c->inbuf, inlen), &outlen, false) || inlen != outlen) {
@@ -179,6 +229,7 @@ bool receive_meta(connection_t *c) {
 			}
 
 			inlen = 0;
+#endif
 		}
 
 		while(c->inbuf.len) {

@@ -2,23 +2,22 @@
 # Output a system dependent set of variables, describing how to set the
 # run time search path of shared libraries in an executable at run time.
 #
-#   Copyright 1996-2005 Free Software Foundation, Inc.
+#   Copyright 1996-2017 Free Software Foundation, Inc.
 #   Taken from GNU libtool, 2003
 #   Originally by Gordon Matzigkeit <gord@gnu.ai.mit.edu>, 1996
 #
-#   This program is free software; you can redistribute it and/or modify
+#   This program is free software: you can redistribute it and/or modify
 #   it under the terms of the GNU General Public License as published by
-#   the Free Software Foundation; either version 2 of the License, or
+#   the Free Software Foundation; either version 3 of the License, or
 #   (at your option) any later version.
 #
-#   This program is distributed in the hope that it will be useful, but
-#   WITHOUT ANY WARRANTY; without even the implied warranty of
-#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-#   General Public License for more details.
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License for more details.
 #
 #   You should have received a copy of the GNU General Public License
-#   along with this program; if not, write to the Free Software Foundation,
-#   Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+#   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 #   As a special exception to the GNU General Public License, if you
 #   distribute this file as part of a program that contains a
@@ -43,7 +42,7 @@ case $host_os in
   aix3*)
     shlibpath_var=LIBPATH
     ;;
-  aix4* | aix5*)
+  aix[4-9]*)
     if test "$host_cpu" = ia64; then
       # AIX 5 supports IA64
       shlibpath_var=LD_LIBRARY_PATH
@@ -54,29 +53,33 @@ case $host_os in
   beos*)
     shlibpath_var=LIBRARY_PATH
     ;;
-  bsdi4*)
+  bsdi[45]*)
     shlibpath_var=LD_LIBRARY_PATH
     ;;
-  cygwin* | mingw* | pw32*)
+  cygwin* | mingw* | pw32* | cegcc*)
     # FIXME: first we should search . and the directory the executable is in
     shlibpath_var=PATH
     ;;
   darwin* | rhapsody*)
     shlibpath_var=DYLD_LIBRARY_PATH
     ;;
-  freebsd1*)
-    ;;
-  kfreebsd*-gnu)
+  dgux*)
     shlibpath_var=LD_LIBRARY_PATH
     ;;
-  freebsd*)
+  freebsd* | dragonfly*)
     shlibpath_var=LD_LIBRARY_PATH
     ;;
   gnu*)
     shlibpath_var=LD_LIBRARY_PATH
     ;;
   hpux9* | hpux10* | hpux11*)
-    shlibpath_var=SHLIB_PATH
+    case "$host_cpu" in
+      ia64* | hppa*64*) shlibpath_var=LD_LIBRARY_PATH ;;
+      *) shlibpath_var=SHLIB_PATH ;;
+    esac
+    ;;
+  interix[3-9]*)
+    shlibpath_var=LD_LIBRARY_PATH
     ;;
   irix5* | irix6* | nonstopux*)
     case $host_os in
@@ -94,16 +97,18 @@ case $host_os in
     esac
     shlibpath_var=LD_LIBRARY${shlibsuff}_PATH
     ;;
-  linux-gnu*)
-    shlibpath_var=LD_LIBRARY_PATH
+  linux*oldld* | linux*aout* | linux*coff*)
     ;;
-  knetbsd*-gnu)
+  linux* | k*bsd*-gnu)
     shlibpath_var=LD_LIBRARY_PATH
     ;;
   netbsd*)
     shlibpath_var=LD_LIBRARY_PATH
     ;;
   newsos6)
+    shlibpath_var=LD_LIBRARY_PATH
+    ;;
+  nto-qnx*)
     shlibpath_var=LD_LIBRARY_PATH
     ;;
   openbsd*)
@@ -115,8 +120,7 @@ case $host_os in
   osf3* | osf4* | osf5*)
     shlibpath_var=LD_LIBRARY_PATH
     ;;
-  sco3.2v5*)
-    shlibpath_var=LD_LIBRARY_PATH
+  rdos*)
     ;;
   solaris*)
     shlibpath_var=LD_LIBRARY_PATH
@@ -124,19 +128,19 @@ case $host_os in
   sunos4*)
     shlibpath_var=LD_LIBRARY_PATH
     ;;
-  sysv4 | sysv4.2uw2* | sysv4.3* | sysv5*)
-    shlibpath_var=LD_LIBRARY_PATH
-    ;;
-  uts4*)
-    shlibpath_var=LD_LIBRARY_PATH
-    ;;
-  dgux*)
+  sysv4 | sysv4.3*)
     shlibpath_var=LD_LIBRARY_PATH
     ;;
   sysv4*MP*)
     if test -d /usr/nec ;then
       shlibpath_var=LD_LIBRARY_PATH
     fi
+    ;;
+  sysv5* | sco3.2v5* | sco5v6* | unixware* | OpenUNIX* | sysv4*uw2*)
+    shlibpath_var=LD_LIBRARY_PATH
+    ;;
+  uts4*)
+    shlibpath_var=LD_LIBRARY_PATH
     ;;
 esac
 

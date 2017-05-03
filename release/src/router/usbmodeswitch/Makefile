@@ -1,8 +1,8 @@
 PROG        = usb_modeswitch
-VERS        = 2.3.0
+VERS        = 2.5.0
 CC          ?= gcc
 CFLAGS      += -Wall
-LIBS        = -l usb-1.0
+LIBS        = `pkg-config --libs --cflags libusb-1.0`
 RM          = /bin/rm -f
 OBJS        = usb_modeswitch.c
 PREFIX      = $(DESTDIR)/usr

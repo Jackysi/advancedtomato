@@ -39,6 +39,9 @@ struct addrinfo *str2addrinfo(const char *address, const char *service, int sock
 	hint.ai_family = addressfamily;
 	hint.ai_socktype = socktype;
 
+#if HAVE_DECL_RES_INIT
+	res_init();
+#endif
 	err = getaddrinfo(address, service, &hint, &ai);
 
 	if(err) {
@@ -80,7 +83,13 @@ void sockaddr2str(const sockaddr_t *sa, char **addrstr, char **portstr) {
 	char *scopeid;
 	int err;
 
-	if(sa->sa.sa_family == AF_UNKNOWN) {
+	if(sa->sa.sa_family == AF_UNSPEC) {
+		if(addrstr)
+			*addrstr = xstrdup("unspec");
+		if(portstr)
+			*portstr = xstrdup("unspec");
+		return;
+	} else if(sa->sa.sa_family == AF_UNKNOWN) {
 		if(addrstr)
 			*addrstr = xstrdup(sa->unknown.address);
 		if(portstr)
@@ -112,7 +121,10 @@ char *sockaddr2hostname(const sockaddr_t *sa) {
 	char port[NI_MAXSERV] = "unknown";
 	int err;
 
-	if(sa->sa.sa_family == AF_UNKNOWN) {
+	if(sa->sa.sa_family == AF_UNSPEC) {
+		xasprintf(&str, "unspec port unspec");
+		return str;
+	} else if(sa->sa.sa_family == AF_UNKNOWN) {
 		xasprintf(&str, "%s port %s", sa->unknown.address, sa->unknown.port);
 		return str;
 	}

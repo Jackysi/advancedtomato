@@ -44,7 +44,7 @@
 #define MAX_NSPEED		((24 * SHOUR) / INTERVAL)
 #define MAX_NDAILY		62
 #define MAX_NMONTHLY	25
-#define MAX_ROLLOVER	(225 * M)
+#define MAX_ROLLOVER	(3750ULL * M) // 3750 MByte - new rollover limit
 
 #define MAX_COUNTER	2
 #define RX 			0
