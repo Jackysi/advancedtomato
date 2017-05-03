@@ -520,6 +520,7 @@ void stop_dhcpc(char *prefix)
 int dhcp6c_state_main(int argc, char **argv)
 {
 	char prefix[INET6_ADDRSTRLEN];
+	char *lanif;
 	struct in6_addr addr;
 	int i, r;
 
@@ -527,29 +528,31 @@ int dhcp6c_state_main(int argc, char **argv)
 
 	if (!wait_action_idle(10)) return 1;
 
-	nvram_set("ipv6_rtr_addr", getifaddr(nvram_safe_get("lan_ifname"), AF_INET6, 0));
-
-	// extract prefix from configured IPv6 address
-	if (inet_pton(AF_INET6, nvram_safe_get("ipv6_rtr_addr"), &addr) > 0) {
-		r = nvram_get_int("ipv6_prefix_length") ? : 64;
-		for (r = 128 - r, i = 15; r > 0; r -= 8) {
-			if (r >= 8)
-				addr.s6_addr[i--] = 0;
-			else
-				addr.s6_addr[i--] &= (0xff << r);
+    lanif = getifaddr(nvram_safe_get("lan_ifname"), AF_INET6, 0);
+    if (!nvram_match("ipv6_rtr_addr", lanif)) {
+        nvram_set("ipv6_rtr_addr", lanif);
+        // extract prefix from configured IPv6 address
+        if (inet_pton(AF_INET6, nvram_safe_get("ipv6_rtr_addr"), &addr) > 0) {
+            r = nvram_get_int("ipv6_prefix_length") ? : 64;
+            for (r = 128 - r, i = 15; r > 0; r -= 8) {
+                if (r >= 8)
+                    addr.s6_addr[i--] = 0;
+                else
+                    addr.s6_addr[i--] &= (0xff << r);
+            }
+            inet_ntop(AF_INET6, &addr, prefix, sizeof(prefix));
+            nvram_set("ipv6_prefix", prefix);
 		}
-		inet_ntop(AF_INET6, &addr, prefix, sizeof(prefix));
-		nvram_set("ipv6_prefix", prefix);
+// (re)start dnsmasq and httpd
+        set_host_domain_name();
+        start_dnsmasq();
+        start_httpd(); 
 	}
 
 	if (env2nv("new_domain_name_servers", "ipv6_get_dns")) {
 		dns_to_resolv();
-//		start_dnsmasq();	// (re)start KDB don't do twice!
 	}
 
-	// (re)start dnsmasq and httpd
-	start_dnsmasq();
-	start_httpd();
 
 	TRACE_PT("ipv6_get_dns=%s\n", nvram_safe_get("ipv6_get_dns"));
 	TRACE_PT("end\n");
