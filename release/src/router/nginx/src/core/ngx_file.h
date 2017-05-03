@@ -23,6 +23,13 @@ struct ngx_file_s {
 
     ngx_log_t                 *log;
 
+#if (NGX_THREADS)
+    ngx_int_t                (*thread_handler)(ngx_thread_task_t *task,
+                                               ngx_file_t *file);
+    void                      *thread_ctx;
+    ngx_thread_task_t         *thread_task;
+#endif
+
 #if (NGX_HAVE_FILE_AIO)
     ngx_event_aio_t           *aio;
 #endif
@@ -71,6 +78,7 @@ typedef struct {
     unsigned                   log_level:8;
     unsigned                   persistent:1;
     unsigned                   clean:1;
+    unsigned                   thread_write:1;
 } ngx_temp_file_t;
 
 

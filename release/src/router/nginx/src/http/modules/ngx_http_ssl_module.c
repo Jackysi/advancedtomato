@@ -43,6 +43,8 @@ static char *ngx_http_ssl_merge_srv_conf(ngx_conf_t *cf,
 
 static char *ngx_http_ssl_enable(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
+static char *ngx_http_ssl_password_file(ngx_conf_t *cf, ngx_command_t *cmd,
+    void *conf);
 static char *ngx_http_ssl_session_cache(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
 
@@ -89,6 +91,13 @@ static ngx_command_t  ngx_http_ssl_commands[] = {
       ngx_conf_set_str_slot,
       NGX_HTTP_SRV_CONF_OFFSET,
       offsetof(ngx_http_ssl_srv_conf_t, certificate_key),
+      NULL },
+
+    { ngx_string("ssl_password_file"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_CONF_TAKE1,
+      ngx_http_ssl_password_file,
+      NGX_HTTP_SRV_CONF_OFFSET,
+      0,
       NULL },
 
     { ngx_string("ssl_dhparam"),
@@ -273,6 +282,9 @@ static ngx_http_variable_t  ngx_http_ssl_vars[] = {
     { ngx_string("ssl_session_reused"), NULL, ngx_http_ssl_variable,
       (uintptr_t) ngx_ssl_get_session_reused, NGX_HTTP_VAR_CHANGEABLE, 0 },
 
+    { ngx_string("ssl_server_name"), NULL, ngx_http_ssl_variable,
+      (uintptr_t) ngx_ssl_get_server_name, NGX_HTTP_VAR_CHANGEABLE, 0 },
+
     { ngx_string("ssl_client_cert"), NULL, ngx_http_ssl_variable,
       (uintptr_t) ngx_ssl_get_certificate, NGX_HTTP_VAR_CHANGEABLE, 0 },
 
@@ -288,6 +300,9 @@ static ngx_http_variable_t  ngx_http_ssl_vars[] = {
 
     { ngx_string("ssl_client_serial"), NULL, ngx_http_ssl_variable,
       (uintptr_t) ngx_ssl_get_serial_number, NGX_HTTP_VAR_CHANGEABLE, 0 },
+
+    { ngx_string("ssl_client_fingerprint"), NULL, ngx_http_ssl_variable,
+      (uintptr_t) ngx_ssl_get_fingerprint, NGX_HTTP_VAR_CHANGEABLE, 0 },
 
     { ngx_string("ssl_client_verify"), NULL, ngx_http_ssl_variable,
       (uintptr_t) ngx_ssl_get_client_verify, NGX_HTTP_VAR_CHANGEABLE, 0 },
@@ -311,10 +326,10 @@ ngx_http_ssl_alpn_select(ngx_ssl_conn_t *ssl_conn, const unsigned char **out,
 #if (NGX_DEBUG)
     unsigned int            i;
 #endif
-#if (NGX_HTTP_SPDY)
+#if (NGX_HTTP_V2)
     ngx_http_connection_t  *hc;
 #endif
-#if (NGX_HTTP_SPDY || NGX_DEBUG)
+#if (NGX_HTTP_V2 || NGX_DEBUG)
     ngx_connection_t       *c;
 
     c = ngx_ssl_get_connection(ssl_conn);
@@ -322,17 +337,19 @@ ngx_http_ssl_alpn_select(ngx_ssl_conn_t *ssl_conn, const unsigned char **out,
 
 #if (NGX_DEBUG)
     for (i = 0; i < inlen; i += in[i] + 1) {
-         ngx_log_debug2(NGX_LOG_DEBUG_HTTP, c->log, 0,
-                        "SSL ALPN supported by client: %*s", in[i], &in[i + 1]);
+        ngx_log_debug2(NGX_LOG_DEBUG_HTTP, c->log, 0,
+                       "SSL ALPN supported by client: %*s",
+                       (size_t) in[i], &in[i + 1]);
     }
 #endif
 
-#if (NGX_HTTP_SPDY)
+#if (NGX_HTTP_V2)
     hc = c->data;
 
-    if (hc->addr_conf->spdy) {
-        srv = (unsigned char *) NGX_SPDY_NPN_ADVERTISE NGX_HTTP_NPN_ADVERTISE;
-        srvlen = sizeof(NGX_SPDY_NPN_ADVERTISE NGX_HTTP_NPN_ADVERTISE) - 1;
+    if (hc->addr_conf->http2) {
+        srv =
+           (unsigned char *) NGX_HTTP_V2_ALPN_ADVERTISE NGX_HTTP_NPN_ADVERTISE;
+        srvlen = sizeof(NGX_HTTP_V2_ALPN_ADVERTISE NGX_HTTP_NPN_ADVERTISE) - 1;
 
     } else
 #endif
@@ -349,7 +366,7 @@ ngx_http_ssl_alpn_select(ngx_ssl_conn_t *ssl_conn, const unsigned char **out,
     }
 
     ngx_log_debug2(NGX_LOG_DEBUG_HTTP, c->log, 0,
-                   "SSL ALPN selected: %*s", *outlen, *out);
+                   "SSL ALPN selected: %*s", (size_t) *outlen, *out);
 
     return SSL_TLSEXT_ERR_OK;
 }
@@ -363,22 +380,23 @@ static int
 ngx_http_ssl_npn_advertised(ngx_ssl_conn_t *ssl_conn,
     const unsigned char **out, unsigned int *outlen, void *arg)
 {
-#if (NGX_HTTP_SPDY || NGX_DEBUG)
+#if (NGX_HTTP_V2 || NGX_DEBUG)
     ngx_connection_t  *c;
 
     c = ngx_ssl_get_connection(ssl_conn);
     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, c->log, 0, "SSL NPN advertised");
 #endif
 
-#if (NGX_HTTP_SPDY)
+#if (NGX_HTTP_V2)
     {
     ngx_http_connection_t  *hc;
 
     hc = c->data;
 
-    if (hc->addr_conf->spdy) {
-        *out = (unsigned char *) NGX_SPDY_NPN_ADVERTISE NGX_HTTP_NPN_ADVERTISE;
-        *outlen = sizeof(NGX_SPDY_NPN_ADVERTISE NGX_HTTP_NPN_ADVERTISE) - 1;
+    if (hc->addr_conf->http2) {
+        *out =
+            (unsigned char *) NGX_HTTP_V2_NPN_ADVERTISE NGX_HTTP_NPN_ADVERTISE;
+        *outlen = sizeof(NGX_HTTP_V2_NPN_ADVERTISE NGX_HTTP_NPN_ADVERTISE) - 1;
 
         return SSL_TLSEXT_ERR_OK;
     }
@@ -508,6 +526,7 @@ ngx_http_ssl_create_srv_conf(ngx_conf_t *cf)
     sscf->buffer_size = NGX_CONF_UNSET_SIZE;
     sscf->verify = NGX_CONF_UNSET_UINT;
     sscf->verify_depth = NGX_CONF_UNSET_UINT;
+    sscf->passwords = NGX_CONF_UNSET_PTR;
     sscf->builtin_session_cache = NGX_CONF_UNSET;
     sscf->session_timeout = NGX_CONF_UNSET;
     sscf->session_tickets = NGX_CONF_UNSET;
@@ -545,7 +564,7 @@ ngx_http_ssl_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child)
                          prev->prefer_server_ciphers, 0);
 
     ngx_conf_merge_bitmask_value(conf->protocols, prev->protocols,
-                         (NGX_CONF_BITMASK_SET|NGX_SSL_SSLv3|NGX_SSL_TLSv1
+                         (NGX_CONF_BITMASK_SET|NGX_SSL_TLSv1
                           |NGX_SSL_TLSv1_1|NGX_SSL_TLSv1_2));
 
     ngx_conf_merge_size_value(conf->buffer_size, prev->buffer_size,
@@ -556,6 +575,8 @@ ngx_http_ssl_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child)
 
     ngx_conf_merge_str_value(conf->certificate, prev->certificate, "");
     ngx_conf_merge_str_value(conf->certificate_key, prev->certificate_key, "");
+
+    ngx_conf_merge_ptr_value(conf->passwords, prev->passwords, NULL);
 
     ngx_conf_merge_str_value(conf->dhparam, prev->dhparam, "");
 
@@ -646,7 +667,7 @@ ngx_http_ssl_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child)
     cln->data = &conf->ssl;
 
     if (ngx_ssl_certificate(cf, &conf->ssl, &conf->certificate,
-                            &conf->certificate_key)
+                            &conf->certificate_key, conf->passwords)
         != NGX_OK)
     {
         return NGX_CONF_ERROR;
@@ -697,8 +718,10 @@ ngx_http_ssl_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child)
         SSL_CTX_set_options(conf->ssl.ctx, SSL_OP_CIPHER_SERVER_PREFERENCE);
     }
 
+#if (OPENSSL_VERSION_NUMBER < 0x10100001L && !defined LIBRESSL_VERSION_NUMBER)
     /* a temporary 512-bit RSA key is required for export versions of MSIE */
     SSL_CTX_set_tmp_rsa_callback(conf->ssl.ctx, ngx_ssl_rsa512_key_callback);
+#endif
 
     if (ngx_ssl_dhparam(cf, &conf->ssl, &conf->dhparam) != NGX_OK) {
         return NGX_CONF_ERROR;
@@ -770,6 +793,29 @@ ngx_http_ssl_enable(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     sscf->file = cf->conf_file->file.name.data;
     sscf->line = cf->conf_file->line;
+
+    return NGX_CONF_OK;
+}
+
+
+static char *
+ngx_http_ssl_password_file(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+{
+    ngx_http_ssl_srv_conf_t *sscf = conf;
+
+    ngx_str_t  *value;
+
+    if (sscf->passwords != NGX_CONF_UNSET_PTR) {
+        return "is duplicate";
+    }
+
+    value = cf->args->elts;
+
+    sscf->passwords = ngx_ssl_read_password_file(cf, &value[1]);
+
+    if (sscf->passwords == NULL) {
+        return NGX_CONF_ERROR;
+    }
 
     return NGX_CONF_OK;
 }

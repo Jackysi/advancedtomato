@@ -102,6 +102,20 @@ static ngx_command_t  ngx_http_memcached_commands[] = {
       offsetof(ngx_http_memcached_loc_conf_t, upstream.next_upstream),
       &ngx_http_memcached_next_upstream_masks },
 
+    { ngx_string("memcached_next_upstream_tries"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_num_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_memcached_loc_conf_t, upstream.next_upstream_tries),
+      NULL },
+
+    { ngx_string("memcached_next_upstream_timeout"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_msec_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_memcached_loc_conf_t, upstream.next_upstream_timeout),
+      NULL },
+
     { ngx_string("memcached_gzip_flag"),
       NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_num_slot,
@@ -380,11 +394,8 @@ found:
             }
 
             h->hash = 1;
-            h->key.len = sizeof("Content-Encoding") - 1;
-            h->key.data = (u_char *) "Content-Encoding";
-            h->value.len = sizeof("gzip") - 1;
-            h->value.data = (u_char *) "gzip";
-
+            ngx_str_set(&h->key, "Content-Encoding");
+            ngx_str_set(&h->value, "gzip");
             r->headers_out.content_encoding = h;
         }
 
@@ -394,7 +405,7 @@ found:
         p = line.data + line.len;
 
         u->headers_in.content_length_n = ngx_atoof(start, p - start);
-        if (u->headers_in.content_length_n == -1) {
+        if (u->headers_in.content_length_n == NGX_ERROR) {
             ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
                           "memcached sent invalid length in response \"%V\" "
                           "for key \"%V\"",
@@ -512,7 +523,7 @@ ngx_http_memcached_filter(void *data, ssize_t bytes)
     cl->buf->tag = u->output.tag;
 
     ngx_log_debug4(NGX_LOG_DEBUG_HTTP, ctx->request->connection->log, 0,
-                   "memcached filter bytes:%z size:%z length:%z rest:%z",
+                   "memcached filter bytes:%z size:%z length:%O rest:%z",
                    bytes, b->last - b->pos, u->length, ctx->rest);
 
     if (bytes <= (ssize_t) (u->length - NGX_HTTP_MEMCACHED_END)) {
@@ -586,9 +597,11 @@ ngx_http_memcached_create_loc_conf(ngx_conf_t *cf)
      */
 
     conf->upstream.local = NGX_CONF_UNSET_PTR;
+    conf->upstream.next_upstream_tries = NGX_CONF_UNSET_UINT;
     conf->upstream.connect_timeout = NGX_CONF_UNSET_MSEC;
     conf->upstream.send_timeout = NGX_CONF_UNSET_MSEC;
     conf->upstream.read_timeout = NGX_CONF_UNSET_MSEC;
+    conf->upstream.next_upstream_timeout = NGX_CONF_UNSET_MSEC;
 
     conf->upstream.buffer_size = NGX_CONF_UNSET_SIZE;
 
@@ -605,6 +618,7 @@ ngx_http_memcached_create_loc_conf(ngx_conf_t *cf)
     conf->upstream.intercept_404 = 1;
     conf->upstream.pass_request_headers = 0;
     conf->upstream.pass_request_body = 0;
+    conf->upstream.force_ranges = 1;
 
     conf->index = NGX_CONF_UNSET;
     conf->gzip_flag = NGX_CONF_UNSET_UINT;
@@ -622,6 +636,9 @@ ngx_http_memcached_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_conf_merge_ptr_value(conf->upstream.local,
                               prev->upstream.local, NULL);
 
+    ngx_conf_merge_uint_value(conf->upstream.next_upstream_tries,
+                              prev->upstream.next_upstream_tries, 0);
+
     ngx_conf_merge_msec_value(conf->upstream.connect_timeout,
                               prev->upstream.connect_timeout, 60000);
 
@@ -630,6 +647,9 @@ ngx_http_memcached_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
 
     ngx_conf_merge_msec_value(conf->upstream.read_timeout,
                               prev->upstream.read_timeout, 60000);
+
+    ngx_conf_merge_msec_value(conf->upstream.next_upstream_timeout,
+                              prev->upstream.next_upstream_timeout, 0);
 
     ngx_conf_merge_size_value(conf->upstream.buffer_size,
                               prev->upstream.buffer_size,

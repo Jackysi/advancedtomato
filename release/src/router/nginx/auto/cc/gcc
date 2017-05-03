@@ -153,11 +153,16 @@ CFLAGS="$CFLAGS -Wall -Wpointer-arith"
 
 
 case "$NGX_GCC_VER" in
-    3.* | 4.* )
+    [3-5].*)
         # we have a lot of the unused function arguments
         CFLAGS="$CFLAGS -Wno-unused-parameter"
         # 4.2.1 shows the warning in wrong places
         #CFLAGS="$CFLAGS -Wunreachable-code"
+
+        # deprecated system OpenSSL library on OS X
+        if [ "$NGX_SYSTEM" = "Darwin" ]; then
+            CFLAGS="$CFLAGS -Wno-deprecated-declarations"
+        fi
     ;;
 
     *)
