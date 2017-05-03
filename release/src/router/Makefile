@@ -752,6 +752,8 @@ openssl/stamp-h1:
 	@touch openssl/stamp-h1
 
 openssl: openssl/stamp-h1
+	@$(SEP)
+	@$(MAKE) -C openssl
 
 openssl-clean:
 	-@$(MAKE) -C openssl clean
