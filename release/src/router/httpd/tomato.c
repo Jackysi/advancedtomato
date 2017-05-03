@@ -1297,6 +1297,7 @@ static const nvset_t nvset_list[] = {
 	{ "ms_dirs",			V_LENGTH(0, 1024)		},
 	{ "ms_port",			V_RANGE(0, 65535)		},
 	{ "ms_dbdir",			V_LENGTH(0, 256)		},
+	{ "ms_ifname",			V_LENGTH(0, 256)		},
 	{ "ms_tivo",			V_01				},
 	{ "ms_stdlna",			V_01				},
 	{ "ms_rescan",			V_01				},

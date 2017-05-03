@@ -935,6 +935,7 @@ const defaults_t defaults[] = {
 	{ "ms_dirs",			"/mnt<"				},
 	{ "ms_port",			"0"				},
 	{ "ms_dbdir",			""				},
+	{ "ms_ifname",			"br0"				},
 	{ "ms_tivo",			"0"				},
 	{ "ms_stdlna",			"0"				},
 	{ "ms_sas",			"0"				},
