@@ -2,7 +2,7 @@
 #
 # Supplementary MOTD script with information about the network / router settings
 #
-# Version 0.5 written by Monter, modified by Shibby
+# Version 0.6 written by Monter, modified by Shibby, additions by tsynik
 #
 MOTD_ON=`/bin/nvram get sshd_motd`
 
@@ -13,8 +13,9 @@ PROFILE=$1
 if /usr/bin/[ "$PROFILE" == "init" ]; then
 sed -i "/mymotd/d" /root/.profile
 /bin/echo "/usr/sbin/mymotd" >> /root/.profile
-else
 
+else
+#
 # Function calculates number of bit in a netmask
 #
 mask2cidr() {
@@ -40,13 +41,43 @@ mask2cidr() {
 LAN1=`/bin/nvram get lan1_ipaddr | /usr/bin/wc -w`
 LAN2=`/bin/nvram get lan2_ipaddr | /usr/bin/wc -w`
 LAN3=`/bin/nvram get lan3_ipaddr | /usr/bin/wc -w`
-WAN1=`/bin/nvram get wan_ipaddr | /bin/grep -v "0.0.0.0" | /usr/bin/wc -w`
-WAN2=`/bin/nvram get wan2_ipaddr | /bin/grep -v "0.0.0.0" | /usr/bin/wc -w`
+
+WANPROTO=`/bin/nvram get wan_proto`
+WANPDHCP=`/bin/nvram get wan_pptp_dhcp`
+if [ $WANPDHCP == "1" ] && [ "$WANPROTO" == "pppoe" ] || [ "$WANPROTO" == "pptp" ] || [ "$WANPROTO" == "l2tp" ]; then
+    WANIP="ppp_get_ip"
+else
+    WANIP="ipaddr"
+fi
+WAN2PROTO=`/bin/nvram get wan2_proto`
+WAN2PDHCP=`/bin/nvram get wan2_pptp_dhcp`
+if [ $WAN2PDHCP == "1" ] && [ "$WAN2PROTO" == "pppoe" ] || [ "$WAN2PROTO" == "pptp" ] || [ "$WAN2PROTO" == "l2tp" ]; then
+    WAN2IP="ppp_get_ip"
+else
+    WAN2IP="ipaddr"
+fi
+WAN1=`/bin/nvram get wan_$WANIP | /bin/grep -v "0.0.0.0" | /usr/bin/wc -w`
+WAN2=`/bin/nvram get wan2_$WANIP | /bin/grep -v "0.0.0.0" | /usr/bin/wc -w`
+
 MULTI=`/bin/nvram show | /bin/grep 'wan3_' | /usr/bin/wc -l`
 if [ "$MULTI" -gt "0" ]; then
     MULTIWAN=1
-    WAN3=`/bin/nvram get wan3_ipaddr | /bin/grep -v "0.0.0.0" | /usr/bin/wc -w`
-    WAN4=`/bin/nvram get wan4_ipaddr | /bin/grep -v "0.0.0.0" | /usr/bin/wc -w`
+    WAN3PROTO=`/bin/nvram get wan3_proto`
+    WAN3PDHCP=`/bin/nvram get wan3_pptp_dhcp`
+    if [ $WAN3PDHCP == "1" ] && [ "$WAN3PROTO" == "pppoe" ] || [ "$WAN3PROTO" == "pptp" ] || [ "$WANP3ROTO" == "l2tp" ]; then
+        WAN3IP="ppp_get_ip"
+    else
+        WAN3IP="ipaddr"
+    fi
+    WAN4PROTO=`/bin/nvram get wan4_proto`
+    WAN4PDHCP=`/bin/nvram get wan4_pptp_dhcp`
+    if [ $WAN4PDHCP == "1" ] && [ "$WAN4PROTO" == "pppoe" ] || [ "$WAN4PROTO" == "pptp" ] || [ "$WAN4PROTO" == "l2tp" ]; then
+        WAN4IP="ppp_get_ip"
+    else
+        WAN4IP="ipaddr"
+    fi
+    WAN3=`/bin/nvram get wan3_$WAN3IP | /bin/grep -v "0.0.0.0" | /usr/bin/wc -w`
+    WAN4=`/bin/nvram get wan4_$WAN4IP | /bin/grep -v "0.0.0.0" | /usr/bin/wc -w`
 else
     MULTIWAN=0
 fi
@@ -94,26 +125,42 @@ else
        }' /proc/meminfo
   fi
 fi
-if /usr/bin/[ "$WAN1" == "1" ]; then 
-    WAN1_MASK=`/bin/nvram get wan_netmask`
-    WAN1_NUMBITS=$(mask2cidr $WAN1_MASK)
-    /bin/echo " WAN1: `/bin/nvram get wan_ipaddr`/$WAN1_NUMBITS @ `/bin/nvram get wan_hwaddr`"
+if /usr/bin/[ "$WAN1" == "1" ]; then
+    if [ $WANPDHCP == "1" ] && [ "$WANPROTO" == "pppoe" ] || [ "$WANPROTO" == "pptp" ] || [ "$WANPROTO" == "l2tp" ]; then
+        WAN1_NUMBITS="32"
+    else
+        WAN1_MASK=`/bin/nvram get wan_netmask`
+        WAN1_NUMBITS=$(mask2cidr $WAN1_MASK)
+    fi
+    /bin/echo " WAN : `/bin/nvram get wan_$WANIP`/$WAN1_NUMBITS @ `/bin/nvram get wan_hwaddr`"
 fi
-if /usr/bin/[ "$WAN2" == "1" ]; then 
-    WAN2_MASK=`/bin/nvram get wan2_netmask`
-    WAN2_NUMBITS=$(mask2cidr $WAN2_MASK)
-    /bin/echo " WAN2: `/bin/nvram get wan2_ipaddr`/$WAN2_NUMBITS @ `/bin/nvram get wan2_hwaddr`"
+if /usr/bin/[ "$WAN2" == "1" ]; then
+    if [ $WAN2PDHCP == "1" ] && [ "$WAN2PROTO" == "pppoe" ] || [ "$WAN2PROTO" == "pptp" ] || [ "$WAN2PROTO" == "l2tp" ]; then
+        WAN2_NUMBITS="32"
+    else
+        WAN2_MASK=`/bin/nvram get wan2_netmask`
+        WAN2_NUMBITS=$(mask2cidr $WAN2_MASK)
+    fi
+    /bin/echo " WAN2: `/bin/nvram get wan2_$WAN2IP`/$WAN2_NUMBITS @ `/bin/nvram get wan2_hwaddr`"
 fi
 if /usr/bin/[ "$MULTIWAN" == "1" ]; then
     if /usr/bin/[ "$WAN3" == "1" ]; then 
+    if [ $WAN3PDHCP == "1" ] && [ "$WAN3PROTO" == "pppoe" ] || [ "$WAN3PROTO" == "pptp" ] || [ "$WAN3PROTO" == "l2tp" ]; then
+        WAN3_NUMBITS="32"
+    else
         WAN3_MASK=`/bin/nvram get wan3_netmask`
         WAN3_NUMBITS=$(mask2cidr $WAN3_MASK)
-        /bin/echo " WAN3: `/bin/nvram get wan3_ipaddr`/$WAN3_NUMBITS @ `/bin/nvram get wan3_hwaddr`"
+    fi
+        /bin/echo " WAN3: `/bin/nvram get wan3_$WAN3IP`/$WAN3_NUMBITS @ `/bin/nvram get wan3_hwaddr`"
     fi
     if /usr/bin/[ "$WAN4" == "1" ]; then 
+    if [ $WAN4PDHCP == "1" ] && [ "$WAN4PROTO" == "pppoe" ] || [ "$WAN4PROTO" == "pptp" ] || [ "$WAN4PROTO" == "l2tp" ]; then
+        WAN4_NUMBITS="32"
+    else
         WAN4_MASK=`/bin/nvram get wan4_netmask`
         WAN4_NUMBITS=$(mask2cidr $WAN4_MASK)
-        /bin/echo " WAN4: `/bin/nvram get wan4_ipaddr`/$WAN4_NUMBITS @ `/bin/nvram get wan4_hwaddr`"
+    fi
+        /bin/echo " WAN4: `/bin/nvram get wan4_$WAN4IP`/$WAN4_NUMBITS @ `/bin/nvram get wan4_hwaddr`"
     fi
 fi
 /bin/echo " LAN : `/bin/nvram get lan_ipaddr`/$LAN_NUMBITS @ DHCP: `/bin/nvram get dhcpd_startip` - `/bin/nvram get dhcpd_endip`"
