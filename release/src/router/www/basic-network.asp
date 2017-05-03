@@ -1947,7 +1947,7 @@ createFieldTable('', [
 	{ title: 'Check connections every', name: 'mwan_cktime', type: 'select', options: [
 		['0','Disabled'],['60','1 minute'],['120','2 minutes'],['180','3 minutes'],['300','5 minutes'],
 		['600','10 minutes'],['900','15 minutes'],['1800','30 minutes'],['3600','1 hour']],
-		suffix: ' <small>(when the network conditionsis poor, try use long detection period)</small>',
+		suffix: ' <small>(when the network conditionsis poor, try use longer detection period)</small>',
 		value: nvram.mwan_cktime },
 	{ title: 'Target 1', indent: 2, name: 'f_mwan_ckdst_1', type: 'text', maxlen: 30, size: 30, value: ckdst[0] || ''},
 	{ title: 'Target 2', indent: 2, name: 'f_mwan_ckdst_2', type: 'text', maxlen: 30, size: 30, value: ckdst[1] || ''}
