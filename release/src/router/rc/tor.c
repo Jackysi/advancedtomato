@@ -30,15 +30,15 @@ void start_tor(void)
             return;
         }
             fprintf(fp, "SocksPort %d\n", nvram_get_int( "tor_socksport" ) );
-            fprintf(fp, "SocksBindAddress 127.0.0.1\n");
+//            fprintf(fp, "SocksBindAddress 127.0.0.1\n");
             fprintf(fp, "AllowUnverifiedNodes middle,rendezvous\n");
             fprintf(fp, "RunAsDaemon 1\n");
             fprintf(fp, "Log notice syslog\n");
             fprintf(fp, "DataDirectory %s\n", nvram_safe_get( "tor_datadir" ) );
             fprintf(fp, "TransPort %s\n", nvram_safe_get( "tor_transport" ) );
-            fprintf(fp, "TransListenAddress %s\n", ip );
+            fprintf(fp, "TransPort %s:%s\n", ip, nvram_safe_get( "tor_transport" ) );
             fprintf(fp, "DNSPort %s\n", nvram_safe_get( "tor_dnsport" ) );
-            fprintf(fp, "DNSListenAddress %s\n", ip );
+            fprintf(fp, "DNSPort %s:%s\n", ip, nvram_safe_get( "tor_dnsport" ) );
             fprintf(fp, "User nobody\n");
             fprintf(fp, "%s\n", nvram_safe_get("tor_custom"));
 
