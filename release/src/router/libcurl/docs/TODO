@@ -63,6 +63,7 @@
  5.1 Better persistency for HTTP 1.0
  5.2 support FF3 sqlite cookie files
  5.3 Rearrange request header order
+ 5.4 HTTP Digest using SHA-256
  5.5 auth= in URLs
  5.6 Refuse "downgrade" redirects
  5.7 Brotli compression
@@ -70,7 +71,7 @@
  5.9 Improve formpost API
  5.10 Leave secure cookies alone
  5.11 Chunked transfer multipart formpost
-
+ 5.12 OPTIONS *
 
  6. TELNET
  6.1 ditch stdin
@@ -526,6 +527,15 @@ This is not detailed in any FTP specification.
  headers use a default value so only headers that need to be moved have to be
  specified.
 
+5.4 HTTP Digest using SHA-256
+
+ RFC 7616 introduces an update to the HTTP Digest authentication
+ specification, which amongst other thing defines how new digest algorithms
+ can be used instead of MD5 which is considered old and not recommanded.
+
+ See https://tools.ietf.org/html/rfc7616 and
+ https://github.com/curl/curl/issues/1018
+
 5.5 auth= in URLs
 
  Add the ability to specify the preferred authentication mechanism to use by
@@ -547,11 +557,9 @@ This is not detailed in any FTP specification.
 
 5.7 Brotli compression
 
- Compression algorithms that perform better than gzip are being considered for
- use and inclusion in existing browsers. For example 'brotli'. If servers
- follow along it is a good reason for us to also allow users to take advantage
- of this. The algorithm: https://github.com/google/brotli The Firefox bug:
- https://bugzilla.mozilla.org/show_bug.cgi?id=366559
+ Brotli compression performs better than gzip and is being implemented by
+ browsers and servers widely. The algorithm: https://github.com/google/brotli
+ The Firefox bug: https://bugzilla.mozilla.org/show_bug.cgi?id=366559
 
 5.8 QUIC
 
@@ -585,6 +593,23 @@ This is not detailed in any FTP specification.
  upload.
 
  https://github.com/curl/curl/issues/1139
+
+5.12 OPTIONS *
+
+ HTTP defines an OPTIONS method that can be sent with an asterisk option like
+ "OPTIONS *" to ask about options from the server and not a specific URL
+ resource. https://tools.ietf.org/html/rfc7230#section-5.3.4
+
+ libcurl as it currently works will always sent HTTP methods with a path that
+ starts with a slash so there's no way for an application to send a proper
+ "OPTIONS *" using libcurl. This should be fixed.
+
+ I can't think of any other non-slash paths we should support so it will
+ probably make sense to add a new boolean option for issuign an "OPTIONS *"
+ request. CURLOPT_OPTIONSASTERISK perhaps (and a corresponding command line
+ option)?
+
+ See https://github.com/curl/curl/issues/1280
 
 
 6. TELNET
