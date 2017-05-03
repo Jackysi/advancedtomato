@@ -3824,10 +3824,6 @@ if test "x$want_curldebug_assumed" = "xyes" &&
 fi
 
 AC_CONFIG_FILES([Makefile \
-           docs/Makefile \
-           docs/examples/Makefile \
-           docs/libcurl/Makefile \
-           docs/libcurl/opts/Makefile \
            include/Makefile \
            include/curl/Makefile \
            src/Makefile \
@@ -3862,7 +3858,7 @@ AC_OUTPUT
 
 CURL_GENERATE_CONFIGUREHELP_PM
 
-XC_AMEND_DISTCLEAN([lib src tests/unit tests/server tests/libtest docs/examples])
+XC_AMEND_DISTCLEAN([lib src tests/unit tests/server tests/libtest])
 
 AC_MSG_NOTICE([Configured to build curl/libcurl:
 
