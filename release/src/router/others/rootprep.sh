@@ -35,6 +35,9 @@ mkdir -p -m 0755 nas
 mkdir -p -m 0755 bkp
 mkdir -p -m 0777 tftpboot
 
+case "$1" in
+ln_Tor)
 # Tor GeoIP DB in /tmp
 ln -sf /tmp/tor usr/share/tor
-
+;;
+esac
