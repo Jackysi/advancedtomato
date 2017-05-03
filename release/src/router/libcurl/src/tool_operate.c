@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2016, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2017, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -33,10 +33,6 @@
 
 #ifdef HAVE_LOCALE_H
 #  include <locale.h>
-#endif
-
-#ifdef HAVE_NETINET_TCP_H
-#  include <netinet/tcp.h>
 #endif
 
 #ifdef __VMS
@@ -1397,11 +1393,17 @@ static CURLcode operate_do(struct GlobalConfig *global,
           my_setopt(curl, CURLOPT_SSL_ENABLE_ALPN, 0L);
         }
 
-        /* new in 7.40.0 */
-        if(config->unix_socket_path)
-          my_setopt_str(curl, CURLOPT_UNIX_SOCKET_PATH,
-                        config->unix_socket_path);
-
+        /* new in 7.40.0, abstract support added in 7.53.0 */
+        if(config->unix_socket_path) {
+          if(config->abstract_unix_socket) {
+            my_setopt_str(curl, CURLOPT_ABSTRACT_UNIX_SOCKET,
+                          config->unix_socket_path);
+          }
+          else {
+            my_setopt_str(curl, CURLOPT_UNIX_SOCKET_PATH,
+                          config->unix_socket_path);
+          }
+        }
         /* new in 7.45.0 */
         if(config->proto_default)
           my_setopt_str(curl, CURLOPT_DEFAULT_PROTOCOL, config->proto_default);
@@ -1620,7 +1622,7 @@ static CURLcode operate_do(struct GlobalConfig *global,
                   metalink_next_res = 1;
                   fprintf(global->errors,
                           "Metalink: fetching (%s) from (%s) FAILED "
-                          "(HTTP status code %d)\n",
+                          "(HTTP status code %ld)\n",
                           mlfile->filename, this_url, response);
                 }
               }
@@ -1676,8 +1678,13 @@ static CURLcode operate_do(struct GlobalConfig *global,
           fprintf(global->errors, "curl: (%d) %s\n", result, (errorbuffer[0]) ?
                   errorbuffer : curl_easy_strerror(result));
           if(result == CURLE_SSL_CACERT)
-            fprintf(global->errors, "%s%s",
-                    CURL_CA_CERT_ERRORMSG1, CURL_CA_CERT_ERRORMSG2);
+            fprintf(global->errors, "%s%s%s",
+                    CURL_CA_CERT_ERRORMSG1, CURL_CA_CERT_ERRORMSG2,
+                    ((config->proxy &&
+                      curl_strnequal(config->proxy, "https://", 8)) ?
+                     "HTTPS proxy has similar options --proxy-cacert "
+                     "and --proxy-insecure.\n" :
+                     ""));
         }
 
         /* Fall through comment to 'quit_urls' label */
@@ -1731,20 +1738,65 @@ static CURLcode operate_do(struct GlobalConfig *global,
         }
 #endif
 
-#ifdef HAVE_UTIME
+#if defined(HAVE_UTIME) || \
+    (defined(WIN32) && (CURL_SIZEOF_CURL_OFF_T >= 8))
         /* File time can only be set _after_ the file has been closed */
         if(!result && config->remote_time && outs.s_isreg && outs.filename) {
           /* Ask libcurl if we got a remote file time */
           long filetime = -1;
           curl_easy_getinfo(curl, CURLINFO_FILETIME, &filetime);
           if(filetime >= 0) {
+/* Windows utime() may attempt to adjust our unix gmt 'filetime' by a daylight
+   saving time offset and since it's GMT that is bad behavior. When we have
+   access to a 64-bit type we can bypass utime and set the times directly. */
+#if defined(WIN32) && (CURL_SIZEOF_CURL_OFF_T >= 8)
+            /* 910670515199 is the maximum unix filetime that can be used as a
+               Windows FILETIME without overflow: 30827-12-31T23:59:59. */
+            if(filetime <= CURL_OFF_T_C(910670515199)) {
+              HANDLE hfile = CreateFileA(outs.filename, FILE_WRITE_ATTRIBUTES,
+                                         (FILE_SHARE_READ | FILE_SHARE_WRITE |
+                                          FILE_SHARE_DELETE),
+                                         NULL, OPEN_EXISTING, 0, NULL);
+              if(hfile != INVALID_HANDLE_VALUE) {
+                curl_off_t converted = ((curl_off_t)filetime * 10000000) +
+                                       CURL_OFF_T_C(116444736000000000);
+                FILETIME ft;
+                ft.dwLowDateTime = (DWORD)(converted & 0xFFFFFFFF);
+                ft.dwHighDateTime = (DWORD)(converted >> 32);
+                if(!SetFileTime(hfile, NULL, &ft, &ft)) {
+                  fprintf(config->global->errors,
+                          "Failed to set filetime %ld on outfile: "
+                          "SetFileTime failed: GetLastError %u\n",
+                          filetime, GetLastError());
+                }
+                CloseHandle(hfile);
+              }
+              else {
+                fprintf(config->global->errors,
+                        "Failed to set filetime %ld on outfile: "
+                        "CreateFile failed: GetLastError %u\n",
+                        filetime, GetLastError());
+              }
+            }
+            else {
+              fprintf(config->global->errors,
+                      "Failed to set filetime %ld on outfile: overflow\n",
+                      filetime);
+            }
+#elif defined(HAVE_UTIME)
             struct utimbuf times;
             times.actime = (time_t)filetime;
             times.modtime = (time_t)filetime;
-            utime(outs.filename, &times); /* set the time we got */
+            if(utime(outs.filename, &times)) {
+              fprintf(config->global->errors,
+                      "Failed to set filetime %ld on outfile: errno %d\n",
+                      filetime, errno);
+            }
+#endif
           }
         }
-#endif
+#endif /* defined(HAVE_UTIME) || \
+          (defined(WIN32) && (CURL_SIZEOF_CURL_OFF_T >= 8)) */
 
 #ifdef USE_METALINK
         if(!metalink && config->use_metalink && result == CURLE_OK) {
@@ -1958,6 +2010,9 @@ CURLcode operate(struct GlobalConfig *config, int argc, argv_item_t argv[])
           result = operate_do(config, config->current);
 
           config->current = config->current->next;
+
+          if(config->current && config->current->easy)
+            curl_easy_reset(config->current->easy);
         }
 
 #ifndef CURL_DISABLE_LIBCURL_OPTION

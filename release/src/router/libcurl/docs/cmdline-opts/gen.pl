@@ -1,6 +1,22 @@
 #!/usr/bin/perl
 
-my $some_dir=".";
+=begin comment
+
+This script generates the manpage.
+
+Example: gen.pl mainpage > curl.1
+
+Dev notes:
+
+We open *input* files in :crlf translation (a no-op on many platforms) in
+case we have CRLF line endings in Windows but a perl that defaults to LF.
+Unfortunately it seems some perls like msysgit can't handle a global input-only
+:crlf so it has to be specified on each file open for text input.
+
+=end comment
+=cut
+
+my $some_dir=$ARGV[1] || ".";
 
 opendir(my $dh, $some_dir) || die "Can't opendir $some_dir: $!";
 my @s = grep { /\.d$/ && -f "$some_dir/$_" } readdir($dh);
@@ -85,7 +101,7 @@ sub added {
 
 sub single {
     my ($f, $standalone)=@_;
-    open(F, "<$f") ||
+    open(F, "<:crlf", "$some_dir/$f") ||
         return 1;
     my $short;
     my $long;
@@ -219,7 +235,7 @@ sub single {
 
 sub getshortlong {
     my ($f)=@_;
-    open(F, "<$f");
+    open(F, "<:crlf", "$some_dir/$f");
     my $short;
     my $long;
     my $help;
@@ -265,7 +281,7 @@ sub indexoptions {
 
 sub header {
     my ($f)=@_;
-    open(F, "<$f");
+    open(F, "<:crlf", "$some_dir/$f");
     my @d;
     while(<F>) {
         push @d, $_;
@@ -355,7 +371,7 @@ sub getargs {
         }
     } while($f);
 
-    print "Usage: gen.pl <mainpage/listhelp/single FILE/protos>\n";
+    print "Usage: gen.pl <mainpage/listhelp/single FILE/protos> [srcdir]\n";
 }
 
 #------------------------------------------------------------------------
