@@ -97,7 +97,7 @@ host_triplet = @host@
 @EMSCRIPTEN_FALSE@@NATIVECLIENT_TRUE@	randombytes/nativeclient/randombytes_nativeclient.c
 
 @EMSCRIPTEN_FALSE@@NATIVECLIENT_FALSE@am__append_3 = \
-@EMSCRIPTEN_FALSE@@NATIVECLIENT_FALSE@    randombytes/sysrandom/randombytes_sysrandom.c
+@EMSCRIPTEN_FALSE@@NATIVECLIENT_FALSE@	randombytes/sysrandom/randombytes_sysrandom.c
 
 @HAVE_TI_MODE_TRUE@am__append_4 = \
 @HAVE_TI_MODE_TRUE@	crypto_scalarmult/curve25519/donna_c64/curve25519_donna_c64.c \
@@ -161,6 +161,7 @@ ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/ax_check_compile_flag.m4 \
 	$(top_srcdir)/m4/ax_check_define.m4 \
 	$(top_srcdir)/m4/ax_check_link_flag.m4 \
+	$(top_srcdir)/m4/ax_pthread.m4 \
 	$(top_srcdir)/m4/ax_valgrind_check.m4 \
 	$(top_srcdir)/m4/ld-output-def.m4 $(top_srcdir)/m4/libtool.m4 \
 	$(top_srcdir)/m4/ltoptions.m4 $(top_srcdir)/m4/ltsugar.m4 \
@@ -319,8 +320,8 @@ am__libsodium_la_SOURCES_DIST =  \
 	crypto_verify/64/ref/verify_64.c \
 	include/sodium/private/common.h \
 	include/sodium/private/curve25519_ref10.h \
-	randombytes/randombytes.c sodium/core.c sodium/runtime.c \
-	sodium/utils.c sodium/version.c \
+	include/sodium/private/mutex.h randombytes/randombytes.c \
+	sodium/core.c sodium/runtime.c sodium/utils.c sodium/version.c \
 	randombytes/salsa20/randombytes_salsa20_random.c \
 	randombytes/nativeclient/randombytes_nativeclient.c \
 	randombytes/sysrandom/randombytes_sysrandom.c \
@@ -707,6 +708,9 @@ PACKAGE_TARNAME = @PACKAGE_TARNAME@
 PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
+PTHREAD_CC = @PTHREAD_CC@
+PTHREAD_CFLAGS = @PTHREAD_CFLAGS@
+PTHREAD_LIBS = @PTHREAD_LIBS@
 RANLIB = @RANLIB@
 SAFECODE_HOME = @SAFECODE_HOME@
 SED = @SED@
@@ -736,6 +740,7 @@ am__leading_dot = @am__leading_dot@
 am__quote = @am__quote@
 am__tar = @am__tar@
 am__untar = @am__untar@
+ax_pthread_config = @ax_pthread_config@
 bindir = @bindir@
 build = @build@
 build_alias = @build_alias@
@@ -877,11 +882,11 @@ libsodium_la_SOURCES =  \
 	crypto_verify/64/ref/verify_64.c \
 	include/sodium/private/common.h \
 	include/sodium/private/curve25519_ref10.h \
-	randombytes/randombytes.c sodium/core.c sodium/runtime.c \
-	sodium/utils.c sodium/version.c $(am__append_1) \
-	$(am__append_2) $(am__append_3) $(am__append_4) \
-	$(am__append_5) $(am__append_6) $(am__append_7) \
-	$(am__append_8) $(am__append_9)
+	include/sodium/private/mutex.h randombytes/randombytes.c \
+	sodium/core.c sodium/runtime.c sodium/utils.c sodium/version.c \
+	$(am__append_1) $(am__append_2) $(am__append_3) \
+	$(am__append_4) $(am__append_5) $(am__append_6) \
+	$(am__append_7) $(am__append_8) $(am__append_9)
 noinst_HEADERS = \
 	crypto_scalarmult/curve25519/sandy2x/consts.S \
 	crypto_scalarmult/curve25519/sandy2x/fe51_mul.S \

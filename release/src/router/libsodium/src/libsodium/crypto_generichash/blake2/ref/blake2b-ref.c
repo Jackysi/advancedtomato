@@ -54,6 +54,11 @@ static inline int blake2b_clear_lastnode( blake2b_state *S )
 }
 #endif
 
+static inline int blake2b_is_lastblock( const blake2b_state *S )
+{
+  return S->f[0] != 0;
+}
+
 static inline int blake2b_set_lastblock( blake2b_state *S )
 {
   if( S->last_node ) blake2b_set_lastnode( S );
@@ -327,6 +332,9 @@ int blake2b_final( blake2b_state *S, uint8_t *out, uint8_t outlen )
   if( !outlen || outlen > BLAKE2B_OUTBYTES ) {
     abort(); /* LCOV_EXCL_LINE */
   }
+  if( blake2b_is_lastblock( S ) ) {
+    return -1;
+  }
   if( S->buflen > BLAKE2B_BLOCKBYTES )
   {
     blake2b_increment_counter( S, BLAKE2B_BLOCKBYTES );
@@ -421,7 +429,7 @@ blake2b_pick_best_implementation(void)
 {
 /* LCOV_EXCL_START */
 #if (defined(HAVE_AVX2INTRIN_H) && defined(HAVE_TMMINTRIN_H) && defined(HAVE_SMMINTRIN_H)) || \
-    (defined(_MSC_VER) && (defined(_M_X64) || defined(_M_AMD64)))
+    (defined(_MSC_VER) && (defined(_M_X64) || defined(_M_AMD64)) && _MSC_VER >= 1700)
   if (sodium_runtime_has_avx2()) {
     blake2b_compress = blake2b_compress_avx2;
     return 0;
