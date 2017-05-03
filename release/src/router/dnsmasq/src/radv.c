@@ -261,8 +261,10 @@ static void send_ra_alias(time_t now, int iface, char *iface_name, struct in6_ad
   parm.adv_interval = calc_interval(ra_param);
   parm.prio = calc_prio(ra_param);
   
-  save_counter(0);
-  ra = expand(sizeof(struct ra_packet));
+  reset_counter();
+  
+  if (!(ra = expand(sizeof(struct ra_packet))))
+    return;
   
   ra->type = ND_ROUTER_ADVERT;
   ra->code = 0;
@@ -526,7 +528,7 @@ static void send_ra_alias(time_t now, int iface, char *iface_name, struct in6_ad
     }
   
   while (retry_send(sendto(daemon->icmp6fd, daemon->outpacket.iov_base, 
-			   save_counter(0), 0, (struct sockaddr *)&addr, 
+			   save_counter(-1), 0, (struct sockaddr *)&addr, 
 			   sizeof(addr))));
   
 }

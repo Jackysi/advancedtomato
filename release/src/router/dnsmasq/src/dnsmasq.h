@@ -308,9 +308,9 @@ struct ptr_record {
 };
 
 struct cname {
-  int ttl;
+  int ttl, flag;
   char *alias, *target;
-  struct cname *next;
+  struct cname *next, *targetp;
 }; 
 
 struct ds_config {
@@ -340,6 +340,7 @@ struct auth_zone {
     struct auth_name_list *next;
   } *interface_names;
   struct addrlist *subnet;
+  struct addrlist *exclude;
   struct auth_zone *next;
 };
 
@@ -482,11 +483,13 @@ union mysockaddr {
 #define SERV_FROM_FILE      4096  /* read from --servers-file */
 #define SERV_LOOP           8192  /* server causes forwarding loop */
 #define SERV_DO_DNSSEC     16384  /* Validate DNSSEC when using this server */
+#define SERV_GOT_TCP       32768  /* Got some data from the TCP connection */
 
 struct serverfd {
   int fd;
   union mysockaddr source_addr;
   char interface[IF_NAMESIZE+1];
+  unsigned int ifindex, used;
   struct serverfd *next;
 };
 
@@ -992,6 +995,7 @@ extern struct daemon {
 #endif
 #ifdef HAVE_DNSSEC
   struct ds_config *ds;
+  int dnssec_no_time_check;
   int back_to_the_future;
   char *timestamp_file;
 #endif
@@ -1476,6 +1480,7 @@ void log_relay(int family, struct dhcp_relay *relay);
 /* outpacket.c */
 #ifdef HAVE_DHCP6
 void end_opt6(int container);
+void reset_counter(void);
 int save_counter(int newval);
 void *expand(size_t headroom);
 int new_opt6(int opt);

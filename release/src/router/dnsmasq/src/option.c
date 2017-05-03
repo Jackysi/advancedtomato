@@ -452,7 +452,7 @@ static struct {
   { LOPT_DHCP_FQDN, OPT_DHCP_FQDN, NULL, gettext_noop("Use only fully qualified domain names for DHCP clients."), NULL },
   { LOPT_GEN_NAMES, ARG_DUP, "[=tag:<tag>]", gettext_noop("Generate hostnames based on MAC address for nameless clients."), NULL},
   { LOPT_PROXY, ARG_DUP, "[=<ipaddr>]...", gettext_noop("Use these DHCP relays as full proxies."), NULL },
-  { LOPT_RELAY, ARG_DUP, "<local-addr>,<server>[,<interface>]", gettext_noop("Relay DHCP requests to a remote server"), NULL},
+  { LOPT_RELAY, ARG_DUP, "<local-addr>,<server>[,<iface>]", gettext_noop("Relay DHCP requests to a remote server"), NULL},
   { LOPT_CNAME, ARG_DUP, "<alias>,<target>[,<ttl>]", gettext_noop("Specify alias name for LOCAL DNS name."), NULL },
   { LOPT_PXE_PROMT, ARG_DUP, "<prompt>,[<timeout>]", gettext_noop("Prompt to send to PXE clients."), NULL },
   { LOPT_PXE_SERV, ARG_DUP, "<service>", gettext_noop("Boot service for PXE menu."), NULL },
@@ -475,7 +475,7 @@ static struct {
   { LOPT_AUTHSOA, ARG_ONE, "<serial>[,...]", gettext_noop("Set authoritive zone information"), NULL },
   { LOPT_AUTHSFS, ARG_DUP, "<NS>[,<NS>...]", gettext_noop("Secondary authoritative nameservers for forward domains"), NULL },
   { LOPT_AUTHPEER, ARG_DUP, "<ipaddr>[,<ipaddr>...]", gettext_noop("Peers which are allowed to do zone transfer"), NULL },
-  { LOPT_IPSET, ARG_DUP, "/<domain>/<ipset>[,<ipset>...]", gettext_noop("Specify ipsets to which matching domains should be added"), NULL },
+  { LOPT_IPSET, ARG_DUP, "/<domain>[/<domain>...]/<ipset>...", gettext_noop("Specify ipsets to which matching domains should be added"), NULL },
   { LOPT_SYNTH, ARG_DUP, "<domain>,<range>,[<prefix>]", gettext_noop("Specify a domain and address range for synthesised names"), NULL },
   { LOPT_SEC_VALID, OPT_DNSSEC_VALID, NULL, gettext_noop("Activate DNSSEC validation"), NULL },
   { LOPT_TRUST_ANCHOR, ARG_DUP, "<domain>,[<class>],...", gettext_noop("Specify trust anchor key digest."), NULL },
@@ -486,7 +486,7 @@ static struct {
 #ifdef OPTION6_PREFIX_CLASS 
   { LOPT_PREF_CLSS, ARG_DUP, "set:tag,<class>", gettext_noop("Specify DHCPv6 prefix class"), NULL },
 #endif
-  { LOPT_RA_PARAM, ARG_DUP, "<interface>,[high,|low,]<interval>[,<lifetime>]", gettext_noop("Set priority, resend-interval and router-lifetime"), NULL },
+  { LOPT_RA_PARAM, ARG_DUP, "<iface>,[<prio>,]<intval>[,<lifetime>]", gettext_noop("Set priority, resend-interval and router-lifetime"), NULL },
   { LOPT_QUIET_DHCP, OPT_QUIET_DHCP, NULL, gettext_noop("Do not log routine DHCP."), NULL },
   { LOPT_QUIET_DHCP6, OPT_QUIET_DHCP6, NULL, gettext_noop("Do not log routine DHCPv6."), NULL },
   { LOPT_QUIET_RA, OPT_QUIET_RA, NULL, gettext_noop("Do not log RA."), NULL },
@@ -721,7 +721,7 @@ static void do_usage(void)
 	sprintf(buff, "    ");
       
       sprintf(buff+4, "--%s%s%s", opts[j].name, eq, desc);
-      printf("%-40.40s", buff);
+      printf("%-55.55s", buff);
 	     
       if (usage[i].arg)
 	{
@@ -848,19 +848,31 @@ char *parse_server(char *arg, union mysockaddr *addr, union mysockaddr *source_a
 static struct server *add_rev4(struct in_addr addr, int msize)
 {
   struct server *serv = opt_malloc(sizeof(struct server));
-  in_addr_t  a = ntohl(addr.s_addr) >> 8;
+  in_addr_t  a = ntohl(addr.s_addr);
   char *p;
 
   memset(serv, 0, sizeof(struct server));
-  p = serv->domain = opt_malloc(25); /* strlen("xxx.yyy.zzz.in-addr.arpa")+1 */
-  
-  if (msize == 24)
-    p += sprintf(p, "%d.", a & 0xff);
-  a = a >> 8;
-  if (msize != 8)
-    p += sprintf(p, "%d.", a & 0xff);
-  a = a >> 8;
-  p += sprintf(p, "%d.in-addr.arpa", a & 0xff);
+  p = serv->domain = opt_malloc(29); /* strlen("xxx.yyy.zzz.ttt.in-addr.arpa")+1 */
+
+  switch (msize)
+    {
+    case 32:
+      p += sprintf(p, "%d.", a & 0xff);
+      /* fall through */
+    case 24:
+      p += sprintf(p, "%d.", (a >> 8) & 0xff);
+      /* fall through */
+    case 16:
+      p += sprintf(p, "%d.", (a >> 16) & 0xff);
+      /* fall through */
+    case 8:
+      p += sprintf(p, "%d.", (a >> 24) & 0xff);
+      break;
+    default:
+      return NULL;
+    }
+
+  p += sprintf(p, "in-addr.arpa");
   
   serv->flags = SERV_HAS_DOMAIN;
   serv->next = daemon->servers;
@@ -1906,6 +1918,7 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
 	new = opt_malloc(sizeof(struct auth_zone));
 	new->domain = opt_string_alloc(arg);
 	new->subnet = NULL;
+	new->exclude = NULL;
 	new->interface_names = NULL;
 	new->next = daemon->auth_zones;
 	daemon->auth_zones = new;
@@ -1913,6 +1926,7 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
 	while ((arg = comma))
 	  {
 	    int prefixlen = 0;
+	    int is_exclude = 0;
 	    char *prefix;
 	    struct addrlist *subnet =  NULL;
 	    struct all_addr addr;
@@ -1922,6 +1936,12 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
 	    
 	    if (prefix && !atoi_check(prefix, &prefixlen))
 	      ret_err(gen_err);
+	    if (strstr(arg, "exclude:") == arg)
+	      {
+		      is_exclude = 1;
+		      arg = arg+8;
+	      }
+
 	    
 	    if (inet_pton(AF_INET, arg, &addr.addr.addr4))
 	      {
@@ -1960,8 +1980,17 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
 	    if (subnet)
 	      {
 		subnet->addr = addr;
-		subnet->next = new->subnet;
-		new->subnet = subnet;
+		
+		if (is_exclude)
+		  {
+		    subnet->next = new->exclude;
+		    new->exclude = subnet;
+		  }
+		else
+		{
+		  subnet->next = new->subnet;
+		  new->subnet = subnet;
+		}
 	      }
 	  }
 	break;
@@ -2048,6 +2077,9 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
 				   /* generate the equivalent of
 				      local=/xxx.yyy.zzz.in-addr.arpa/ */
 				  struct server *serv = add_rev4(new->start, msize);
+				  if (!serv)
+				    ret_err(_("bad prefix"));
+
 				  serv->flags |= SERV_NO_ADDR;
 
 				  /* local=/<domain>/ */
@@ -2419,7 +2451,11 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
 	  ret_err(gen_err);
 
 	if (inet_pton(AF_INET, arg, &addr4))
-	  serv = add_rev4(addr4, size);
+         {
+           serv = add_rev4(addr4, size);
+           if (!serv)
+             ret_err(_("bad prefix"));
+         }
 #ifdef HAVE_IPV6
 	else if (inet_pton(AF_INET6, arg, &addr6))
 	  serv = add_rev6(&addr6, size);
@@ -4635,11 +4671,44 @@ void read_opts(int argc, char **argv, char *compile_opts)
 
   if (daemon->cnames)
     {
-      struct cname *cn;
-      
+      struct cname *cn, *cn2, *cn3;
+
+#define NOLOOP 1
+#define TESTLOOP 2      
+
+      /* Fill in TTL for CNAMES noe we have local_ttl.
+        Also prepare to do loop detection. */
       for (cn = daemon->cnames; cn; cn = cn->next)
-	if (cn->ttl == -1)
-	  cn->ttl = daemon->local_ttl;
+       {
+         if (cn->ttl == -1)
+           cn->ttl = daemon->local_ttl;
+         cn->flag = 0;
+         cn->targetp = NULL;
+         for (cn2 = daemon->cnames; cn2; cn2 = cn2->next)
+           if (hostname_isequal(cn->target, cn2->alias))
+             {
+               cn->targetp = cn2;
+               break;
+             }
+       }
+       
+      /* Find any CNAME loops.*/
+      for (cn = daemon->cnames; cn; cn = cn->next)
+       {
+         for (cn2 = cn->targetp; cn2; cn2 = cn2->targetp)
+           {
+             if (cn2->flag == NOLOOP)
+               break;
+             
+             if (cn2->flag == TESTLOOP)
+               die(_("CNAME loop involving %s"), cn->alias, EC_BADCONF);
+             
+             cn2->flag = TESTLOOP;
+           }
+         
+         for (cn3 = cn->targetp; cn3 != cn2; cn3 = cn3->targetp)
+           cn3->flag = NOLOOP;
+       }
     }
 
   if (daemon->if_addrs)
