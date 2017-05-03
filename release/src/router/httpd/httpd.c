@@ -96,6 +96,8 @@ int header_sent;
 char *user_agent;
 //	int hidok = 0;
 
+int disable_maxage = 0;
+
 const char mime_html[] = "text/html; charset=utf-8";
 const char mime_plain[] = "text/plain";
 const char mime_javascript[] = "text/javascript";
@@ -143,7 +145,7 @@ void send_header(int status, const char* header, const char* mime, int cache)
 			   tms);
 
 	if (mime) web_printf("Content-Type: %s\r\n", mime);
-	if (cache > 0) {
+	if (cache > 0 && !disable_maxage) {
 		web_printf("Cache-Control: max-age=%d\r\n", cache * 3600);
 	}
 	else {
@@ -974,14 +976,18 @@ int main(int argc, char **argv)
 	FD_ZERO(&listeners.lfdset);
 	memset(bind, 0, sizeof(bind));
 
-	while ((c = getopt(argc, argv, "hdp:s:")) != -1) {
+	while ((c = getopt(argc, argv, "hNdp:s:")) != -1) {
 		switch (c) {
 		case 'h':
 			printf(
 				"Usage: %s [options]\n"
+				"  -N        Disable caching (always send no-cache)\n"
 				"  -d        Debug mode / do not demonize\n"
 				, argv[0]);
 			return 1;
+		case 'N':
+			disable_maxage = 1;
+			break;
 		case 'd':
 			debug = 1;
 			break;
