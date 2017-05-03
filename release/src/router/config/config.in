@@ -187,6 +187,10 @@ config TCONFIG_RAID
 	bool "RAID Support: mdadm plus md modules"
 	default n
 
+config TCONFIG_AIO
+	bool "Flag to detect AIO target"
+	default n
+
 config TCONFIG_CTF
 	bool "CTF (Cut-Through Forwarding)"
 	default n

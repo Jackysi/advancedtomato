@@ -40,6 +40,7 @@ TCONFIG_SAMBASRV=y
 # TCONFIG_HFS is not set
 # TCONFIG_UPS is not set
 # TCONFIG_NANO is not set
+# TCONFIG_AIO is not set
 # TCONFIG_DNSCRYPT is not set
 # TCONFIG_TOR is not set
 # TCONFIG_CTF is not set

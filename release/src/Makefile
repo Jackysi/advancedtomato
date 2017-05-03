@@ -427,6 +427,10 @@ define RouterOptions
 		sed -i "/TCONFIG_TOR/d" $(1); \
 		echo "TCONFIG_TOR=y" >>$(1); \
 	fi; \
+	if [ "$(BUILD_DESC)" = "AIO" ]; then \
+		sed -i "/TCONFIG_AIO/d" $(1); \
+		echo "TCONFIG_AIO=y" >>$(1); \
+	fi; \
 	if [ "$(CTF)" = "y" ]; then \
 		sed -i "/TCONFIG_CTF/d" $(1); \
 		echo "TCONFIG_CTF=y" >>$(1); \

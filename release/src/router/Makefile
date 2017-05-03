@@ -2108,6 +2108,12 @@ nano-install: nano
 	install -D nano/src/nano $(INSTALLDIR)/nano/usr/sbin/nano
 	$(STRIP) -s $(INSTALLDIR)/nano/usr/sbin/nano
 
+ifeq ($(TCONFIG_AIO),y)
+CACERT:=--with-ca-bundle=/rom/cacert.pem
+else
+CACERT:=
+endif
+
 libcurl/stamp-h1: zlib openssl
 	cd libcurl && CC=$(CC) STRIP='mipsel-uclibc-strip' \
 		CPPFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections -I$(TOP)/zlib" \
@@ -2119,7 +2125,7 @@ libcurl/stamp-h1: zlib openssl
 		--disable-ldap --disable-manual --disable-telnet --disable-verbose \
 		--with-random="/dev/urandom" --with-ssl="$(TOP)/openssl/ssl" \
 		--without-gnutls --without-krb4 --without-libidn \
-		--with-linux-headers=$(LINUXDIR)/include \
+		--with-linux-headers=$(LINUXDIR)/include $(CACERT) \
 		OPENSSL_CFLAGS="-I$(TOP)/openssl/include" \
 		OPENSSL_LIBS="-L$(TOP)/openssl -lcrypto -lssl"
 		touch libcurl/stamp-h1
