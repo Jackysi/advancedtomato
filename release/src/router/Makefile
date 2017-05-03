@@ -753,7 +753,7 @@ openssl/stamp-h1:
 
 openssl: openssl/stamp-h1
 	@$(SEP)
-	@$(MAKE) -C openssl
+	@$(MAKE) -C openssl $(PARALLEL_BUILD)
 
 openssl-clean:
 	-@$(MAKE) -C openssl clean
@@ -1217,7 +1217,7 @@ rp-l2tp-install:
 	$(STRIP) $(INSTALLDIR)/rp-l2tp/usr/sbin/l2tpd
 
 xl2tpd: pppd
-	CFLAGS="-g $(EXTRACFLAGS)" $(MAKE) -C $@ PREFIX=/usr xl2tpd
+	CFLAGS="-g $(EXTRACFLAGS)" $(MAKE) -C $@ PREFIX=/usr xl2tpd $(PARALLEL_BUILD)
 
 xl2tpd-install: xl2tpd
 	install -D xl2tpd/xl2tpd $(INSTALLDIR)/xl2tpd/usr/sbin/xl2tpd
