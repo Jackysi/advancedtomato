@@ -7,6 +7,12 @@
 
 #include "dnscrypt.h"
 
+typedef enum Cipher_ {
+    CIPHER_UNDEFINED,
+    CIPHER_XSALSA20POLY1305,
+    CIPHER_XCHACHA20POLY1305
+} Cipher;
+
 typedef struct DNSCryptClient_ {
     uint8_t  magic_query[DNSCRYPT_MAGIC_QUERY_LEN];
     uint8_t  publickey[crypto_box_PUBLICKEYBYTES];
@@ -14,6 +20,7 @@ typedef struct DNSCryptClient_ {
     uint8_t  nmkey[crypto_box_BEFORENMBYTES];
     uint8_t  nonce_pad[crypto_box_HALF_NONCEBYTES];
     uint64_t nonce_ts_last;
+    Cipher   cipher;
     _Bool    ephemeral_keys;
 } DNSCryptClient;
 
@@ -40,7 +47,8 @@ int dnscrypt_client_init_with_new_key_pair(DNSCryptClient * const client);
 int dnscrypt_client_init_with_client_key(DNSCryptClient * const client);
 
 int dnscrypt_client_init_magic_query(DNSCryptClient * const client,
-                                     const uint8_t magic_query[DNSCRYPT_MAGIC_QUERY_LEN]);
+                                     const uint8_t magic_query[DNSCRYPT_MAGIC_QUERY_LEN],
+                                     Cipher cipher);
 
 int dnscrypt_client_init_resolver_publickey(DNSCryptClient * const client,
                                             const uint8_t resolver_publickey[crypto_box_PUBLICKEYBYTES]);

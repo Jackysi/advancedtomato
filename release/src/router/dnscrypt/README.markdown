@@ -51,16 +51,16 @@ source code can also be downloaded on Github, in the "releases" section.
 
 After having downloaded a file, compute its SHA256 digest. For example:
 
-    $ openssl dgst -sha256 dnscrypt-proxy-1.7.0.tar.bz2
+    $ openssl dgst -sha256 dnscrypt-proxy-1.8.0.tar.bz2
 
 Verify this digest against the expected one, that can be retrieved
 using a simple DNS query:
 
-    $ drill -aD TXT dnscrypt-proxy-1.7.0.tar.bz2.download.dnscrypt.org
+    $ drill -aD TXT dnscrypt-proxy-1.8.0.tar.bz2.download.dnscrypt.org
 
 or
 
-    $ dig +dnssec TXT dnscrypt-proxy-1.7.0.tar.bz2.download.dnscrypt.org
+    $ dig +dnssec TXT dnscrypt-proxy-1.8.0.tar.bz2.download.dnscrypt.org
 
 If the content of the TXT record doesn't match the SHA256 digest you
 computed, please file a bug report on Github as soon as possible and
@@ -69,7 +69,7 @@ don't go any further.
 Signatures can also be verified with the
 [Minisign](https://jedisct1.github.io/minisign/) tool:
 
-    $ minisign -VP RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3 -m dnscrypt-proxy-1.7.0.tar.bz2
+    $ minisign -VP RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3 -m dnscrypt-proxy-1.8.0.tar.bz2
 
 Installation
 ------------
@@ -80,9 +80,6 @@ Android (requires a rooted device), and Windows (requires MingW).
 
 Install [libsodium](https://github.com/jedisct1/libsodium). On Linux, don't
 forget to run `ldconfig` if you installed it from source.
-
-A "minimal" build of libsodium (`--enable-minimal`) works equally well as a
-full build with this proxy.
 
 On Fedora, RHEL and CentOS, you may need to add `/usr/local/lib` to the paths
 the dynamic linker is going to look at. Before issuing `ldconfig`, type:
@@ -122,6 +119,9 @@ service. Windows only, written in .NET.
 
 - [DNSCrypt OSXClient](https://github.com/alterstep/dnscrypt-osxclient):
 Mac OSX application to control the DNSCrypt Proxy.
+
+- [DNSCryptClient](https://github.com/F1ash/dnscrypt-proxy-gui): A Qt/KF5 GUI for
+Linux.
 
 DNSCrypt-enabled resolvers
 --------------------------
@@ -170,7 +170,8 @@ with:
 
     nameserver 127.0.0.1
 
-Other common command-line switches include:
+Common command-line switches
+----------------------------
 
 * `--daemonize` in order to run the server as a background process.
 * `--local-address=<ip>[:port]` in order to locally bind a different IP
@@ -218,6 +219,20 @@ See
 [README-WINDOWS.markdown](https://github.com/jedisct1/dnscrypt-proxy/blob/master/README-WINDOWS.markdown)
 for more information on DNSCrypt on Windows.
 
+Configuration file
+------------------
+
+Starting with version 1.8.0, a configuration file can be used instead
+of supplying command-line switches.
+
+The distribution includes a sample configuration file named
+`dnscrypt-proxy.conf`.
+
+In order to start the server with a configuration file, provide the name of
+that file without any additional switches:
+
+    # dnscrypt-proxy /etc/dnscrypt-proxy.conf
+
 Using DNSCrypt in combination with a DNS cache
 ----------------------------------------------
 
@@ -226,11 +241,14 @@ will **not** be cached and every single query will require a round-trip to the
 upstream resolver.
 
 For optimal performance, the recommended way of running DNSCrypt is to run it
-as a forwarder for a local DNS cache, such as `unbound` or
-`powerdns-recursor`.
+as a forwarder for a local DNS cache, such as:
+* [unbound](https://www.unbound.net/)
+* [powerdns-recursor](https://www.powerdns.com/recursor.html)
+* [edgedns](https://github.com/jedisct1/edgedns)
+* [acrylic DNS proxy](http://mayakron.altervista.org/wikibase/show.php?id=AcrylicHome)
 
-Both can safely run on the same machine as long as they are listening to
-different IP addresses (preferred) or different ports.
+These DNS caches can safely run on the same machine as long as they are
+listening to different IP addresses (preferred) or different ports.
 
 If your DNS cache is `unbound`, all you need is to edit the `unbound.conf`
 file and add the following lines at the end of the `server` section:
@@ -390,6 +408,7 @@ Recognized switches are:
 
     --domains=<file>
     --ips=<file>
+    --logfile=<file>
 
 A file should list one entry per line.
 
@@ -400,6 +419,8 @@ For names, leading and trailing wildcards (`*`) are also supported (e.g.
 
     # dnscrypt-proxy ... \
     --plugin libdcplugin_example,--ips=/etc/blk-ips,--domains=/etc/blk-names
+
+Blocked requests will be written to the optional log file.
 
 * `libdcplugin_example-logging`: Log client queries
 

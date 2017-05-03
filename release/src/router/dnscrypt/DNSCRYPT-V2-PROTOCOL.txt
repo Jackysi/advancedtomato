@@ -342,7 +342,7 @@ records, each record containing a certificate encoded as follows:
 <es-version> ::= the cryptographic construction to use with this
 certificate.
 For X25519-XSalsa20Poly1305, <es-version> must be 0x00 0x01.
-For X25519-Chacha20Poly1305, <es-version> must be 0x00 0x02.
+For X25519-XChacha20Poly1305, <es-version> must be 0x00 0x02.
 
 <protocol-minor-version> ::= 0x00 0x00
 

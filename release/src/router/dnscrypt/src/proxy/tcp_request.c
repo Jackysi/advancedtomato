@@ -622,6 +622,6 @@ tcp_listener_stop(ProxyContext * const proxy_context)
     }
     evconnlistener_free(proxy_context->tcp_conn_listener);
     proxy_context->tcp_conn_listener = NULL;
-    while (tcp_listener_kill_oldest_request(proxy_context) != 0) { }
+    while (tcp_listener_kill_oldest_request(proxy_context) == 0) { }
     logger_noformat(proxy_context, LOG_INFO, "TCP listener shut down");
 }

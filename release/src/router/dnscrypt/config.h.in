@@ -36,6 +36,16 @@
 /* Define to 1 if you have the `closedir' function. */
 #undef HAVE_CLOSEDIR
 
+/* Define to 1 if you have the
+   `crypto_box_curve25519xchacha20poly1305_open_easy_afternm' function. */
+#undef HAVE_CRYPTO_BOX_CURVE25519XCHACHA20POLY1305_OPEN_EASY_AFTERNM
+
+/* Define to 1 if you have the `crypto_box_easy_afternm' function. */
+#undef HAVE_CRYPTO_BOX_EASY_AFTERNM
+
+/* Define to 1 if you have the `crypto_core_hchacha20' function. */
+#undef HAVE_CRYPTO_CORE_HCHACHA20
+
 /* Define to 1 if you have the declaration of `cygwin_conv_path', and to 0 if
    you don't. */
 #undef HAVE_DECL_CYGWIN_CONV_PATH

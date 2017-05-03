@@ -1,3 +1,560 @@
+* Mon Dec 19 10:10:49 2016 +0100
+
+    Android: downgrade the NDK to 19 when building for platform 16
+    
+    May fix the `signal()` (inlined prior to version 21) symbol being undefined.
+
+* Mon Dec 19 08:51:29 2016 +0100
+
+    Fix off-by-one in the registry key
+    
+    Spotted by Christian Hermann
+
+* Sun Dec 18 15:17:27 2016 +0100
+
+    Document Control-C
+
+* Sat Dec 17 22:54:09 2016 +0100
+
+    Revert "dnscrypt.eu-nl-ipv6 has been down for a while"
+    
+
+* Sat Dec 17 22:35:57 2016 +0100
+
+    sysconf -> dist_sysconf
+
+* Sat Dec 17 19:44:10 2016 +0100
+
+    Update ChangeLog
+
+* Sat Dec 17 19:43:43 2016 +0100
+
+    Do not require wine
+
+* Sat Dec 17 19:40:21 2016 +0100
+
+    Documentation improvements
+
+* Sat Dec 17 19:32:57 2016 +0100
+
+    Mention that the config file requires dnscrypt-proxy 1.8.0
+
+* Sat Dec 17 19:32:24 2016 +0100
+
+    Improve the Windows documentation
+
+* Sat Dec 17 19:13:48 2016 +0100
+
+    Wndows doc/news update
+
+* Sat Dec 17 19:13:35 2016 +0100
+
+    Fix the vendor-specific include path
+
+* Sat Dec 17 19:06:37 2016 +0100
+
+    Update ChangeLog
+
+* Sat Dec 17 19:05:12 2016 +0100
+
+    Sync the Android build scripts with libsodium
+
+* Sat Dec 17 18:43:36 2016 +0100
+
+    Require iOS6
+
+* Sat Dec 17 18:42:58 2016 +0100
+
+    Compat with minimal builds of libsodium
+
+* Sat Dec 17 18:41:45 2016 +0100
+
+    The CoreServices framework is probably not required any more
+
+* Sat Dec 17 18:41:14 2016 +0100
+
+    Do not recommend minimal libsodium builds any more, for xchacha20
+
+* Sat Dec 17 18:21:34 2016 +0100
+
+    Sign
+
+* Sat Dec 17 18:20:48 2016 +0100
+
+    Added d0wn Italy's resolver (#511)
+    
+    Added d0wn Italy's resolver - from https://dns.d0wn.biz
+
+* Sat Dec 17 18:19:15 2016 +0100
+
+    Only keep vendor-neutral options in the configuration file
+
+* Sat Dec 17 18:15:59 2016 +0100
+
+    Update NEWS
+
+* Sat Dec 17 17:32:58 2016 +0100
+
+    The query logs is usually what people want, not the server log
+
+* Sat Dec 17 17:29:00 2016 +0100
+
+    More explicit default resolver
+
+* Sat Dec 17 17:25:27 2016 +0100
+
+    Inverted logic
+
+* Sat Dec 17 17:19:38 2016 +0100
+
+    lto still doesn't work reliably on mingw
+
+* Sat Dec 17 16:18:17 2016 +0100
+
+    Add a cross-compilation script for win32/win64 from Arch Linux
+
+* Sat Dec 17 13:46:01 2016 +0100
+
+    Bump example version
+
+* Sat Dec 17 13:49:19 2016 +0100
+
+    Deconstify
+
+* Sat Dec 17 12:46:30 2016 +0100
+
+    Windows: add a --install-with-config-file= command-line option
+
+* Sat Dec 17 11:39:01 2016 +0100
+
+    Avoid snprintf() in plugins
+
+* Sat Dec 17 00:08:45 2016 +0100
+
+    Update ChangeLog
+
+* Sat Dec 17 00:02:42 2016 +0100
+
+    The OpenDNS password can finally be loaded from a file
+    
+    The environment variable remains supported for backwards compatibility,
+    but it is not documented any more.
+
+* Sat Dec 17 00:02:15 2016 +0100
+
+    Do not use two identification methods simultaneously
+
+* Fri Dec 16 23:41:16 2016 +0100
+
+    Looks like the password is just called "device"
+
+* Fri Dec 16 23:16:43 2016 +0100
+
+    Keep IgnoreTimeStamps commented in order to discourage its use
+
+* Fri Dec 16 23:01:28 2016 +0100
+
+    Remove down d0wn resolvers
+
+* Fri Dec 16 22:23:40 2016 +0100
+
+    Sort
+
+* Fri Dec 16 22:18:59 2016 +0100
+
+    Add a sample configuration file
+
+* Fri Dec 16 22:18:09 2016 +0100
+
+    Typo in the man page
+
+* Fri Dec 16 11:34:39 2016 +0100
+
+    Reuse the pure-ftpd config file parser
+
+* Fri Dec 16 11:31:46 2016 +0100
+
+    Configuration file (#454)
+    
+    * Add option -c to load configuration from a file.
+    Add option -C to print the current configuration to stdout.
+    Properly nul-terminate file_buf in options_read_file.
+    
+    * Document -c, -C and the configuration file.
+    
+    * Regenerate dnscrypt-proxy.8 from dnscrypt-proxy.8.markdown with ronn.
+
+* Wed Dec 14 12:02:57 2016 +0100
+
+    Update ChangeLog
+
+* Tue Dec 13 12:00:14 2016 +0100
+
+    New option `--service-name` to set the Windows service name
+
+* Sun Dec 11 20:56:23 2016 +0100
+
+    Version bump, update ChangeLog/NEWS
+
+* Sun Dec 11 20:33:26 2016 +0100
+
+    Use strdup() for resolver parameters supplied manually
+
+* Sun Dec 11 20:19:52 2016 +0100
+
+    Properly print the minor protocol version
+
+* Sun Dec 11 19:28:14 2016 +0100
+
+    Favor newer versions of the protocol
+
+* Sun Dec 11 01:31:45 2016 +0100
+
+    Keep a copy of the non-signed certificate data in bincerts
+
+* Sun Dec 11 01:02:41 2016 +0100
+
+    Add preliminary support for xchacha20poly1305
+
+* Sun Dec 11 00:09:12 2016 +0100
+
+    Add polyfills for ancient libsodium versions
+
+* Sat Dec 10 23:10:58 2016 +0100
+
+    Update ChangeLog
+
+* Sat Dec 10 22:26:20 2016 +0100
+
+    More hacks for Debian
+
+* Sat Dec 10 21:32:22 2016 +0100
+
+    Stop checking for 6jack
+
+* Sat Dec 10 21:28:09 2016 +0100
+
+    Work around Debian shipping an antiquated version of libsodium
+
+* Sat Dec 10 21:13:00 2016 +0100
+
+    Do not use the confusing box API any more.
+    
+    This requires libsodium >= 1.0.2
+
+* Sat Dec 10 19:57:14 2016 +0100
+
+    Add timestamps to syslogless logs
+
+* Sat Dec 10 19:52:17 2016 +0100
+
+    Add timestamps to log files
+
+* Sat Dec 10 19:27:26 2016 +0100
+
+    Document --logfile
+
+* Sat Dec 10 17:13:14 2016 +0100
+
+    Make the plugin descriptions more consistent
+
+* Sat Dec 10 14:50:47 2016 +0100
+
+    Add a --logfile option to the ldns-blocking plugin
+
+* Sat Dec 10 10:31:49 2016 +0100
+
+    Add ifreenet.online DNS record for its public key
+
+* Sat Dec 10 01:35:17 2016 +0100
+
+    sign
+
+* Sat Dec 10 04:04:22 2016 +0330
+
+    Update dnscrypt-resolvers.csv (#506)
+    
+    Added new public dnscrypt by ifreenet.online
+
+* Fri Dec 9 21:12:11 2016 +0100
+
+    cloudns is experiencing issues
+
+* Sun Dec 4 10:39:25 2016 +0100
+
+    Add DNSCryptClient
+
+* Mon Nov 28 23:35:28 2016 +0100
+
+    Temporarily remove d0wn-dk-ns1
+
+* Wed Nov 23 22:11:05 2016 +0100
+
+    Remove dead resolvers
+
+* Sat Nov 19 09:39:49 2016 +0100
+
+    free() more things on exit
+
+* Sat Nov 19 09:21:48 2016 +0100
+
+    Install SIGINT & SIGTERM handlers
+
+* Sat Nov 19 09:20:37 2016 +0100
+
+    Regression from last commit
+
+* Sat Nov 19 09:18:38 2016 +0100
+
+    Fix inverted logic when shutting down listeners
+
+* Mon Nov 14 23:31:01 2016 +0100
+
+    Revert ipredator key change
+    
+
+* Mon Nov 14 15:56:56 2016 +0100
+
+    Mention when servers use a long key rotation period
+
+* Mon Nov 14 15:20:00 2016 +0100
+
+    Sign
+
+Merge: d5c0ea8 cb19477
+* Mon Nov 14 15:19:40 2016 +0100
+
+    Update dnscrypt-resolvers.csv (#497)
+    
+    update Ipredator.se Provider public key
+
+* Mon Nov 14 14:27:16 2016 +0100
+
+    Update dnscrypt-resolvers.csv
+    
+    update Ipredator.se Provider public key
+
+* Sun Nov 13 22:40:02 2016 +0100
+
+    d0wn and OpenNIC divorced
+
+* Sat Nov 12 23:52:34 2016 +0100
+
+    dnscrypt.eu-nl-ipv6 has been down for a while
+
+* Sat Nov 12 23:48:29 2016 +0100
+
+    New key for d0wn-lv-ns1
+
+* Sat Nov 5 22:14:21 2016 +0100
+
+    Yet another key change, for d0wn-tz-ns1
+
+* Sat Nov 5 21:37:15 2016 +0100
+
+    Sign
+
+* Sat Nov 5 21:36:05 2016 +0100
+
+    New key for d0wn-gr-ns1
+
+* Tue Nov 1 23:08:18 2016 +0100
+
+    New resolver in New York: dyne.org
+
+* Tue Nov 1 23:04:10 2016 +0100
+
+    New key for d0wn-random-ns2
+
+* Mon Oct 31 13:46:39 2016 +0100
+
+    New key for d0wn-de-ns1
+
+* Thu Oct 27 15:09:57 2016 +0200
+
+    iPredator supports DNSSEC
+
+* Wed Oct 26 22:59:28 2016 +0200
+
+    Sign
+
+* Wed Oct 26 22:58:57 2016 +0200
+
+    Updated file with new D0wn's DNS server in Spain (#488)
+
+* Tue Oct 25 22:56:01 2016 +0200
+
+    0x00 0x02 is reserved for X25519-XChacha20Poly1305
+
+* Mon Oct 24 10:13:11 2016 +0200
+
+    Update the list of resolvers
+
+* Tue Oct 25 10:04:08 2016 +0200
+
+    Check that the resolvers list doesn't contain duplicates
+
+* Sat Oct 22 02:49:12 2016 +0200
+
+    Remove temporarily d0wn resolvers
+
+* Mon Oct 17 18:06:13 2016 +0200
+
+    Add dnscrypt.org-fr URL
+
+* Thu Oct 13 22:57:27 2016 +0200
+
+    Try to use LibreSSL before OpenSSL
+
+* Thu Oct 13 22:43:11 2016 +0200
+
+    Add explit paths to OpenSSL for Homebrew
+
+* Thu Oct 13 21:35:24 2016 +0200
+
+    Make the example-ldns-blocking.c changes consistent with the rest of the code
+
+* Thu Oct 13 22:35:12 2016 +0300
+
+    Move apply_block_domains to the pre_filter event group (#485)
+
+* Tue Oct 11 15:24:08 2016 +0200
+
+    Welcome back, dnscrypt.eu-dk
+
+* Mon Oct 10 23:49:31 2016 +0200
+
+    Temporarily remove unresponsive resolvers
+
+* Mon Oct 10 23:41:40 2016 +0200
+
+    Sign
+
+* Mon Oct 10 23:35:45 2016 +0200
+
+    Avoid duplicate descriptions
+
+* Tue Oct 11 00:32:41 2016 +0300
+
+    update Adguard`s server list (#483)
+
+* Mon Oct 10 14:29:58 2016 +0200
+
+    Re-add update-binary to the git repository
+
+* Sun Oct 9 11:26:02 2016 +0200
+
+    Remove quite a few resolvers that are currently down
+
+* Fri Oct 7 23:23:13 2016 +0200
+
+    Sign
+
+* Fri Oct 7 22:22:31 2016 +0100
+
+    Remove 4ARMED server due to decommissioning (#482)
+
+* Mon Oct 3 07:25:31 2016 +0200
+
+    Remove ventricle.us cjdns & IPv6 addresses
+
+* Sun Oct 2 22:43:31 2016 +0200
+
+    adguard-family doesn't seem to work any more
+
+* Sun Oct 2 19:00:13 2016 +0200
+
+    Shorten the name of the ventricle servers
+
+* Sun Oct 2 12:27:26 2016 -0400
+
+    Added dnscrypt.ventricle.us (#478)
+
+* Sun Oct 2 09:54:24 2016 +0200
+
+    fvz-rec-gb-lon-03 is down
+
+* Sun Oct 2 09:52:52 2016 +0200
+
+    Sign
+
+* Sun Oct 2 02:39:18 2016 -0500
+
+    added dns-freedom (#476)
+
+* Tue Sep 27 01:07:12 2016 +0200
+
+    d0wn-lv-ns2 and d0wn-se-ns1 are down
+
+* Tue Sep 27 01:05:25 2016 +0200
+
+    Nits
+
+* Fri Sep 23 16:44:18 2016 +0200
+
+    Add Adguard
+
+* Fri Sep 23 16:26:21 2016 +0200
+
+    In the CSV files, ignore entries with an excessively large number of columns
+
+* Sat Sep 10 10:49:11 2016 +0200
+
+    Remove dead fvz resolvers
+
+* Mon Sep 5 12:30:48 2016 +0200
+
+    Revert dnscrypt.nu addition - The resolver itself doesn't seem to resolve
+
+* Mon Sep 5 12:22:10 2016 +0200
+
+    Sign
+
+* Mon Sep 5 12:21:50 2016 +0200
+
+    Add dnscrypt.nu
+
+* Tue Aug 30 09:06:08 2016 +0200
+
+    sign
+
+* Tue Aug 30 09:05:53 2016 +0200
+
+    Remove offline resolvers
+
+* Tue Aug 30 07:42:08 2016 +0100
+
+    update dnscrypt servers: dns.d0wn.biz (#455)
+
+* Thu Aug 25 15:24:22 2016 +0200
+
+    ldns-blocking: don't consider empty files as an error
+
+* Sat Aug 13 12:52:24 2016 +0200
+
+    fvz-rec-de-fra-01 and fvz-rec-ie-du-01 are not responsive
+
+* Sat Aug 13 12:48:51 2016 +0200
+
+    Android: distribute the update-binary signature, not binary
+    Also distribute updater-script
+
+* Wed Aug 10 15:18:45 2016 +0200
+
+    libevent: Check for Mac OS X 10.4 kqueue bug properly
+
+* Mon Aug 1 00:52:13 2016 +0200
+
+    ./autogen.sh is not required with libsodium-stable
+
+* Sun Jul 31 12:47:19 2016 +0200
+
+    Do not create `libevent-modified/sample/Makefile`
+
+* Sun Jul 31 12:42:01 2016 +0200
+
+    Update ChangeLog
+
 * Sun Jul 31 12:19:15 2016 +0200
 
     Builds for Win64 are now available

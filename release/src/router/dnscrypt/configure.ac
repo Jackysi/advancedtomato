@@ -1,5 +1,5 @@
 AC_PREREQ([2.65])
-AC_INIT([dnscrypt-proxy],[1.7.0],[https://dnscrypt.org])
+AC_INIT([dnscrypt-proxy],[1.8.1],[https://dnscrypt.org])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_AUX_DIR([libltdl/config])
 AC_CONFIG_SRCDIR([src/proxy/app.c])
@@ -234,9 +234,6 @@ AC_SUBST(LIBTOOL_DEPS)
 AC_ARG_VAR([RONN], [path to the ronn text processor])
 AC_PATH_PROG([RONN], [ronn], [#])
 
-AC_ARG_VAR([SIXJACK], [path to 6jack])
-AC_PATH_PROG([SIXJACK], [sixjack], [#])
-
 AC_ARG_VAR([AR], [path to the ar utility])
 AC_CHECK_TOOL([AR], [ar], [ar])
 
@@ -262,9 +259,23 @@ AC_SUBST([PROBES_SOURCE])
 AS_IF([test -d /usr/local/include], [
   CPPFLAGS="$CPPFLAGS -I/usr/local/include"
 ])
-
 AS_IF([test -d /usr/local/lib], [
   LDFLAGS="$LDFLAGS -L/usr/local/lib"
+])
+
+AS_IF([test -d /usr/local/opt/libressl/include], [
+  CPPFLAGS="$CPPFLAGS -I/usr/local/opt/libressl/include"
+], [
+  AS_IF([test -d /usr/local/opt/openssl/include], [
+    CPPFLAGS="$CPPFLAGS -I/usr/local/opt/openssl/include"
+  ])
+])
+AS_IF([test -d /usr/local/opt/libressl/lib], [
+  LDFLAGS="$LDFLAGS -L/usr/local/opt/libressl/lib"
+], [
+  AS_IF([test -d /usr/local/opt/openssl/lib], [
+    LDFLAGS="$LDFLAGS -L/usr/local/opt/openssl/lib"
+  ])
 ])
 
 dnl Checks for header files.
@@ -437,10 +448,8 @@ case $host_os in
   ;;
 esac
 
-AC_CHECK_HEADER([CoreServices/CoreServices.h],
-  [LIBS="$LIBS -framework CoreFoundation -framework CoreServices"])
-
 AC_CHECK_FUNCS([getpwnam sandbox_init setrlimit putc_unlocked gmtime_r initgroups])
+AC_CHECK_FUNCS([crypto_box_easy_afternm crypto_core_hchacha20 crypto_box_curve25519xchacha20poly1305_open_easy_afternm])
 
 dnl Libtool.
 
@@ -489,8 +498,8 @@ AC_CONFIG_FILES([Makefile
                  src/plugins/example-logging/Makefile
                  src/plugins/example-ldns-aaaa-blocking/Makefile
                  src/plugins/example-ldns-blocking/Makefile
-                 src/plugins/example-ldns-opendns-deviceid/Makefile
-                 src/plugins/example-ldns-opendns-set-client-ip/Makefile
+                 src/plugins/vendor-specific/example-ldns-opendns-deviceid/Makefile
+                 src/plugins/vendor-specific/example-ldns-opendns-set-client-ip/Makefile
                  test/Makefile])
 
 AC_OUTPUT

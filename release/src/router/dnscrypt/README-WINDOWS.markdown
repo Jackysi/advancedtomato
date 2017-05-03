@@ -20,16 +20,20 @@ Quickstart
 1) Download and extract the latest
 [Windows package for dnscrypt](https://download.dnscrypt.org/dnscrypt-proxy/LATEST-win32-full.zip).
 
-2) Copy the `dnscrypt-proxy-win32` folder anywhere.
+2) Extract the `dnscrypt-proxy-win32` folder anywhere, but this has to
+be a permanent location.
 
-3) Look at the list of [public DNS resolvers supporting DNSCrypt](https://github.com/jedisct1/dnscrypt-proxy/blob/master/dnscrypt-resolvers.csv)
-and pick the one you want to use. Note its name, in the first column
-(for example: `dnscrypt.org-fr`).
+3) The `dnscrypt-resolver.csv` file includes a list of public DNS
+resolvers supporting the DNSCrypt protocol. The most recent version
+can be previewed online: [public DNS resolvers supporting DNSCrypt](https://github.com/jedisct1/dnscrypt-proxy/blob/master/dnscrypt-resolvers.csv)
+and downloaded: [dnscrypt-resolvers.csv](https://download.dnscrypt.org/dnscrypt-proxy/).
+Chose one that fits your needs. Its identifier ("resolver name") is in
+the first column (for example: `dnscrypt.org-fr`).
 
 4) Open an elevated command prompt (see below), enter the
 `dnscrypt-proxy-win32` folder and type:
 
-    dnscrypt-proxy -R <name> --test=0
+    .\dnscrypt-proxy -R <name> --test=0
 
 Replace `<name>` with name of the resolver you chose.
 
@@ -42,7 +46,7 @@ If an error is displayed, retry with a different server.
 5) So far, so good? Now, enable the service for real, by replacing the
 `--test=0` part of the previous command with `--install`.
 
-    dnscrypt-proxy -R <name> --install
+    .\dnscrypt-proxy -R <name> --install
 
 6) Open the network preferences ("Network connections", then select
 your network adapter and hit "Properties"). Then in the "Internet Protocol
@@ -104,18 +108,25 @@ In addition to the command-line switches available on other platforms,
 the Windows builds of the proxy add the following switches:
 
 - `--install`: install the proxy as a service.
+- `--install-with-config-file=<config file>`: install the proxy as a
+service, using the provided configuration file (`dnscrypt-proxy.conf`).
+Double check that the configuration file is valid prior to installing
+the service.
 - `--uninstall`: uninstall the service (but not the software - the
 service can be restarted later)
+- `--service-name=<name>`: set the service name (by default:
+`dnscrypt-proxy`). Multiple services with a different configuration can run
+simultaneously if they use distinct service names.
 
 Example: how to try a different DNSCrypt resolver:
 
 Step 1 - Uninstall the previous service:
 
-    dnscrypt-proxy --uninstall
+    .\dnscrypt-proxy --uninstall
 
 Step 2 - Reinstall/restart the service, with the new settings:
 
-    dnscrypt-proxy -R <new name> --install
+    .\dnscrypt-proxy -R <new name> --install
 
 Sharing the proxy with the local network
 ----------------------------------------
@@ -132,7 +143,7 @@ In order to do so, just add the following option to the command-line:
 
 That is:
 
-    dnscrypt-proxy -R <name> --install --local-address=0.0.0.0
+    .\dnscrypt-proxy -R <name> --install --local-address=0.0.0.0
 
 And use the IP address of the Windows machine in the DNS settings of
 any devices of the local network.
@@ -154,17 +165,57 @@ the time, is just "DHCP").
 
 Then, uninstall the service:
 
-    dnscrypt-proxy --uninstall
+    .\dnscrypt-proxy --uninstall
 
 And delete the directory.
 
-Advanced usage
---------------
+Advanced configuration
+----------------------
 
-Startup options should specified as subkeys from this registry key:
+Many additional features (logging, filtering...) can be enabled by
+loading a configuration file. This requires at least dnscrypt-proxy
+version 1.8.0.
+
+1) Make sure that the service is not running:
+
+    .\dnscrypt-proxy --uninstall
+
+2) Edit the `dnscrypt-proxy.conf` configuration file according to your
+needs.
+
+3) Check that that configuration actually works as expected, by
+starting the proxy without installing the service:
+
+    .\dnscrypt-proxy dnscrypt-proxy.conf
+
+Check that errors are not printed, and that DNS queries sent to the
+configured IP addresses receive responses. Hit `Control`+`C` in order to
+stop the server and get back to the interactive command prompt.
+
+4) If that setup looks fine, install the Windows service so that it
+loads that configuration file automatically:
+
+    .\dnscrypt-proxy --install-with-config-file=dnscrypt-proxy.conf
+
+Plugins
+-------
+
+Plugins should be listed as paths to the `.DLL` files, optionally
+followed by a coma and plugin-specific arguments:
+
+    .\dnscrypt-proxy -R <name> --plugin=libdcplugin_example_ldns_aaaa_blocking.dll
+    .\dnscrypt-proxy -R <name> --plugin=libdcplugin_example_ldns_blocking.dll,--domains=C:\blacklisted-domains.txt
+
+The service should be restarted after the registry has been updated.
+
+Windows registry keys
+---------------------
+
+Startup options can specified as subkeys from a registry key:
 `HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\dnscrypt-proxy\Parameters`
 
-The service is named `dnscrypt-proxy`.
+By default, the service is named `dnscrypt-proxy`, but this can be changed
+with the `--service-name` command-line switch when installing the service.
 
 The following subkeys are recognized and should be self-explanatory:
 
@@ -192,11 +243,3 @@ Mandatory entries to run `dnscrypt-proxy` as a Windows service are:
 the `dnscrypt-resolvers.csv` file for a list of compatible public resolvers.
 
 These entries are automatically created/updated when installing the service.
-
-Plugins should be listed as paths to the `.DLL` files, optionally
-followed by a coma and plugin-specific arguments:
-
-    dnscrypt-proxy -R <name> --plugin=libdcplugin_example_ldns_aaaa_blocking.dll
-    dnscrypt-proxy -R <name> --plugin=libdcplugin_example_ldns_blocking.dll,--domains=C:\blacklisted-domains.txt
-
-The service should be restarted after the registry has been updated.

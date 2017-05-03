@@ -1,4 +1,41 @@
 
+* Version 1.8.1
+ - Version 1.8.0 didn't use the same Windows registry key as past
+versions. This has been fixed. In order to upgrade from 1.8.0,
+it is recommended to uninstall the service before upgrading
+(using the `dnscrypt-proxy --unininstall` command).
+ - The SDK used to build Android binaries was downgraded in order to
+retain compatibility with Android 4.1 (Jelly Bean).
+
+* Version 1.8.0:
+ - All the features of the proxy can now be enabled using a
+configuration file.
+ - On Windows, a new option, `--service-name` can be used to set the
+service name, so that multiple instances can run simultaneously.
+ - On Windows, `--install-service-with-config-file` can be used to
+install a service using a configuration file.
+ - The protocol can now use the XChaCha20 cipher as a faster alternative
+to XSalsa20.
+ - Time stamps are now being added to log files, including log files
+from plugins.
+ - `SIGINT` & `SIGTERM` handlers have been added to give plugins a chance
+to call a teardown function.
+ - A message is now displayed when servers are using a very long key
+rotation period.
+ - The domain blocking plugin is now a `pre_filter`: blocked queries are
+not sent to upstream resolvers any more [breaking change for logging
+resolvers].
+ - The domain blocking plugin do not consider empty files an error any
+more.
+ - The domain blocking plugin has a new option (`--logfile`) to log
+queries sent to blacklisted IPs and names.
+ - Android's update-binary file is not part of the source distribution
+any more.
+ - libevent2 has been updated.
+ - The resolvers list was updated to the latest version.
+ - iOS builds now require iOS 6.0.0.
+ - Windows builds now link ldns against LibreSSL.
+
 * Version 1.7.0:
  - Plugins are now enabled by default.
  - Windows: new registry key: `LogFile`.

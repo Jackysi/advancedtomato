@@ -83,6 +83,19 @@ _inet_pton(const int af, const char * const src, void * const dst)
     return 1;
 }
 
+static void
+ip4tohex(char hex[4 * 2 + 1], unsigned char ip[4])
+{
+    static const char HEX[16] = "0123456789ABCDEF";
+    size_t            i;
+
+    for (i = 0U; i < 4U; i++) {
+        hex[i * 2U] = HEX[(ip[i] >> 4) & 0xf];
+        hex[i * 2U + 1U] = HEX[ip[i] & 0xf];
+    }
+    hex[i * 2U] = 0;
+}
+
 static int
 parse_client_ip(const char *ip_s, char * const edns_hex)
 {
@@ -94,8 +107,7 @@ parse_client_ip(const char *ip_s, char * const edns_hex)
     if (ip_s_len <= INET_ADDRSTRLEN && strchr(ip_s, '.') != NULL &&
         _inet_pton(AF_INET, ip_s, &ip_in_addr) > 0) {
         sa = (unsigned char *) &ip_in_addr.s_addr;
-        snprintf(ip_hex, sizeof ip_hex, "%02X%02X%02X%02X",
-                 sa[0], sa[1], sa[2], sa[3]);
+        ip4tohex(ip_hex, sa);
         memcpy(edns_hex + EDNS_CLIENT_IP_OFFSET,
                ip_hex, sizeof EDNS_CLIENT_IP - 1U);
     } else if (ip_s_len == sizeof EDNS_CLIENT_IP - 1U) {

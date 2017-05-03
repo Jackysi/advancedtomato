@@ -313,10 +313,20 @@ init_descriptors_from_systemd(ProxyContext * const proxy_context)
 }
 #endif
 
+static void
+signal_cb(evutil_socket_t sig, short events, void *fodder)
+{
+    (void) events;
+    (void) fodder;
+    dnscrypt_proxy_loop_break();
+}
+
 int
 dnscrypt_proxy_main(int argc, char *argv[])
 {
-    ProxyContext proxy_context;
+    ProxyContext  proxy_context;
+    struct event *sigint_event;
+    struct event *sigterm_event;    
 
     setvbuf(stdout, NULL, _IOLBF, BUFSIZ);
     stack_trace_on_crash();
@@ -379,6 +389,14 @@ dnscrypt_proxy_main(int argc, char *argv[])
         exit(1);
     }
 
+    sigint_event  = evsignal_new(proxy_context.event_loop, SIGINT,
+                                 signal_cb, &proxy_context);
+    sigterm_event = evsignal_new(proxy_context.event_loop, SIGTERM,
+                                 signal_cb, &proxy_context);
+    if (sigint_event  == NULL || event_add(sigint_event,  NULL) != 0 ||
+        sigterm_event == NULL || event_add(sigterm_event, NULL) != 0) {
+        exit(1);
+    }
 #ifdef HAVE_LIBSYSTEMD
     sd_notifyf(0, "MAINPID=%lu", (unsigned long) getpid());
 #endif
@@ -391,6 +409,8 @@ dnscrypt_proxy_main(int argc, char *argv[])
     cert_updater_free(&proxy_context);
     udp_listener_stop(&proxy_context);
     tcp_listener_stop(&proxy_context);
+    event_free(sigint_event);
+    event_free(sigterm_event);
     event_base_free(proxy_context.event_loop);
 #ifdef PLUGINS
     plugin_support_context_free(app_context.dcps_context);

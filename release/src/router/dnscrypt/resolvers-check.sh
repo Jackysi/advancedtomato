@@ -13,6 +13,16 @@ if which csvlint > /dev/null; then
   csvlint "$RESOLVERS_LIST" || echo "*** Invalid CSV file ***" >&2
 fi
 
+if [ $(cut -d, -f1 $RESOLVERS_LIST | sort | uniq -d | wc -l) -gt 0 ]; then
+  echo "Duplicate resolver name" >&2
+  exit 1
+fi
+
+if [ $(cut -d, -f2 $RESOLVERS_LIST | sort | uniq -d | wc -l) -gt 0 ]; then
+  echo "Duplicate resolver long name" >&2
+  exit 1
+fi
+
 exec < "$RESOLVERS_LIST"
 exec > "$tmpfile"
 

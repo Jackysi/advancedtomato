@@ -3,6 +3,7 @@
 
 #include <ctype.h>
 #include <stdio.h>
+#include <time.h>
 
 DCPLUGIN_MAIN(__FILE__);
 
@@ -25,7 +26,7 @@ dcplugin_long_description(DCPlugin * const dcplugin)
         "This plugin logs the client queries to the standard output (default)\n"
         "or to a file.\n"
         "\n"
-        "  # dnscrypt-proxy --plugin libdcplugin_example_logging,/var/log/dns.log";
+        "# dnscrypt-proxy --plugin libdcplugin_example_logging,/var/log/dns.log";
 }
 
 int
@@ -74,6 +75,25 @@ string_fprint(FILE * const fp, const unsigned char *str, const size_t size)
     return 0;
 }
 
+static int
+timestamp_fprint(FILE * const fp)
+{
+    char now_s[128];
+
+    time_t     now;
+    struct tm *tm;
+
+    if (time(&now) == (time_t) -1) {
+        fprintf(fp, "- ");
+        return -1;
+    }
+    tm = localtime(&now);
+    strftime(now_s, sizeof now_s, "%c", tm);
+    fprintf(fp, "%s ", now_s);
+
+    return 0;
+}
+
 DCPluginSyncFilterResult
 dcplugin_sync_pre_filter(DCPlugin *dcplugin, DCPluginDNSPacket *dcp_packet)
 {
@@ -89,6 +109,7 @@ dcplugin_sync_pre_filter(DCPlugin *dcplugin, DCPluginDNSPacket *dcp_packet)
     if (wire_data_len < 15U || wire_data[4] != 0U || wire_data[5] != 1U) {
         return DCP_SYNC_FILTER_RESULT_ERROR;
     }
+    timestamp_fprint(fp);
     if (wire_data[i] == 0U) {
         putc_unlocked('.', fp);
     }

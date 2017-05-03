@@ -126,7 +126,8 @@ am__dnscrypt_proxy_SOURCES_DIST = app.c app.h cert.c cert.h cert_p.h \
 	dnscrypt_proxy.h edns.c edns.h getpwnam.h logger.c logger.h \
 	minicsv.c minicsv.h options.c options.h pathnames.h pid_file.c \
 	pid_file.h probes_dnscrypt_proxy.d probes_no_dtrace.h \
-	safe_rw.c safe_rw.h sandboxes.c sandboxes.h stack_trace.c \
+	safe_rw.c safe_rw.h sandboxes.c sandboxes.h simpleconf.c \
+	simpleconf.h simpleconf_dnscrypt.h shims.h stack_trace.c \
 	stack_trace.h tcp_request.c tcp_request.h tcp_request_p.h \
 	udp_request.c udp_request.h udp_request_p.h utils.c utils.h \
 	windows_service.c windows_service.h plugin_options.c \
@@ -144,6 +145,7 @@ am_dnscrypt_proxy_OBJECTS = dnscrypt_proxy-app.$(OBJEXT) \
 	dnscrypt_proxy-pid_file.$(OBJEXT) \
 	dnscrypt_proxy-safe_rw.$(OBJEXT) \
 	dnscrypt_proxy-sandboxes.$(OBJEXT) \
+	dnscrypt_proxy-simpleconf.$(OBJEXT) \
 	dnscrypt_proxy-stack_trace.$(OBJEXT) \
 	dnscrypt_proxy-tcp_request.$(OBJEXT) \
 	dnscrypt_proxy-udp_request.$(OBJEXT) \
@@ -311,7 +313,6 @@ SAFECODE_HOME = @SAFECODE_HOME@
 SED = @SED@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
-SIXJACK = @SIXJACK@
 STRIP = @STRIP@
 SYSTEMD_CFLAGS = @SYSTEMD_CFLAGS@
 SYSTEMD_DAEMON_CFLAGS = @SYSTEMD_DAEMON_CFLAGS@
@@ -379,7 +380,8 @@ dnscrypt_proxy_SOURCES = app.c app.h cert.c cert.h cert_p.h dnscrypt.c \
 	dnscrypt_proxy.h edns.c edns.h getpwnam.h logger.c logger.h \
 	minicsv.c minicsv.h options.c options.h pathnames.h pid_file.c \
 	pid_file.h probes_dnscrypt_proxy.d probes_no_dtrace.h \
-	safe_rw.c safe_rw.h sandboxes.c sandboxes.h stack_trace.c \
+	safe_rw.c safe_rw.h sandboxes.c sandboxes.h simpleconf.c \
+	simpleconf.h simpleconf_dnscrypt.h shims.h stack_trace.c \
 	stack_trace.h tcp_request.c tcp_request.h tcp_request_p.h \
 	udp_request.c udp_request.h udp_request_p.h utils.c utils.h \
 	windows_service.c windows_service.h $(am__append_5)
@@ -506,6 +508,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dnscrypt_proxy-plugin_support.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dnscrypt_proxy-safe_rw.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dnscrypt_proxy-sandboxes.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dnscrypt_proxy-simpleconf.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dnscrypt_proxy-stack_trace.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dnscrypt_proxy-tcp_request.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dnscrypt_proxy-udp_request.Po@am__quote@
@@ -689,6 +692,20 @@ dnscrypt_proxy-sandboxes.obj: sandboxes.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='sandboxes.c' object='dnscrypt_proxy-sandboxes.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(dnscrypt_proxy_CFLAGS) $(CFLAGS) -c -o dnscrypt_proxy-sandboxes.obj `if test -f 'sandboxes.c'; then $(CYGPATH_W) 'sandboxes.c'; else $(CYGPATH_W) '$(srcdir)/sandboxes.c'; fi`
+
+dnscrypt_proxy-simpleconf.o: simpleconf.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(dnscrypt_proxy_CFLAGS) $(CFLAGS) -MT dnscrypt_proxy-simpleconf.o -MD -MP -MF $(DEPDIR)/dnscrypt_proxy-simpleconf.Tpo -c -o dnscrypt_proxy-simpleconf.o `test -f 'simpleconf.c' || echo '$(srcdir)/'`simpleconf.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/dnscrypt_proxy-simpleconf.Tpo $(DEPDIR)/dnscrypt_proxy-simpleconf.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='simpleconf.c' object='dnscrypt_proxy-simpleconf.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(dnscrypt_proxy_CFLAGS) $(CFLAGS) -c -o dnscrypt_proxy-simpleconf.o `test -f 'simpleconf.c' || echo '$(srcdir)/'`simpleconf.c
+
+dnscrypt_proxy-simpleconf.obj: simpleconf.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(dnscrypt_proxy_CFLAGS) $(CFLAGS) -MT dnscrypt_proxy-simpleconf.obj -MD -MP -MF $(DEPDIR)/dnscrypt_proxy-simpleconf.Tpo -c -o dnscrypt_proxy-simpleconf.obj `if test -f 'simpleconf.c'; then $(CYGPATH_W) 'simpleconf.c'; else $(CYGPATH_W) '$(srcdir)/simpleconf.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/dnscrypt_proxy-simpleconf.Tpo $(DEPDIR)/dnscrypt_proxy-simpleconf.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='simpleconf.c' object='dnscrypt_proxy-simpleconf.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(dnscrypt_proxy_CFLAGS) $(CFLAGS) -c -o dnscrypt_proxy-simpleconf.obj `if test -f 'simpleconf.c'; then $(CYGPATH_W) 'simpleconf.c'; else $(CYGPATH_W) '$(srcdir)/simpleconf.c'; fi`
 
 dnscrypt_proxy-stack_trace.o: stack_trace.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(dnscrypt_proxy_CFLAGS) $(CFLAGS) -MT dnscrypt_proxy-stack_trace.o -MD -MP -MF $(DEPDIR)/dnscrypt_proxy-stack_trace.Tpo -c -o dnscrypt_proxy-stack_trace.o `test -f 'stack_trace.c' || echo '$(srcdir)/'`stack_trace.c

@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "DNSCRYPT\-PROXY" "8" "July 2016" "" ""
+.TH "DNSCRYPT\-PROXY" "8" "December 2016" "" ""
 .
 .SH "NAME"
 \fBdnscrypt\-proxy\fR \- A DNSCrypt forwarder
@@ -81,7 +81,7 @@ Intead, run a DNS cache like \fBUnbound\fR, and configure it to use \fBdnscrypt\
 \fB\-u\fR, \fB\-\-user=<user name>\fR: chroot(2) to this user\'s home directory and drop privileges\.
 .
 .IP "\(bu" 4
-\fB\-t\fR, \fB\-\-test=<margin>\fR: don\'t actually start the proxy, but check that a valid certificate can be retrieved from the server and that it will remain valid for the next \fImargin\fR minutes\. The exit code is 0 if a valid certificate can be used, 2 if no valid certificates can be used, 3 if a timeout occurred, and 4 if a currently valid certificate is going to expire before \fImargin\fR\. The margin is always specificied in minutes\.
+\fB\-t\fR, \fB\-\-test=<margin>\fR: don\'t actually start the proxy, but check that a valid certificate can be retrieved from the server and that it will remain valid for the next \fImargin\fR minutes\. The exit code is 0 if a valid certificate can be used, 2 if no valid certificates can be used, 3 if a timeout occurred, and 4 if a currently valid certificate is going to expire before \fImargin\fR\. The margin is always specified in minutes\.
 .
 .IP "\(bu" 4
 \fB\-T\fR, \fB\-\-tcp\-only\fR: always use TCP\. A connection made using UDP will get a truncated response, so that the (stub) resolver retries using TCP\.
@@ -119,6 +119,14 @@ The resolver name is the first column (Name) in the CSV file\.
 .nf
 
 $ dnscrypt\-proxy \-\-daemonize \-\-provider\-key=\.\.\. \-\-provider\-name=\.\.\. \-\-resolver\-address=\.\.\.
+.
+.fi
+.
+.SH "USAGE EXAMPLE WITH A CONFIGURATION FILE"
+.
+.nf
+
+$ dnscrypt\-proxy /etc/dnscrypt\.conf
 .
 .fi
 .

@@ -98,7 +98,7 @@ ports.
     will remain valid for the next <margin> minutes. The exit code is 0
     if a valid certificate can be used, 2 if no valid certificates can be used,
     3 if a timeout occurred, and 4 if a currently valid certificate is
-    going to expire before <margin>. The margin is always specificied in
+    going to expire before <margin>. The margin is always specified in
     minutes.
 
   * `-T`, `--tcp-only`: always use TCP. A connection made using UDP
@@ -132,6 +132,10 @@ The resolver name is the first column (Name) in the CSV file.
 ## USAGE EXAMPLE WITH A PRIVATE SERVER
 
     $ dnscrypt-proxy --daemonize --provider-key=... --provider-name=... --resolver-address=...
+
+## USAGE EXAMPLE WITH A CONFIGURATION FILE
+
+    $ dnscrypt-proxy /etc/dnscrypt.conf
 
 ## BUGS AND SUPPORT
 

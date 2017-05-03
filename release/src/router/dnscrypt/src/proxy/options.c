@@ -26,6 +26,8 @@
 #include "logger.h"
 #include "minicsv.h"
 #include "pid_file.h"
+#include "simpleconf.h"
+#include "simpleconf_dnscrypt.h"
 #include "utils.h"
 #include "windows_service.h"
 #ifdef PLUGINS
@@ -64,8 +66,11 @@ static struct option getopt_long_options[] = {
     { "help", 0, NULL, 'h' },
 #ifdef _WIN32
     { "install", 0, NULL, WIN_OPTION_INSTALL },
+    { "install-with-config-file", 1, NULL, WIN_OPTION_INSTALL_WITH_CONFIG_FILE },
     { "reinstall", 0, NULL, WIN_OPTION_REINSTALL },
+    { "reinstall-with-config-file", 1, NULL, WIN_OPTION_REINSTALL_WITH_CONFIG_FILE },
     { "uninstall", 0, NULL, WIN_OPTION_UNINSTALL },
+    { "service-name", 1, NULL, WIN_OPTION_SERVICE_NAME },
 #endif
     { NULL, 0, NULL, 0 }
 };
@@ -310,14 +315,17 @@ options_parse_resolvers_list(ProxyContext * const proxy_context, char *buf)
     assert(proxy_context->resolver_name != NULL);
     buf = minicsv_parse_line(buf, headers, &headers_count,
                              sizeof headers / sizeof headers[0]);
-    if (headers_count < 4U) {
+    if (headers_count < 4U || headers_count > OPTIONS_RESOLVERS_LIST_MAX_COLS) {
         return -1;
     }
     do {
         buf = minicsv_parse_line(buf, cols, &cols_count,
                                  sizeof cols / sizeof cols[0]);
+        if (cols_count < 4U || cols_count > OPTIONS_RESOLVERS_LIST_MAX_COLS) {
+            continue;
+        }
         minicsv_trim_cols(cols, cols_count);
-        if (cols_count < 4U || *cols[0] == 0 || *cols[0] == '#') {
+        if (*cols[0] == 0 || *cols[0] == '#') {
             continue;
         }
         if (options_parse_resolver(proxy_context, headers, headers_count,
@@ -512,13 +520,23 @@ int
 options_parse(AppContext * const app_context,
               ProxyContext * const proxy_context, int argc, char *argv[])
 {
-    int   opt_flag;
-    int   option_index = 0;
+    const char *service_config_file = NULL;
+    int         opt_flag;
+    int         option_index = 0;
 #ifdef _WIN32
-    _Bool option_install = 0;
+    _Bool       option_install = 0;
 #endif
 
     options_init_with_default(app_context, proxy_context);
+    if (argc == 2 && *argv[1] != '-' &&
+        sc_build_command_line_from_file(argv[1], simpleconf_options,
+                                        (sizeof simpleconf_options) /
+                                        (sizeof simpleconf_options[0]),
+                                        argv[0], &argc, &argv) != 0) {
+        logger_noformat(proxy_context, LOG_ERR,
+                        "Unable to read the configuration file");
+        return -1;
+    }
     while ((opt_flag = getopt_long(argc, argv,
                                    getopt_options, getopt_long_options,
                                    &option_index)) != -1) {
@@ -563,7 +581,8 @@ options_parse(AppContext * const app_context,
             proxy_context->ignore_timestamps = 1;
             break;
         case 'k':
-            proxy_context->provider_publickey_s = optarg;
+            free((void *) proxy_context->provider_publickey_s);
+            proxy_context->provider_publickey_s = strdup(optarg);
             break;
         case 'K':
             proxy_context->client_key_file = optarg;
@@ -618,7 +637,8 @@ options_parse(AppContext * const app_context,
             proxy_context->pid_file = optarg;
             break;
         case 'r':
-            proxy_context->resolver_ip = optarg;
+            free((void *) proxy_context->resolver_ip);
+            proxy_context->resolver_ip = strdup(optarg);
             break;
         case 't': {
             char *endptr;
@@ -642,15 +662,18 @@ options_parse(AppContext * const app_context,
                 logger(proxy_context, LOG_ERR, "Unknown user: [%s]", optarg);
                 exit(1);
             }
+            free((void *) proxy_context->user_name);
             proxy_context->user_name = strdup(pw->pw_name);
             proxy_context->user_id = pw->pw_uid;
             proxy_context->user_group = pw->pw_gid;
+            free((void *) proxy_context->user_dir);
             proxy_context->user_dir = strdup(pw->pw_dir);
             break;
         }
 #endif
         case 'N':
-            proxy_context->provider_name = optarg;
+            free((void *) proxy_context->provider_name);
+            proxy_context->provider_name = strdup(optarg);
             break;
         case 'T':
             proxy_context->tcp_only = 1;
@@ -677,15 +700,23 @@ options_parse(AppContext * const app_context,
         case WIN_OPTION_REINSTALL:
             option_install = 1;
             break;
+        case WIN_OPTION_INSTALL_WITH_CONFIG_FILE:
+        case WIN_OPTION_REINSTALL_WITH_CONFIG_FILE:
+            option_install = 1;
+            service_config_file = optarg;
+            break;
         case WIN_OPTION_UNINSTALL:
             if (windows_service_uninstall() != 0) {
                 logger_noformat(NULL, LOG_ERR, "Unable to uninstall the service");
                 exit(1);
             } else {
-                logger_noformat(NULL, LOG_INFO, "The " WINDOWS_SERVICE_NAME
-                                " service has been removed from this system");
+                logger(NULL, LOG_INFO,
+                       "The [%s] service has been removed from this system",
+                       get_windows_service_name());
                 exit(0);
             }
+            break;
+        case WIN_OPTION_SERVICE_NAME:
             break;
 #endif
         default:
@@ -693,24 +724,37 @@ options_parse(AppContext * const app_context,
             exit(1);
         }
     }
-    if (options_apply(proxy_context) != 0) {
+    if (service_config_file == NULL && options_apply(proxy_context) != 0) {
         return -1;
     }
 #ifdef _WIN32
     if (option_install != 0) {
-        if (windows_service_install(proxy_context) != 0) {
+        int ret;
+
+        if (service_config_file != NULL) {
+            ret = windows_service_install_with_config_file(proxy_context,
+                                                           service_config_file);
+        } else {
+            ret = windows_service_install(proxy_context);
+        }
+        if (ret != 0) {
             logger_noformat(NULL, LOG_ERR, "Unable to install the service");
             logger_noformat(NULL, LOG_ERR,
                             "Make sure that you are using an elevated command prompt "
                             "and that the service hasn't been already installed");
             exit(1);
         }
-        logger_noformat(NULL, LOG_INFO, "The " WINDOWS_SERVICE_NAME
-                        " service has been installed and started");
-        logger_noformat(NULL, LOG_INFO, "The registry key used for this "
-                        "service is " WINDOWS_SERVICE_REGISTRY_PARAMETERS_KEY);
-        logger(NULL, LOG_INFO, "Now, change your resolver settings to %s",
-               proxy_context->local_ip);
+        logger(NULL, LOG_INFO,
+               "The [%s] service has been installed and started",
+               get_windows_service_name());
+        logger(NULL, LOG_INFO, "The registry key used for this "
+               "service is [%s]", windows_service_registry_parameters_key());
+        if (service_config_file == NULL) {
+            logger(NULL, LOG_INFO, "Now, change your resolver settings to %s",
+                   proxy_context->local_ip);
+        } else {
+            logger_noformat(NULL, LOG_INFO, "Now, change your resolver settings");
+        }
         exit(0);
     }
 #endif
@@ -727,4 +771,10 @@ options_free(ProxyContext * const proxy_context)
     free(proxy_context->user_dir);
     proxy_context->user_dir = NULL;
 #endif
+    free((void *) proxy_context->provider_name);
+    proxy_context->provider_name = NULL;
+    free((void *) proxy_context->provider_publickey_s);
+    proxy_context->provider_publickey_s = NULL;
+    free((void *) proxy_context->resolver_ip);
+    proxy_context->resolver_ip = NULL;
 }

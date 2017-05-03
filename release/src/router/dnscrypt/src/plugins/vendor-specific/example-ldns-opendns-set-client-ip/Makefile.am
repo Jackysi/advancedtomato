@@ -1,4 +1,7 @@
 
+EXTRA_DIST = \
+	CONFIGURATION.txt
+
 pkglib_LTLIBRARIES = \
 	libdcplugin_example_ldns_opendns_set_client_ip.la
 
@@ -18,4 +21,4 @@ libdcplugin_example_ldns_opendns_set_client_ip_la_LDFLAGS = \
 
 libdcplugin_example_ldns_opendns_set_client_ip_la_CPPFLAGS = \
 	$(LTDLINCL) \
-	-I../../include
+	-I../../../include

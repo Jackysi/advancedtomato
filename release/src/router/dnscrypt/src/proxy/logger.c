@@ -34,6 +34,25 @@ logger_open_syslog(struct ProxyContext_ * const context)
     return 0;
 }
 
+static int
+timestamp_fprint(FILE * const fp)
+{
+    char now_s[128];
+
+    time_t     now;
+    struct tm *tm;
+
+    if (time(&now) == (time_t) -1) {
+        fprintf(fp, "- ");
+        return -1;
+    }
+    tm = localtime(&now);
+    strftime(now_s, sizeof now_s, "%c", tm);
+    fprintf(fp, "%s ", now_s);
+
+    return 0;
+}
+
 int
 logger(struct ProxyContext_ * const context,
        const int crit, const char * const format, ...)
@@ -114,6 +133,7 @@ logger(struct ProxyContext_ * const context,
     } else {
         log_fp = context->log_fp;
     }
+    timestamp_fprint(log_fp);
     if (context != NULL && context->syslog_prefix) {
         fprintf(log_fp, "%s%s %s\n", urgency, context->syslog_prefix, line);
     } else {

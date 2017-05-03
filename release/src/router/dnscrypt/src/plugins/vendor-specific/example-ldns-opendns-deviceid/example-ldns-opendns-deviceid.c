@@ -26,23 +26,48 @@ const char *
 dcplugin_long_description(DCPlugin * const dcplugin)
 {
     return
-        "This plugin tags outgoing packets with a 64-bit shared secret key,\n"
-        "that the OpenDNS Umbrella service uses to identify users.\n"
+        "This plugin tags outgoing packets with the 8 bytes password,\n"
+        "that the OpenDNS Umbrella service uses to identify their users.\n"
         "\n"
-        "If you happen to have an OpenDNS Umbrella account,\n"
-        "your secret key ('device') can be retrieved with:\n"
+        "If you happen to have an OpenDNS VPN or Umbrella account,\n"
+        "your password ('device') can be displayed with:\n"
         "\n"
-        "$ dig txt debug.opendns.com\n"
+        "$ dig txt debug.opendns.com.\n"
         "\n"
-        "# env OPENDNS_DEVICE_ID='<device id>' dnscrypt-proxy --plugin \n"
-        "  libdcplugin_example_ldns_opendns_deviceid.la";
+        "# dnscrypt-proxy --plugin \\\n"
+        "      libdcplugin_example_ldns_opendns_deviceid.la,/etc/umbrella-password.txt\n"
+        "\n"
+        "The password should be present in the given file, as a hexadecimal string\n"
+        "(16 hex characters).\n";
+}
+
+static char *
+load_device_id_from_file(const char * const file_name)
+{
+    FILE *fp;
+    char *device_id;
+
+    if ((fp = fopen(file_name, "r")) == NULL) {
+        return NULL;
+    }
+    if ((device_id = calloc(1U, sizeof EDNS_DEV_ID)) == NULL) {
+        return NULL;
+    }
+    if (fread(device_id, 1U, sizeof EDNS_DEV_ID, fp) !=
+        sizeof EDNS_DEV_ID) {
+        free(device_id);
+        return NULL;
+    }
+    fclose(fp);
+
+    return device_id;
 }
 
 int
 dcplugin_init(DCPlugin * const dcplugin, int argc, char *argv[])
 {
-    char   *device_id;
-    char   *device_id_env;
+    char   *device_id = NULL;
+    char   *device_id_env = NULL;
     char   *edns_hex;
     size_t  edns_hex_size = sizeof EDNS_HEADER EDNS_DEV_ID;
 
@@ -53,10 +78,21 @@ dcplugin_init(DCPlugin * const dcplugin, int argc, char *argv[])
     }
     memcpy(edns_hex, EDNS_HEADER EDNS_DEV_ID, edns_hex_size);
     assert(sizeof EDNS_DEV_ID - 1U == (size_t) 16U);
-    device_id = device_id_env = getenv("OPENDNS_DEVICE_ID");
+    if (argc == 2U) {
+        device_id = load_device_id_from_file(argv[1]);
+    }
+    if (device_id == NULL) {
+        if ((device_id_env = getenv("OPENDNS_DEVICE_ID")) == NULL) {
+            return -1;
+        }
+        if ((device_id = strdup(device_id_env)) == NULL) {
+            return -1;
+        }
+    }
     if (device_id != NULL) {
         memcpy(edns_hex + sizeof EDNS_HEADER - (size_t) 1U,
                device_id, sizeof EDNS_DEV_ID);
+        free(device_id);
     }
     if (device_id_env != NULL) {
         memset(device_id_env, 0, strlen(device_id_env));
