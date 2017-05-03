@@ -49,10 +49,10 @@ cert_parse_version(ProxyContext * const proxy_context,
          && signed_bincert->version_major[1] != 2U
 #endif
         )) {
-        logger(proxy_context, LOG_WARNING,
-               "Unsupported certificate version: [%u][%u]",
-               signed_bincert->version_major[0],
-               signed_bincert->version_major[1]);
+        logger(proxy_context, LOG_INFO,
+               "Unsupported certificate version: %u.%u",
+               signed_bincert->version_major[1],
+               signed_bincert->version_major[0]);
         return -1;
     }
     return 0;
@@ -99,8 +99,8 @@ cert_parse_bincert(ProxyContext * const proxy_context,
         } else {
             logger_noformat(proxy_context, LOG_INFO,
                             "This certificate has not been activated yet");
+            return -1;
         }
-        return -1;
     }
     if (now_u32 > ts_end) {
         logger_noformat(proxy_context, LOG_INFO,
@@ -134,9 +134,9 @@ cert_parse_bincert(ProxyContext * const proxy_context,
                previous_serial, serial);
         return -1;
     } else if (previous_version < version) {
-        logger(proxy_context, LOG_INFO, "Favoring certificate #%" PRIu32 " "
-               "which is for a more recent version than #%" PRIu32,
-               serial, previous_serial);
+        logger(proxy_context, LOG_INFO,
+               "Favoring version #%" PRIu32 " over version #%" PRIu32,
+               version, previous_version);
         return 0;
     }
     if (previous_serial > serial) {
@@ -190,12 +190,12 @@ cert_open_bincert(ProxyContext * const proxy_context,
         return -1;
     }
     if (cert_parse_bincert(proxy_context, bincert, *bincert_p) != 0) {
-        memset(bincert, 0, sizeof *bincert);
+        sodium_memzero(bincert, sizeof *bincert);
         free(bincert);
         return -1;
     }
     if (*bincert_p != NULL) {
-        memset(*bincert_p, 0, sizeof **bincert_p);
+        sodium_memzero(*bincert_p, sizeof **bincert_p);
         free(*bincert_p);
     }
     *bincert_p = bincert;
@@ -431,7 +431,7 @@ cert_query_cb(int result, char type, int count, int ttl,
     cert_print_server_key(proxy_context);
     dnscrypt_client_init_magic_query(&proxy_context->dnscrypt_client,
                                      bincert->magic_query, cipher);
-    memset(bincert, 0, sizeof *bincert);
+    sodium_memzero(bincert, sizeof *bincert);
     free(bincert);
     if (proxy_context->test_only) {
         DNSCRYPT_PROXY_CERTS_UPDATE_DONE((unsigned char *)

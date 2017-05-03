@@ -13,13 +13,10 @@
       <!-- You might want to change this on iOS or if you installed the proxy in a specific location -->
       <string>/usr/local/sbin/dnscrypt-proxy</string>
 
-      <!-- You might want to change this on iOS or if you installed the proxy in a specific location -->
-      <string>--resolvers-list=/usr/local/share/dnscrypt-proxy/dnscrypt-resolvers.csv</string>
-
-      <!-- Change this to the provider name you want to use -->
-      <string>--resolver-name=***CHANGETHIS***</string>
-
-      <string>--user=nobody</string>
+      <!-- You may want to change this on iOS or if you installed the proxy in a specific location -->
+      <!-- Also check the paths in that configuration file, especially the path to dnscrypt-resolvers.csv -->
+      <!-- You might also have to disable plugins (such as the LocalCache option) -->
+      <string>/usr/local/etc/dnscrypt-proxy.conf</string>
     </array>
     <key>StandardErrorPath</key>
     <string>/dev/null</string>

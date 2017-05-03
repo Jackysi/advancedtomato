@@ -3,12 +3,17 @@
 #include <ctype.h>
 #include <getopt.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
 #ifdef _WIN32
 # include <ws2tcpip.h>
+#else
+# include <sys/socket.h>
+# include <arpa/inet.h>
+# include <netinet/in.h>
 #endif
 
 #include <dnscrypt/plugin.h>
@@ -19,17 +24,31 @@
 # define strcasecmp _stricmp
 #endif
 
+#include "fpst.h"
+
 DCPLUGIN_MAIN(__FILE__);
 
-typedef struct StrList_ {
-    struct StrList_ *next;
-    char            *str;
-} StrList;
+#ifndef putc_unlocked
+# define putc_unlocked(c, stream) putc((c), (stream))
+#endif
+
+#define MAX_QNAME_LENGTH 255U
+
+typedef enum BlockType {
+    BLOCKTYPE_UNDEFINED,
+    BLOCKTYPE_EXACT,
+    BLOCKTYPE_PREFIX,
+    BLOCKTYPE_SUFFIX,
+    BLOCKTYPE_SUBSTRING
+} BlockType;
 
 typedef struct Blocking_ {
-    StrList *domains;
-    StrList *ips;
-    FILE    *fp;
+    FPST *domains;
+    FPST *domains_rev;
+    FPST *domains_substr;
+    FPST *ips;
+    FILE *fp;
+    _Bool ltsv;
 } Blocking;
 
 static struct option getopt_long_options[] = {
@@ -40,36 +59,54 @@ static struct option getopt_long_options[] = {
 };
 static const char *getopt_options = "dil";
 
+static char *
+skip_spaces(char *str)
+{
+    while (*str != 0 && isspace((int) (unsigned char) *str)) {
+        str++;
+    }
+    return str;
+}
+
+static char *
+skip_chars(char *str)
+{
+    while (*str != 0 && !isspace((int) (unsigned char) *str)) {
+        str++;
+    }
+    return str;
+}
+
 static void
-str_list_free(StrList * const str_list)
+str_tolower(char *str)
 {
-    StrList *next;
-    StrList *scanned = str_list;
+    while (*str != 0) {
+        *str = (char) tolower((unsigned char) *str);
+        str++;
+    }
+}
 
-    while (scanned != NULL) {
-        next = scanned->next;
-        free(scanned->str);
-        scanned->next = NULL;
-        scanned->str = NULL;
-        free(scanned);
-        scanned = next;
+static void
+str_reverse(char *str)
+{
+    size_t i = 0;
+    size_t j = strlen(str);
+    char   t;
+
+    while (i < j) {
+        t = str[i];
+        str[i++] = str[--j];
+        str[j] = t;
     }
 }
 
 static char *
-skip_spaces(char *line)
+untab(char *line)
 {
-    while (*line != 0 && isspace((int) (unsigned char) *line)) {
-        line++;
-    }
-    return line;
-}
+    char *ptr;
 
-static char *
-skip_chars(char *line)
-{
-    while (*line != 0 && !isspace((int) (unsigned char) *line)) {
-        line++;
+    while ((ptr = strchr(line, '\t')) != NULL) {
+        *ptr = ' ';
     }
     return line;
 }
@@ -77,9 +114,14 @@ skip_chars(char *line)
 static char *
 trim_comments(char *line)
 {
+    char *ptr;
     char *s1;
     char *s2;
 
+    while ((ptr = strchr(line, '\n')) != NULL ||
+           (ptr = strchr(line, '\r')) != NULL) {
+        *ptr = 0;
+    }
     line = skip_spaces(line);
     if (*line == 0 || *line == '#') {
         return NULL;
@@ -97,42 +139,101 @@ trim_comments(char *line)
     return s2;
 }
 
-static int
-parse_str_list(StrList ** const str_list_p, const char * const file)
+static void
+free_list(const char *key, uint32_t val)
 {
-    char     line[512U];
-    char    *host;
-    FILE    *fp;
-    char    *ptr;
-    StrList *str_list_item;
-    StrList *str_list_last = NULL;
-    int      ret = -1;
+    (void) val;
+    free((void *) key);
+}
 
-    assert(str_list_p != NULL);
-    *str_list_p = NULL;
+static int
+parse_domain_list(FPST ** const domain_list_p,
+                  FPST ** const domain_rev_list_p,
+                  FPST ** const domain_substr_list_p,
+                  const char * const file)
+{
+    char       buf[MAX_QNAME_LENGTH + 1U];
+    char      *line;
+    FILE      *fp;
+    char      *ptr;
+    FPST      *domain_list;
+    FPST      *domain_rev_list;
+    FPST      *domain_substr_list;
+    size_t     line_len;
+    BlockType  block_type = BLOCKTYPE_UNDEFINED;
+    int        ret = -1;
+
+    assert(domain_list_p != NULL);
+    assert(domain_rev_list_p != NULL);
+    assert(domain_substr_list_p != NULL);
+    *domain_list_p = NULL;
+    *domain_rev_list_p = NULL;
+    *domain_substr_list_p = NULL;
+    domain_list = fpst_new();
+    domain_rev_list = fpst_new();
+    domain_substr_list = fpst_new();
     if ((fp = fopen(file, "r")) == NULL) {
         return -1;
     }
-    while (fgets(line, (int) sizeof line, fp) != NULL) {
-        while ((ptr = strchr(line, '\n')) != NULL ||
-               (ptr = strchr(line, '\r')) != NULL) {
-            *ptr = 0;
-        }
-        if ((host = trim_comments(line)) == NULL || *host == 0) {
+    while (fgets(buf, (int) sizeof buf, fp) != NULL) {
+        if ((line = trim_comments(untab(buf))) == NULL || *line == 0) {
             continue;
         }
-        if ((str_list_item = calloc(1U, sizeof *str_list_item)) == NULL ||
-            (str_list_item->str = strdup(host)) == NULL) {
+        line_len = strlen(line);
+        if (line[0] == '*' && line[line_len - 1] == '*') {
+            line[line_len - 1] = 0;
+            line++;
+            block_type = BLOCKTYPE_SUBSTRING;
+        } else if (line[line_len - 1] == '*') {
+            line[line_len - 1] = 0;
+            block_type = BLOCKTYPE_PREFIX;
+        } else {
+            if (line[0] == '*') {
+                line++;
+            }
+            if (line[0] == '.') {
+                line++;
+            }
+            str_reverse(line);
+            block_type = BLOCKTYPE_SUFFIX;
+        }
+        if (*line == 0) {
+            continue;
+        }
+        str_tolower(line);
+        if ((line = strdup(line)) == NULL) {
             break;
         }
-        str_list_item->next = NULL;
-        *(*str_list_p == NULL ? str_list_p : &str_list_last->next) = str_list_item;
-        str_list_last = str_list_item;
+        if (block_type == BLOCKTYPE_SUFFIX) {
+            if ((domain_rev_list = fpst_insert_str(domain_rev_list, line,
+                                                   (uint32_t) block_type)) == NULL) {
+                free(line);
+                break;
+            }
+        } else if (block_type == BLOCKTYPE_PREFIX) {
+            if ((domain_list = fpst_insert_str(domain_list, line,
+                                               (uint32_t) block_type)) == NULL) {
+                free(line);
+                break;
+            }
+        } else if (block_type == BLOCKTYPE_SUBSTRING) {
+            if ((domain_substr_list = fpst_insert_str(domain_substr_list, line,
+                                                      (uint32_t) block_type)) == NULL) {
+                free(line);
+                break;
+            }
+        } else {
+            free(line);
+        }
     }
     if (!feof(fp)) {
-        str_list_free(*str_list_p);
-        *str_list_p = NULL;
+        fpst_free(domain_list, free_list);
+        fpst_free(domain_rev_list, free_list);
+        fpst_free(domain_substr_list, free_list);
     } else {
+        *domain_list_p = domain_list;
+        *domain_rev_list_p = domain_rev_list;
+        *domain_substr_list_p = domain_substr_list;
         ret = 0;
     }
     fclose(fp);
@@ -140,66 +241,70 @@ parse_str_list(StrList ** const str_list_p, const char * const file)
     return ret;
 }
 
-
-static char *
-substr_find(const char *str, const char * const substr, const size_t max_len)
+static int
+parse_ip_list(FPST ** const ip_list_p, const char * const file)
 {
-    const char *str_max;
-    size_t      str_len = strlen(str);
-    int         substr_c0;
+    char       buf[MAX_QNAME_LENGTH + 1U];
+    char      *line;
+    FILE      *fp;
+    char      *ptr;
+    FPST      *ip_list;
+    size_t     line_len;
+    BlockType  block_type = BLOCKTYPE_UNDEFINED;
+    int        ret = -1;
 
-    assert(strlen(substr) >= max_len);
-    if (str_len < max_len) {
-        return NULL;
+    assert(ip_list_p != NULL);
+    *ip_list_p = NULL;
+    ip_list = fpst_new();
+    if ((fp = fopen(file, "r")) == NULL) {
+        return -1;
     }
-    str_max = str + str_len - max_len;
-    substr_c0 = tolower((int) (unsigned char) substr[0]);
-    do {
-        if (tolower((int) (unsigned char) *str) == substr_c0 &&
-            strncasecmp(str, substr, max_len) == 0) {
-            return (char *) str;
+    while (fgets(buf, (int) sizeof buf, fp) != NULL) {
+        if ((line = trim_comments(untab(buf))) == NULL || *line == 0) {
+            continue;
         }
-    } while (str++ < str_max);
+        line_len = strlen(line);
+        if (line[line_len - 1] == '*') {
+            line[line_len - 1] = 0;
+            block_type = BLOCKTYPE_PREFIX;
+        } else {
+            block_type = BLOCKTYPE_EXACT;
+        }
+        str_tolower(line);
+        if ((line = strdup(line)) == NULL) {
+            break;
+        }
+        if ((ip_list = fpst_insert_str(ip_list, line,
+                                       (uint32_t) block_type)) == NULL) {
+            free(line);
+            break;
+        }
+    }
+    if (!feof(fp)) {
+        fpst_free(ip_list, free_list);
+    } else {
+        *ip_list_p = ip_list;
+        ret = 0;
+    }
+    fclose(fp);
 
-    return NULL;
+    return ret;
 }
 
 static _Bool
-wildcard_match(const char * const str, const char *pattern)
+substr_match(FPST *list, const char *str,
+             const char **found_key_p, uint32_t *found_block_type_p)
 {
-    size_t pattern_len = strlen(pattern);
-    _Bool  wildcard_start = 0;
-    _Bool  wildcard_end = 0;
+    size_t i;
 
-    if (pattern_len <= (size_t) 0U) {
-        return 0;
-    }
-    if (*pattern == '*') {
-        if (pattern_len <= (size_t) 1U) {
+    while (*str != 0) {
+        if (fpst_str_starts_with_existing_key(list, str, found_key_p,
+                                              found_block_type_p)) {
             return 1;
         }
-        wildcard_start = 1;
-        pattern++;
-        pattern_len--;
+        str++;
     }
-    assert(pattern_len > 0U);
-    if (pattern[pattern_len - 1U] == '*') {
-        if (pattern_len <= (size_t) 1U) {
-            return 1;
-        }
-        wildcard_end = 1;
-        pattern_len--;
-    }
-    if (wildcard_start == 0) {
-        return (wildcard_end == 0 ?
-                strcasecmp(str, pattern) :
-                strncasecmp(str, pattern, pattern_len)) == 0;
-    }
-    const char * const found = substr_find(str, pattern, pattern_len);
-    if (found == NULL) {
-        return 0;
-    }
-    return wildcard_end == 0 ? *(found + pattern_len) == 0 : 1;
+    return 0;
 }
 
 const char *
@@ -216,9 +321,10 @@ dcplugin_long_description(DCPlugin * const dcplugin)
         "list of blacklisted names, or if at least one of the returned IP\n"
         "addresses happens to be in a list of blacklisted IPs.\n"
         "\n"
-        "Recognized switches are:\n"
+        "Plugin parameters:\n"
         "--domains=<file>\n"
         "--ips=<file>\n"
+        "--logfile=[ltsv:]<file>\n"
         "\n"
         "A file should list one entry per line.\n"
         "\n"
@@ -226,8 +332,14 @@ dcplugin_long_description(DCPlugin * const dcplugin)
         "For names, leading and trailing wildcards (*) are also supported\n"
         "(e.g. *xxx*, *.example.com, ads.*)\n"
         "\n"
+        "For IP addresses, trailing wildcards are supported\n"
+        "(e.g. 192.168.*, 10.0.0.*)\n"
+        "\n"
         "# dnscrypt-proxy --plugin \\\n"
-        "  libdcplugin_example,--ips=/etc/blk-ips,--domains=/etc/blk-names";
+        "  libdcplugin_example.la,--ips=/etc/blk-ips,--domains=/etc/blk-names"
+        "\n"
+        "By default, logs are written in a human-readable format.\n"
+        "Prepending ltsv: to the file name changes the log format to LTSV.";
 }
 
 int
@@ -241,11 +353,12 @@ dcplugin_init(DCPlugin * const dcplugin, int argc, char *argv[])
         return -1;
     }
     dcplugin_set_user_data(dcplugin, blocking);
-    if (blocking == NULL) {
-        return -1;
-    }
     blocking->fp = NULL;
-    blocking->domains = blocking->ips = NULL;
+    blocking->domains = NULL;
+    blocking->domains_rev = NULL;
+    blocking->domains_substr = NULL;
+    blocking->ips = NULL;
+    blocking->ltsv = 0;
     optind = 0;
 #ifdef _OPTRESET
     optreset = 1;
@@ -255,21 +368,25 @@ dcplugin_init(DCPlugin * const dcplugin, int argc, char *argv[])
                                    &option_index)) != -1) {
         switch (opt_flag) {
         case 'd':
-            if (parse_str_list(&blocking->domains, optarg) != 0) {
+            if (parse_domain_list(&blocking->domains, &blocking->domains_rev,
+                                  &blocking->domains_substr, optarg) != 0) {
                 return -1;
             }
             break;
         case 'i':
-            if (parse_str_list(&blocking->ips, optarg) != 0) {
+            if (parse_ip_list(&blocking->ips, optarg) != 0) {
                 return -1;
             }
             break;
-        case 'l': {
+        case 'l':
+            if (strncmp(optarg, "ltsv:", (sizeof "ltsv:") - 1U) == 0) {
+                blocking->ltsv = 1;
+                optarg += (sizeof "ltsv:") - 1U;
+            }
             if ((blocking->fp = fopen(optarg, "a")) == NULL) {
                 return -1;
             }
             break;
-        }
         default:
             return -1;
         }
@@ -285,9 +402,13 @@ dcplugin_destroy(DCPlugin * const dcplugin)
     if (blocking == NULL) {
         return 0;
     }
-    str_list_free(blocking->domains);
+    fpst_free(blocking->domains, free_list);
     blocking->domains = NULL;
-    str_list_free(blocking->ips);
+    fpst_free(blocking->domains_rev, free_list);
+    blocking->domains_rev = NULL;
+    fpst_free(blocking->domains_substr, free_list);
+    blocking->domains_substr = NULL;
+    fpst_free(blocking->ips, free_list);
     blocking->ips = NULL;
     if (blocking->fp != NULL) {
         fclose(blocking->fp);
@@ -299,7 +420,19 @@ dcplugin_destroy(DCPlugin * const dcplugin)
 }
 
 static int
-timestamp_fprint(FILE * const fp)
+ltsv_prop(FILE * const fp, const char * const prop,
+          const Blocking * const blocking)
+{
+    if (blocking->ltsv == 0) {
+        return 0;
+    }
+    fprintf(fp, "%s:", prop);
+
+    return 0;
+}
+
+static int
+timestamp_fprint(FILE * const fp, _Bool unix_ts)
 {
     char now_s[128];
 
@@ -307,43 +440,149 @@ timestamp_fprint(FILE * const fp)
     struct tm *tm;
 
     if (time(&now) == (time_t) -1) {
-        fprintf(fp, "- ");
+        putc_unlocked('-', fp);
         return -1;
     }
-    tm = localtime(&now);
-    strftime(now_s, sizeof now_s, "%c", tm);
-    fprintf(fp, "%s ", now_s);
+    if (unix_ts) {
+        fprintf(fp, "%lu", (unsigned long) now);
+    } else {
+        tm = localtime(&now);
+        strftime(now_s, sizeof now_s, "%c", tm);
+        fprintf(fp, "%s", now_s);
+    }
+    return 0;
+}
 
+static void
+util_ntohl(uint32_t * const xp)
+{
+    uint8_t p[4U];
+
+    memcpy(p, xp, 4U);
+    *xp = (((uint32_t) p[0]) << 24) | (((uint32_t) p[1]) << 16) |
+          (((uint32_t) p[2]) <<  8) | (((uint32_t) p[3]));
+}
+
+static int
+ip_fprint(FILE * const fp,
+          const struct sockaddr_storage * const client_addr,
+          const size_t client_addr_len)
+{
+    if (client_addr->ss_family == AF_INET) {
+        struct sockaddr_in in;
+        uint32_t           a;
+
+        memcpy(&in, client_addr, sizeof in);
+        a = (uint32_t) in.sin_addr.s_addr;
+        util_ntohl(&a);
+        fprintf(fp, "%u.%u.%u.%u",
+                (a >> 24) & 0xff, (a >> 16) & 0xff,
+                (a >> 8) & 0xff, a  & 0xff);
+    } else if (client_addr->ss_family == AF_INET6) {
+        struct sockaddr_in6  in6;
+        const unsigned char *a;
+        int                  i;
+        uint16_t             w;
+        _Bool                blanks;
+
+        memcpy(&in6, client_addr, sizeof in6);
+        a = in6.sin6_addr.s6_addr;
+        blanks = (a[0] | a[1]) == 0;
+        putc_unlocked('[', fp);
+        for (i = 0; i < 16; i += 2) {
+            w = ((uint16_t) a[i] << 8) | (uint16_t) a[i + 1];
+            if (blanks) {
+                if (w == 0U) {
+                    continue;
+                }
+                putc_unlocked(':', fp);
+                blanks = 0;
+            }
+            if (i != 0) {
+                putc_unlocked(':', fp);
+            }
+            if (blanks == 0) {
+                fprintf(fp, "%x", (unsigned int) w);
+            }
+        }
+        putc_unlocked(']', fp);
+    } else {
+        putc_unlocked('-', fp);
+    }
     return 0;
 }
 
 static int
 log_blocked_rr(const Blocking * const blocking,
-               const char * const blocked_question, const char * const rule)
+               const char * const blocked_question,
+               const char * const rule, BlockType block_type,
+               const struct sockaddr_storage * const client_addr,
+               const size_t client_addr_len)
 {
     if (blocking->fp == NULL) {
         return 0;
     }
-    timestamp_fprint(blocking->fp);
-    fprintf(blocking->fp, "%s %s\n", blocked_question, rule);
+    ltsv_prop(blocking->fp, "time", blocking);
+    timestamp_fprint(blocking->fp, blocking->ltsv);
+    putc_unlocked('\t', blocking->fp);
+    ltsv_prop(blocking->fp, "host", blocking);
+    ip_fprint(blocking->fp, client_addr, client_addr_len);
+    putc_unlocked('\t', blocking->fp);
+    ltsv_prop(blocking->fp, "qname", blocking);
+    fprintf(blocking->fp, "%s\t", blocked_question);
+    ltsv_prop(blocking->fp, "message", blocking);
+    switch (block_type) {
+    case BLOCKTYPE_PREFIX:
+        fprintf(blocking->fp, "%s*\n", rule);
+        break;
+    case BLOCKTYPE_SUFFIX:
+        fprintf(blocking->fp, "*%s\n", rule);
+        break;
+    case BLOCKTYPE_SUBSTRING:
+        fprintf(blocking->fp, "*%s*\n", rule);
+        break;
+    default:
+        fprintf(blocking->fp, "%s\n", rule);
+        break;
+    }
     fflush(blocking->fp);
 
     return 0;
+}
+
+void
+str_lcpy(char *dst, const char *src, size_t dsize)
+{
+    size_t nleft = dsize;
+
+    if (nleft != 0) {
+        while (--nleft != 0) {
+            if ((*dst++ = *src++) == 0) {
+                break;
+            }
+        }
+    }
+    if (nleft == 0 && dsize != 0) {
+        *dst = 0;
+    }
 }
 
 static DCPluginSyncFilterResult
 apply_block_domains(DCPluginDNSPacket *dcp_packet, Blocking * const blocking,
                     ldns_pkt * const packet)
 {
-    StrList                  *scanned;
+    char                      rev[MAX_QNAME_LENGTH + 1U];
     ldns_rr                  *question;
     ldns_rr_list             *questions;
     char                     *owner_str;
+    const char               *found_key;
     uint8_t                  *wire_data;
     size_t                    owner_str_len;
+    uint32_t                  found_block_type;
     DCPluginSyncFilterResult  result = DCP_SYNC_FILTER_RESULT_OK;
+    _Bool                     block = 0;
 
-    scanned = blocking->domains;
+    rev[MAX_QNAME_LENGTH] = 0;
     questions = ldns_pkt_question(packet);
     if (ldns_rr_list_rr_count(questions) != (size_t) 1U) {
         return DCP_SYNC_FILTER_RESULT_ERROR;
@@ -353,20 +592,66 @@ apply_block_domains(DCPluginDNSPacket *dcp_packet, Blocking * const blocking,
         return DCP_SYNC_FILTER_RESULT_FATAL;
     }
     owner_str_len = strlen(owner_str);
-    if (owner_str_len > (size_t) 1U && owner_str[--owner_str_len] == '.') {
-        owner_str[owner_str_len] = 0;
+    if (owner_str_len >= sizeof rev) {
+        free(owner_str);
+        return DCP_SYNC_FILTER_RESULT_ERROR;
     }
+    if (owner_str_len > (size_t) 1U && owner_str[owner_str_len - 1U] == '.') {
+        owner_str[--owner_str_len] = 0;
+    }
+    if (owner_str_len <= 0) {
+        free(owner_str);
+        return DCP_SYNC_FILTER_RESULT_OK;
+    }
+    str_tolower(owner_str);
     do {
-        if (wildcard_match(owner_str, scanned->str)) {
-            wire_data = dcplugin_get_wire_data(dcp_packet);
-            LDNS_QR_SET(wire_data);
-            LDNS_RA_SET(wire_data);
-            LDNS_RCODE_SET(wire_data, LDNS_RCODE_REFUSED);
-            result = DCP_SYNC_FILTER_RESULT_DIRECT;
-            log_blocked_rr(blocking, owner_str, scanned->str);
+        str_lcpy(rev, owner_str, sizeof rev);
+        str_reverse(rev);
+        if (fpst_starts_with_existing_key(blocking->domains_rev,
+                                          rev, owner_str_len,
+                                          &found_key, &found_block_type)) {
+            const size_t found_key_len = strlen(found_key);
+
+            assert(found_block_type == BLOCKTYPE_SUFFIX);
+            if (found_key_len <= owner_str_len &&
+                (rev[found_key_len] == 0 || rev[found_key_len] == '.')) {
+                block = 1;
+                break;
+            }
+        }
+        if (fpst_starts_with_existing_key(blocking->domains,
+                                          owner_str, owner_str_len,
+                                          &found_key, &found_block_type)) {
+            assert(found_block_type == BLOCKTYPE_PREFIX);
+            block = 1;
             break;
         }
-    } while ((scanned = scanned->next) != NULL);
+        if (blocking->domains_substr != NULL &&
+            substr_match(blocking->domains_substr, owner_str,
+                         &found_key, &found_block_type)) {
+            assert(found_block_type == BLOCKTYPE_SUBSTRING);
+            block = 1;
+            break;
+        }
+    } while (0);
+    if (block) {
+        wire_data = dcplugin_get_wire_data(dcp_packet);
+        LDNS_QR_SET(wire_data);
+        LDNS_RA_SET(wire_data);
+        LDNS_RCODE_SET(wire_data, LDNS_RCODE_REFUSED);
+        result = DCP_SYNC_FILTER_RESULT_DIRECT;
+        if (found_block_type == BLOCKTYPE_SUFFIX) {
+            str_lcpy(rev, found_key, sizeof rev);
+            str_reverse(rev);
+            log_blocked_rr(blocking, owner_str, rev, found_block_type,
+                           dcplugin_get_client_address(dcp_packet),
+                           dcplugin_get_client_address_len(dcp_packet));
+        } else {
+            log_blocked_rr(blocking, owner_str, found_key, found_block_type,
+                           dcplugin_get_client_address(dcp_packet),
+                           dcplugin_get_client_address_len(dcp_packet));
+        }
+    }
     free(owner_str);
 
     return result;
@@ -376,11 +661,12 @@ static DCPluginSyncFilterResult
 apply_block_ips(DCPluginDNSPacket *dcp_packet, Blocking * const blocking,
                 ldns_pkt * const packet)
 {
-    StrList      *scanned;
     ldns_rr_list *answers;
     ldns_rr      *answer;
+    const char   *found_key;
     char         *answer_str;
     ldns_rr_type  type;
+    uint32_t      found_block_type;
     size_t        answers_count;
     size_t        i;
 
@@ -395,9 +681,11 @@ apply_block_ips(DCPluginDNSPacket *dcp_packet, Blocking * const blocking,
         if ((answer_str = ldns_rdf2str(ldns_rr_a_address(answer))) == NULL) {
             return DCP_SYNC_FILTER_RESULT_FATAL;
         }
-        scanned = blocking->ips;
-        do {
-            if (strcasecmp(scanned->str, answer_str) == 0) {
+        str_tolower(answer_str);
+        if (fpst_str_starts_with_existing_key(blocking->ips, answer_str,
+                                              &found_key, &found_block_type)) {
+            if (found_block_type == BLOCKTYPE_PREFIX ||
+                strlen(found_key) == strlen(answer_str)) {
                 LDNS_RCODE_SET(dcplugin_get_wire_data(dcp_packet),
                                LDNS_RCODE_REFUSED);
                 if (blocking->fp != NULL) {
@@ -408,21 +696,28 @@ apply_block_ips(DCPluginDNSPacket *dcp_packet, Blocking * const blocking,
 
                     questions = ldns_pkt_question(packet);
                     if (ldns_rr_list_rr_count(questions) != (size_t) 1U) {
+                        free(answer_str);
                         return DCP_SYNC_FILTER_RESULT_ERROR;
                     }
                     question = ldns_rr_list_rr(questions, 0U);
                     if ((owner_str = ldns_rdf2str(ldns_rr_owner(question))) == NULL) {
+                        free(answer_str);
                         return DCP_SYNC_FILTER_RESULT_FATAL;
                     }
                     owner_str_len = strlen(owner_str);
-                    if (owner_str_len > (size_t) 1U && owner_str[--owner_str_len] == '.') {
-                        owner_str[owner_str_len] = 0;
+                    if (owner_str_len > (size_t) 1U && owner_str[owner_str_len - 1U] == '.') {
+                        owner_str[--owner_str_len] = 0;
                     }
-                    log_blocked_rr(blocking, owner_str, scanned->str);
+                    log_blocked_rr(blocking, owner_str, found_key, found_block_type,
+                                   dcplugin_get_client_address(dcp_packet),
+                                   dcplugin_get_client_address_len(dcp_packet));
+                    free(owner_str);
                 }
+                free(answer_str);
+                answer_str = NULL;
                 break;
             }
-        } while ((scanned = scanned->next) != NULL);
+        }
         free(answer_str);
     }
     return DCP_SYNC_FILTER_RESULT_OK;
@@ -435,7 +730,8 @@ dcplugin_sync_pre_filter(DCPlugin *dcplugin, DCPluginDNSPacket *dcp_packet)
     ldns_pkt                 *packet = NULL;
     DCPluginSyncFilterResult  result = DCP_SYNC_FILTER_RESULT_OK;
 
-    if (blocking->domains == NULL) {
+    if (blocking->domains == NULL && blocking->domains_rev == NULL &&
+        blocking->domains_substr == NULL) {
         return DCP_SYNC_FILTER_RESULT_OK;
     }
     if (ldns_wire2pkt(&packet, dcplugin_get_wire_data(dcp_packet),
@@ -443,9 +739,8 @@ dcplugin_sync_pre_filter(DCPlugin *dcplugin, DCPluginDNSPacket *dcp_packet)
         != LDNS_STATUS_OK) {
         return DCP_SYNC_FILTER_RESULT_ERROR;
     }
-    if (blocking->domains != NULL &&
-        (result = apply_block_domains(dcp_packet, blocking, packet)
-         != DCP_SYNC_FILTER_RESULT_OK)) {
+    if ((result = apply_block_domains(dcp_packet, blocking, packet))
+         != DCP_SYNC_FILTER_RESULT_OK) {
         ldns_pkt_free(packet);
         return result;
     }
@@ -470,8 +765,8 @@ dcplugin_sync_post_filter(DCPlugin *dcplugin, DCPluginDNSPacket *dcp_packet)
         return DCP_SYNC_FILTER_RESULT_ERROR;
     }
     if (blocking->ips != NULL &&
-        (result = apply_block_ips(dcp_packet, blocking, packet)
-         != DCP_SYNC_FILTER_RESULT_OK)) {
+        (result = apply_block_ips(dcp_packet, blocking, packet))
+         != DCP_SYNC_FILTER_RESULT_OK) {
         ldns_pkt_free(packet);
         return result;
     }

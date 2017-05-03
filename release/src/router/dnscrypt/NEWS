@@ -1,9 +1,56 @@
 
+* Version 1.9.1
+ - The blocking plugin introduced in version 1.9.0 didn't properly
+handle overlapping rules. This has been fixed.
+ - The documentation and examples were updated.
+ - The mimimum time to keep a record in cache can be specified in the
+cache plugin, with the `--with-ttl` option (config file: `with-ttl:...`).
+ - The example generate-domains-blacklist.py script produces a more
+optimized list, without overlapping names.
+
+* Version 1.9.0
+ - Support for TCP was added to the `hostip` tool.
+ - New plugin: `example-ldns-forwarding`. This plugin forwards queries for
+a specific set of domain names to one or more non-DNSCrypt resolvers.
+This can be used to send queries for private domains to the router or
+to an internal DNS server.
+ - New plugin: `example-cache`. This plugin implements a simple,
+zero-configuration DNS response cache.
+ - The default plugin paths, as loaded via the configuration file, use
+the native module file names instead of libtool's `.la` files. Installing the
+`.la` files has now become optional.
+ - Many changes and simplifications were made to the documentation.
+ - `-Z` (syslog prefix) doesn't imply `-S` any more.
+ - The `ResolverAddress` option can now be used even if a full
+configuration was provided via `ResolverName` in order to override the
+resolver IP and port.
+ - A new `contrib` folder is born, and currently contains a Python
+script to automatically generate a malware/spam/ads/tracker blacklist
+from public lists. More contributions would be more than welcome!
+ - Example startup scripts now use the configuration file.
+ - A `SIGHUP` signal sent to the proxy now reloads all the plugins.
+This can be used after a plugin configuration update, or to rotate the log
+files.
+ - `--ignore-timestamps` didn't work as expected. This has been fixed,
+thanks to Toni Uhlig.
+ - `make install` does not overwrite an existing `dnscrypt-proxy.conf`
+file any more. An up-to-date example is installed as
+`dnscrypt-proxy.conf.example`.
+ - The query log and the logfile of hits for blacklisted domains/IPs
+are now more detailed and more readable. As an alternative to human-readable
+records, prefixing a log file name with "ltsv:" causes the log entries to use
+the LTSV structured format. These logs can thus be easily sent to
+Flowgger/ElasticSearch for visualization and reporting.
+ - The domain/ip blocking plugin was completely rewritten, and is now
+extremely fast even with very lasrge blacklists of names and IP addresses.
+It can now be used to locally block malware/spam/ads/trackers and other
+unwanted content, based on prefixes, suffixes and keywords.
+
 * Version 1.8.1
  - Version 1.8.0 didn't use the same Windows registry key as past
 versions. This has been fixed. In order to upgrade from 1.8.0,
 it is recommended to uninstall the service before upgrading
-(using the `dnscrypt-proxy --unininstall` command).
+(using the `dnscrypt-proxy --uninstall` command).
  - The SDK used to build Android binaries was downgraded in order to
 retain compatibility with Android 4.1 (Jelly Bean).
 
@@ -12,8 +59,8 @@ retain compatibility with Android 4.1 (Jelly Bean).
 configuration file.
  - On Windows, a new option, `--service-name` can be used to set the
 service name, so that multiple instances can run simultaneously.
- - On Windows, `--install-service-with-config-file` can be used to
-install a service using a configuration file.
+ - On Windows, `--install-with-config-file` can be used to install a
+service using a configuration file.
  - The protocol can now use the XChaCha20 cipher as a faster alternative
 to XSalsa20.
  - Time stamps are now being added to log files, including log files

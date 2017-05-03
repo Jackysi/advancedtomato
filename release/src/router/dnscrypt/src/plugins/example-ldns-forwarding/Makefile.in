@@ -88,7 +88,7 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-subdir = src/plugins/example-ldns-blocking
+subdir = src/plugins/example-ldns-forwarding
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/ax_check_compile_flag.m4 \
 	$(top_srcdir)/m4/ax_check_link_flag.m4 \
@@ -132,21 +132,20 @@ am__uninstall_files_from_dir = { \
   }
 am__installdirs = "$(DESTDIR)$(pkglibdir)"
 LTLIBRARIES = $(pkglib_LTLIBRARIES)
-libdcplugin_example_ldns_blocking_la_DEPENDENCIES =
-am_libdcplugin_example_ldns_blocking_la_OBJECTS =  \
-	libdcplugin_example_ldns_blocking_la-example-ldns-blocking.lo \
-	libdcplugin_example_ldns_blocking_la-fpst.lo
-libdcplugin_example_ldns_blocking_la_OBJECTS =  \
-	$(am_libdcplugin_example_ldns_blocking_la_OBJECTS)
+libdcplugin_example_ldns_forwarding_la_DEPENDENCIES =
+am_libdcplugin_example_ldns_forwarding_la_OBJECTS = libdcplugin_example_ldns_forwarding_la-example-ldns-forwarding.lo
+libdcplugin_example_ldns_forwarding_la_OBJECTS =  \
+	$(am_libdcplugin_example_ldns_forwarding_la_OBJECTS)
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
 am__v_lt_0 = --silent
 am__v_lt_1 = 
-libdcplugin_example_ldns_blocking_la_LINK = $(LIBTOOL) $(AM_V_lt) \
-	--tag=CC $(libdcplugin_example_ldns_blocking_la_LIBTOOLFLAGS) \
+libdcplugin_example_ldns_forwarding_la_LINK = $(LIBTOOL) $(AM_V_lt) \
+	--tag=CC \
+	$(libdcplugin_example_ldns_forwarding_la_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
-	$(libdcplugin_example_ldns_blocking_la_LDFLAGS) $(LDFLAGS) -o \
-	$@
+	$(libdcplugin_example_ldns_forwarding_la_LDFLAGS) $(LDFLAGS) \
+	-o $@
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
 am__v_P_0 = false
@@ -181,8 +180,8 @@ AM_V_CCLD = $(am__v_CCLD_@AM_V@)
 am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
 am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
-SOURCES = $(libdcplugin_example_ldns_blocking_la_SOURCES)
-DIST_SOURCES = $(libdcplugin_example_ldns_blocking_la_SOURCES)
+SOURCES = $(libdcplugin_example_ldns_forwarding_la_SOURCES)
+DIST_SOURCES = $(libdcplugin_example_ldns_forwarding_la_SOURCES)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
     n|no|NO) false;; \
@@ -359,21 +358,21 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 pkglib_LTLIBRARIES = \
-	libdcplugin_example_ldns_blocking.la
+	libdcplugin_example_ldns_forwarding.la
 
-libdcplugin_example_ldns_blocking_la_LIBTOOLFLAGS = --tag=disable-static
-libdcplugin_example_ldns_blocking_la_SOURCES = \
-	example-ldns-blocking.c fpst.c fpst.h
+libdcplugin_example_ldns_forwarding_la_LIBTOOLFLAGS = --tag=disable-static
+libdcplugin_example_ldns_forwarding_la_SOURCES = \
+	example-ldns-forwarding.c
 
-libdcplugin_example_ldns_blocking_la_LIBADD = @LDNS_LIBS@
-libdcplugin_example_ldns_blocking_la_LDFLAGS = \
+libdcplugin_example_ldns_forwarding_la_LIBADD = @LDNS_LIBS@
+libdcplugin_example_ldns_forwarding_la_LDFLAGS = \
 	$(AM_LDFLAGS) \
 	-avoid-version \
 	-export-dynamic \
 	-module \
 	-no-undefined
 
-libdcplugin_example_ldns_blocking_la_CPPFLAGS = \
+libdcplugin_example_ldns_forwarding_la_CPPFLAGS = \
 	$(LTDLINCL) \
 	-I../../include
 
@@ -390,9 +389,9 @@ $(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ $(srcdir)/Makefile.am  $(am__confi
 	      exit 1;; \
 	  esac; \
 	done; \
-	echo ' cd $(top_srcdir) && $(AUTOMAKE) --gnu src/plugins/example-ldns-blocking/Makefile'; \
+	echo ' cd $(top_srcdir) && $(AUTOMAKE) --gnu src/plugins/example-ldns-forwarding/Makefile'; \
 	$(am__cd) $(top_srcdir) && \
-	  $(AUTOMAKE) --gnu src/plugins/example-ldns-blocking/Makefile
+	  $(AUTOMAKE) --gnu src/plugins/example-ldns-forwarding/Makefile
 Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 	@case '$?' in \
 	  *config.status*) \
@@ -446,8 +445,8 @@ clean-pkglibLTLIBRARIES:
 	  rm -f $${locs}; \
 	}
 
-libdcplugin_example_ldns_blocking.la: $(libdcplugin_example_ldns_blocking_la_OBJECTS) $(libdcplugin_example_ldns_blocking_la_DEPENDENCIES) $(EXTRA_libdcplugin_example_ldns_blocking_la_DEPENDENCIES) 
-	$(AM_V_CCLD)$(libdcplugin_example_ldns_blocking_la_LINK) -rpath $(pkglibdir) $(libdcplugin_example_ldns_blocking_la_OBJECTS) $(libdcplugin_example_ldns_blocking_la_LIBADD) $(LIBS)
+libdcplugin_example_ldns_forwarding.la: $(libdcplugin_example_ldns_forwarding_la_OBJECTS) $(libdcplugin_example_ldns_forwarding_la_DEPENDENCIES) $(EXTRA_libdcplugin_example_ldns_forwarding_la_DEPENDENCIES) 
+	$(AM_V_CCLD)$(libdcplugin_example_ldns_forwarding_la_LINK) -rpath $(pkglibdir) $(libdcplugin_example_ldns_forwarding_la_OBJECTS) $(libdcplugin_example_ldns_forwarding_la_LIBADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -455,8 +454,7 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libdcplugin_example_ldns_blocking_la-example-ldns-blocking.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libdcplugin_example_ldns_blocking_la-fpst.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libdcplugin_example_ldns_forwarding_la-example-ldns-forwarding.Plo@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(AM_V_CC)depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.o$$||'`;\
@@ -482,19 +480,12 @@ distclean-compile:
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LTCOMPILE) -c -o $@ $<
 
-libdcplugin_example_ldns_blocking_la-example-ldns-blocking.lo: example-ldns-blocking.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(libdcplugin_example_ldns_blocking_la_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libdcplugin_example_ldns_blocking_la_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT libdcplugin_example_ldns_blocking_la-example-ldns-blocking.lo -MD -MP -MF $(DEPDIR)/libdcplugin_example_ldns_blocking_la-example-ldns-blocking.Tpo -c -o libdcplugin_example_ldns_blocking_la-example-ldns-blocking.lo `test -f 'example-ldns-blocking.c' || echo '$(srcdir)/'`example-ldns-blocking.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libdcplugin_example_ldns_blocking_la-example-ldns-blocking.Tpo $(DEPDIR)/libdcplugin_example_ldns_blocking_la-example-ldns-blocking.Plo
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='example-ldns-blocking.c' object='libdcplugin_example_ldns_blocking_la-example-ldns-blocking.lo' libtool=yes @AMDEPBACKSLASH@
+libdcplugin_example_ldns_forwarding_la-example-ldns-forwarding.lo: example-ldns-forwarding.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(libdcplugin_example_ldns_forwarding_la_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libdcplugin_example_ldns_forwarding_la_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT libdcplugin_example_ldns_forwarding_la-example-ldns-forwarding.lo -MD -MP -MF $(DEPDIR)/libdcplugin_example_ldns_forwarding_la-example-ldns-forwarding.Tpo -c -o libdcplugin_example_ldns_forwarding_la-example-ldns-forwarding.lo `test -f 'example-ldns-forwarding.c' || echo '$(srcdir)/'`example-ldns-forwarding.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libdcplugin_example_ldns_forwarding_la-example-ldns-forwarding.Tpo $(DEPDIR)/libdcplugin_example_ldns_forwarding_la-example-ldns-forwarding.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='example-ldns-forwarding.c' object='libdcplugin_example_ldns_forwarding_la-example-ldns-forwarding.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(libdcplugin_example_ldns_blocking_la_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libdcplugin_example_ldns_blocking_la_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o libdcplugin_example_ldns_blocking_la-example-ldns-blocking.lo `test -f 'example-ldns-blocking.c' || echo '$(srcdir)/'`example-ldns-blocking.c
-
-libdcplugin_example_ldns_blocking_la-fpst.lo: fpst.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(libdcplugin_example_ldns_blocking_la_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libdcplugin_example_ldns_blocking_la_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT libdcplugin_example_ldns_blocking_la-fpst.lo -MD -MP -MF $(DEPDIR)/libdcplugin_example_ldns_blocking_la-fpst.Tpo -c -o libdcplugin_example_ldns_blocking_la-fpst.lo `test -f 'fpst.c' || echo '$(srcdir)/'`fpst.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libdcplugin_example_ldns_blocking_la-fpst.Tpo $(DEPDIR)/libdcplugin_example_ldns_blocking_la-fpst.Plo
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='fpst.c' object='libdcplugin_example_ldns_blocking_la-fpst.lo' libtool=yes @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(libdcplugin_example_ldns_blocking_la_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libdcplugin_example_ldns_blocking_la_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o libdcplugin_example_ldns_blocking_la-fpst.lo `test -f 'fpst.c' || echo '$(srcdir)/'`fpst.c
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(libdcplugin_example_ldns_forwarding_la_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libdcplugin_example_ldns_forwarding_la_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o libdcplugin_example_ldns_forwarding_la-example-ldns-forwarding.lo `test -f 'example-ldns-forwarding.c' || echo '$(srcdir)/'`example-ldns-forwarding.c
 
 mostlyclean-libtool:
 	-rm -f *.lo

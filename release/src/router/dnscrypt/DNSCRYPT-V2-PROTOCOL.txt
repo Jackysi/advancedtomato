@@ -417,7 +417,7 @@ Resolvers that do not keep query logs should rotate the short-term key pair
 every 24 hours, and must throw away the previous secret key.
 
 During a key rotation, and provided that the old key hasn't been
-compromised, a resolver shoud accept both the old and the new key for at
+compromised, a resolver should accept both the old and the new key for at
 least 4 hours, and public them as different certificates.
 
 Provider public keys may be published as a DNSSEC-signed TXT records,

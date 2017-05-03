@@ -1,13 +1,16 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "DNSCRYPT\-PROXY" "8" "December 2016" "" ""
+.TH "DNSCRYPT\-PROXY" "8" "January 2017" "" ""
 .
 .SH "NAME"
 \fBdnscrypt\-proxy\fR \- A DNSCrypt forwarder
 .
 .SH "SYNOPSIS"
-\fBdnscrypt\-proxy\fR [\fIoptions\fR]
+\fBdnscrypt\-proxy <config file>\fR
+.
+.P
+\fBdnscrypt\-proxy [<option>, \.\.\.]\fR
 .
 .SH "DESCRIPTION"
 \fBdnscrypt\-proxy\fR accepts DNS requests, authenticates and encrypts them using dnscrypt and forwards them to a remote dnscrypt\-enabled resolver\.
@@ -21,13 +24,7 @@ The proxy verifies the replies, decrypts them, and transparently forwards them t
 .P
 \fBdnscrypt\-proxy\fR listens to \fB127\.0\.0\.1\fR / port \fB53\fR by default\.
 .
-.SH "WARNING"
-\fBdnscrypt\-proxy\fR is not a DNS cache\. Unless your operating system already provides a decent built\-in cache (and by default, most systems don\'t), clients shouldn\'t directly send requests to \fBdnscrypt\-proxy\fR\.
-.
-.P
-Intead, run a DNS cache like \fBUnbound\fR, and configure it to use \fBdnscrypt\-proxy\fR as a forwarder\. Both can safely run on the same machine as long as they use different IP addresses and/or different ports\.
-.
-.SH "OPTIONS"
+.SH "OPTIONS (ignored when a configuration file is provided)"
 .
 .IP "\(bu" 4
 \fB\-R\fR, \fB\-\-resolver\-name=<name>\fR: name of the resolver to use, from the list of available resolvers (see \fB\-L\fR)\.
@@ -107,28 +104,20 @@ A public key is 256\-bit long, and it has to be specified as a hexadecimal strin
 .
 .nf
 
+$ dnscrypt\-proxy /etc/dnscrypt\.conf
+.
+.fi
+.
+.SH "COMMON USAGE EXAMPLE WITHOUT A CONFIGURATION FILE"
+.
+.nf
+
 $ dnscrypt\-proxy \-\-daemonize \-\-resolver\-name=\.\.\.
 .
 .fi
 .
 .P
 The resolver name is the first column (Name) in the CSV file\.
-.
-.SH "USAGE EXAMPLE WITH A PRIVATE SERVER"
-.
-.nf
-
-$ dnscrypt\-proxy \-\-daemonize \-\-provider\-key=\.\.\. \-\-provider\-name=\.\.\. \-\-resolver\-address=\.\.\.
-.
-.fi
-.
-.SH "USAGE EXAMPLE WITH A CONFIGURATION FILE"
-.
-.nf
-
-$ dnscrypt\-proxy /etc/dnscrypt\.conf
-.
-.fi
 .
 .SH "BUGS AND SUPPORT"
 Please report issues with DNSCrypt itself to https://dnscrypt\.org/issues

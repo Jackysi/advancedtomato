@@ -16,6 +16,7 @@ typedef struct AppContext_ {
 #ifdef PLUGINS
     DCPluginSupportContext *dcps_context;
 #endif
+    _Bool allocated_args;
 } AppContext;
 
 int dnscrypt_proxy_main(int argc, char *argv[]);

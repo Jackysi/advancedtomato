@@ -30,10 +30,7 @@ Usage
 Technically, a plugin is just a native shared library. A good old `.so` file on
 Unix, a `.dylib` file on OSX and a `.DLL` file on Windows.
 
-Support for plugins is disabled by default, and has to be explicitly
-enabled at compilation time:
-
-    ./configure --enable-plugins
+Support for plugins is enabled by default on most platforms.
 
 If the `ltdl` library is found on the system, it will be picked up. If
 not, a built-in copy will be used instead.
@@ -42,7 +39,7 @@ If you intend to distribute a binary package that should run on
 systems without the `ltdl` library (which is probably the case on
 Windows), add `--with-included-ltdl`:
 
-    ./configure --enable-plugins --with-included-ltdl
+    ./configure --with-included-ltdl
 
 Plugins can inspect and mangle packets in any way, but before
 reinventing the wheel, take a look at what the `ldns` library has to
@@ -71,28 +68,28 @@ plugins directory (`/usr/local/lib/dnscrypt-proxy` by default):
 
 Filters will always be applied sequentially, in the given order.
 
-On Unix systems, a file containing a `dnscrypt-proxy` plugin must be
-owned either by root, or by the user running the proxy.
+These plugins can also be enabled in the configuration file with one or
+more `Plugin` directives:
+
+    Plugin libdcplugin_example.la
+    Plugin libdcplugin_example2.la
+
+On Unix systems, a file containing a plugin must be owned either by root,
+or by the user running the proxy.
 
 You can relax this rule. This can be especially useful on OSX when using
 Homebrew, that encourages /usr/local to be owned by a non-root user.
 In order to relax this rule, use `--enable-relaxed-plugins-permissions`:
 
-    ./configure --enable-plugins --enable-relaxed-plugins-permissions
-
-When run as a Windows service, the list of plugins to load should be
-given as a multi-strings (`REG_MULTI_SZ` value).
+    ./configure --enable-relaxed-plugins-permissions
 
 Each plugin can optionally parse one or more arguments:
 
     --plugin=...libdcplugin_example.la,--one,--two,--three=4
     --plugin=...libdcplugin_example2.la,127.0.0.1
 
-On Windows, example plugins relying on the ldns library require two
-extra DLLs:
-
-- `libgcc_s_dw2-1.dll`
-- `libeay32.dll`, from OpenSSL.
+Plugins are reloaded when the proxy receives a `HUP` signal. This can
+be used to rotate log files, or reload updated configuration files.
 
 The plugin API
 --------------

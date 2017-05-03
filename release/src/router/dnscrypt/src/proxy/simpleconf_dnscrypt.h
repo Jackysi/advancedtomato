@@ -3,11 +3,7 @@
 
 #include "simpleconf.h"
 
-#ifdef _WIN32
-# define PLUGIN_LIB(X) "libdcplugin_example_" X ".dll"
-#else
-# define PLUGIN_LIB(X) "libdcplugin_example_" X ".la"
-#endif
+#define PLUGIN_LIB(X) LT_LIBPREFIX "dcplugin_example_" X LT_MODULE_EXT
 
 static const SimpleConfEntry simpleconf_options[] = {
     {"ClientKey (<any*>)",           "--client-key=$0"},
@@ -25,7 +21,6 @@ static const SimpleConfEntry simpleconf_options[] = {
     {"ResolverAddress (<nospace>)",  "--resolver-address=$0"},
     {"ResolverName (<nospace>)",     "--resolver-name=$0"},
     {"ResolversList (<any*>)",       "--resolvers-list=$0"},
-    {"ServiceName (<nospace>)",      "--service-name=$0"},
     {"SyslogPrefix (<nospace>)",     "--syslog-prefix=$0"},
     {"Syslog? <bool>",               "--syslog"},
     {"TCPOnly? <bool>",              "--tcp-only"},
@@ -39,6 +34,9 @@ static const SimpleConfEntry simpleconf_options[] = {
     {"BlackList domains:(<any>) ips:(<any>)", "--plugin=" PLUGIN_LIB("ldns_blocking") ",--domains=$0,--ips=$1" },
     {"BlockIPv6? <bool>",            "--plugin=" PLUGIN_LIB("ldns_aaaa_blocking") },
     {"QueryLogFile (<any*>)",        "--plugin=" PLUGIN_LIB("logging") ",$0" },
+    {"Forward domains:(<any>) to:(<any>)", "--plugin=" PLUGIN_LIB("ldns_forwarding") ",--domains=$0,--resolvers=$1" },
+    {"LocalCache? <bool> min-ttl:(<digits>)", "--plugin=" PLUGIN_LIB("cache") ",--min-ttl=$0" },
+    {"LocalCache? <bool>",           "--plugin=" PLUGIN_LIB("cache") },
     {"OpenDNSIP (<nospace>)",        "--plugin=" PLUGIN_LIB("ldns_opendns_set_client_ip") ",$0" },
     {"OpenDNSPasswordFile (<any*>)", "--plugin=" PLUGIN_LIB("ldns_opendns_deviceid") ",$0" },
     {"Plugin (<any_noquotes>)",      "--plugin=$0" }

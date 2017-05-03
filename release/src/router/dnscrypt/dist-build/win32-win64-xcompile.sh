@@ -95,7 +95,7 @@ compile() {
     mkdir libsodium
     cd libsodium
     $SRCDEPS_DIR/libsodium/configure --disable-dependency-tracking \
-      --host=$TARGET --prefix="$DEPS_DIR"
+      --host=$TARGET --prefix="$DEPS_DIR" --without-pthreads
     make clean
     make install
   )
@@ -116,7 +116,6 @@ compile() {
     make clean
     make install
     mv ${RELEASE_DIR}/lib/dnscrypt-proxy/*.dll $RELEASE_DIR
-    mv ${RELEASE_DIR}/lib/dnscrypt-proxy/*.la $RELEASE_DIR
     mv ${RELEASE_DIR}/dnscrypt-proxy/* $RELEASE_DIR
     rmdir ${RELEASE_DIR}/dnscrypt-proxy
     rm -fr ${RELEASE_DIR}/lib
@@ -126,6 +125,7 @@ compile() {
     rm ${RELEASE_DIR}/libtls-*.dll
     rm ${RELEASE_DIR}/libssl-*.dll
     cp /usr/${TARGET}/bin/libwinpthread-*.dll $RELEASE_DIR
+    cp /usr/${TARGET}/bin/libgcc_s_*.dll $RELEASE_DIR
     strip ${RELEASE_DIR}/*.exe
   )
 
@@ -140,12 +140,12 @@ setup
 
 fetch_src
 
-export CFLAGS="-Os -fomit-frame-pointer -m64 -mtune=westmere"
-export LDFLAGS="-mtune=westmere"
+export CFLAGS="-Os -m64 -mtune=westmere"
+export LDFLAGS="-mtune=westmere -static-libgcc -Wl,--dynamicbase -Wl,--high-entropy-va -Wl,--nxcompat -static-libgcc"
 export TARGET=x86_64-w64-mingw32
 compile dnscrypt-proxy-win64
 
-export CFLAGS="-Os -fomit-frame-pointer -m32 -march=pentium3 -mtune=core2"
-export LDFLAGS="-march=pentium3"
+export CFLAGS="-Os -m32 -march=pentium3 -mtune=core2"
+export LDFLAGS="-march=pentium3 -static-libgcc -Wl,--dynamicbase -Wl,--nxcompat -static-libgcc"
 export TARGET=i686-w64-mingw32
 compile dnscrypt-proxy-win32

@@ -3,7 +3,7 @@
 #define __OPTIONS_H__ 1
 
 int options_parse(AppContext * const app_context,
-                  ProxyContext * const proxy_context, int argc, char *argv[]);
+                  ProxyContext * const proxy_context, int *argc_p, char ***argv_p);
 
 void options_free(ProxyContext * const proxy_context);
 

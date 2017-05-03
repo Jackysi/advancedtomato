@@ -102,8 +102,7 @@ am__aclocal_m4_deps = $(top_srcdir)/m4/ax_check_compile_flag.m4 \
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 DIST_COMMON = $(srcdir)/Makefile.am $(top_srcdir)/configure \
-	$(am__configure_deps) $(dist_pkgdata_DATA) \
-	$(dist_sysconf_DATA) $(am__DIST_COMMON)
+	$(am__configure_deps) $(dist_pkgdata_DATA) $(am__DIST_COMMON)
 am__CONFIG_DISTCLEAN_FILES = config.status config.cache config.log \
  configure.lineno config.status.lineno
 mkinstalldirs = $(install_sh) -d
@@ -165,8 +164,8 @@ am__uninstall_files_from_dir = { \
     || { echo " ( cd '$$dir' && rm -f" $$files ")"; \
          $(am__cd) "$$dir" && rm -f $$files; }; \
   }
-am__installdirs = "$(DESTDIR)$(pkgdatadir)" "$(DESTDIR)$(sysconfdir)"
-DATA = $(dist_pkgdata_DATA) $(dist_sysconf_DATA)
+am__installdirs = "$(DESTDIR)$(pkgdatadir)"
+DATA = $(dist_pkgdata_DATA)
 RECURSIVE_CLEAN_TARGETS = mostlyclean-recursive clean-recursive	\
   distclean-recursive maintainer-clean-recursive
 am__recursive_targets = \
@@ -196,7 +195,7 @@ am__define_uniq_tagged_files = \
 ETAGS = etags
 CTAGS = ctags
 CSCOPE = cscope
-DIST_SUBDIRS = dist-build man libltdl src test
+DIST_SUBDIRS = dist-build man libltdl contrib src test
 am__DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/config.h.in \
 	$(srcdir)/dnscrypt-update-resolvers.sh.in \
 	$(top_srcdir)/libltdl/config/compile \
@@ -411,18 +410,16 @@ EXTRA_DIST = \
 	THANKS \
 	apparmor.profile.dnscrypt-proxy \
 	autogen.sh \
+	dnscrypt-proxy.conf \
 	dnscrypt-proxy.service \
 	dnscrypt-proxy.socket \
 	org.dnscrypt.osx.DNSCryptProxy.plist \
 	resolvers-check.sh
 
-SUBDIRS = dist-build man $(am__append_1) src test
+SUBDIRS = dist-build man $(am__append_1) contrib src test
 dist_pkgdata_DATA = \
 	dnscrypt-resolvers.csv \
 	minisign.pub
-
-dist_sysconf_DATA = \
-	dnscrypt-proxy.conf
 
 all: config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-recursive
@@ -512,27 +509,6 @@ uninstall-dist_pkgdataDATA:
 	@list='$(dist_pkgdata_DATA)'; test -n "$(pkgdatadir)" || list=; \
 	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
 	dir='$(DESTDIR)$(pkgdatadir)'; $(am__uninstall_files_from_dir)
-install-dist_sysconfDATA: $(dist_sysconf_DATA)
-	@$(NORMAL_INSTALL)
-	@list='$(dist_sysconf_DATA)'; test -n "$(sysconfdir)" || list=; \
-	if test -n "$$list"; then \
-	  echo " $(MKDIR_P) '$(DESTDIR)$(sysconfdir)'"; \
-	  $(MKDIR_P) "$(DESTDIR)$(sysconfdir)" || exit 1; \
-	fi; \
-	for p in $$list; do \
-	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
-	  echo "$$d$$p"; \
-	done | $(am__base_list) | \
-	while read files; do \
-	  echo " $(INSTALL_DATA) $$files '$(DESTDIR)$(sysconfdir)'"; \
-	  $(INSTALL_DATA) $$files "$(DESTDIR)$(sysconfdir)" || exit $$?; \
-	done
-
-uninstall-dist_sysconfDATA:
-	@$(NORMAL_UNINSTALL)
-	@list='$(dist_sysconf_DATA)'; test -n "$(sysconfdir)" || list=; \
-	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
-	dir='$(DESTDIR)$(sysconfdir)'; $(am__uninstall_files_from_dir)
 
 # This directory's subdirectories are mostly independent; you can cd
 # into them and run 'make' without going through this Makefile.
@@ -832,7 +808,7 @@ check: check-recursive
 all-am: Makefile $(DATA) config.h
 installdirs: installdirs-recursive
 installdirs-am:
-	for dir in "$(DESTDIR)$(pkgdatadir)" "$(DESTDIR)$(sysconfdir)"; do \
+	for dir in "$(DESTDIR)$(pkgdatadir)"; do \
 	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
 	done
 install: install-recursive
@@ -887,13 +863,13 @@ info: info-recursive
 
 info-am:
 
-install-data-am: install-dist_pkgdataDATA
+install-data-am: install-data-local install-dist_pkgdataDATA
 
 install-dvi: install-dvi-recursive
 
 install-dvi-am:
 
-install-exec-am: install-dist_sysconfDATA
+install-exec-am:
 
 install-html: install-html-recursive
 
@@ -933,7 +909,7 @@ ps: ps-recursive
 
 ps-am:
 
-uninstall-am: uninstall-dist_pkgdataDATA uninstall-dist_sysconfDATA
+uninstall-am: uninstall-dist_pkgdataDATA uninstall-local
 
 .MAKE: $(am__recursive_targets) all install-am install-strip
 
@@ -945,7 +921,7 @@ uninstall-am: uninstall-dist_pkgdataDATA uninstall-dist_sysconfDATA
 	distclean-hdr distclean-libtool distclean-tags distcleancheck \
 	distdir distuninstallcheck dvi dvi-am html html-am info \
 	info-am install install-am install-data install-data-am \
-	install-dist_pkgdataDATA install-dist_sysconfDATA install-dvi \
+	install-data-local install-dist_pkgdataDATA install-dvi \
 	install-dvi-am install-exec install-exec-am install-html \
 	install-html-am install-info install-info-am install-man \
 	install-pdf install-pdf-am install-ps install-ps-am \
@@ -953,10 +929,24 @@ uninstall-am: uninstall-dist_pkgdataDATA uninstall-dist_sysconfDATA
 	installdirs-am maintainer-clean maintainer-clean-generic \
 	mostlyclean mostlyclean-generic mostlyclean-libtool pdf pdf-am \
 	ps ps-am tags tags-am uninstall uninstall-am \
-	uninstall-dist_pkgdataDATA uninstall-dist_sysconfDATA
+	uninstall-dist_pkgdataDATA uninstall-local
 
 .PRECIOUS: Makefile
 
+
+install-data-local:
+	$(mkinstalldirs) $(DESTDIR)$(sysconfdir); \
+	if [ ! -f $(DESTDIR)$(sysconfdir)/dnscrypt-proxy.conf ]; then \
+		$(INSTALL_DATA) $(srcdir)/dnscrypt-proxy.conf $(DESTDIR)$(sysconfdir)/dnscrypt-proxy.conf; \
+	fi; \
+	$(INSTALL_DATA) $(srcdir)/dnscrypt-proxy.conf $(DESTDIR)$(sysconfdir)/dnscrypt-proxy.conf.example
+
+uninstall-local:
+	if cmp -s $(DESTDIR)$(sysconfdir)/dnscrypt-proxy.conf $(srcdir)/dnscrypt-proxy.conf; then \
+		echo "$(DESTDIR)$(sysconfdir)/dnscrypt-proxy.conf is not changed and will be removed."; \
+		rm -f $(DESTDIR)$(sysconfdir)/dnscrypt-proxy.conf; \
+	fi; \
+	rm -f $(DESTDIR)$(sysconfdir)/dnscrypt-proxy.conf.example
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

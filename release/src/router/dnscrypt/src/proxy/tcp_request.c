@@ -573,11 +573,6 @@ tcp_listener_bind(ProxyContext * const proxy_context)
     } else {
         evutil_make_socket_closeonexec(proxy_context->tcp_listener_handle);
         evutil_make_socket_nonblocking(proxy_context->tcp_listener_handle);
-#ifdef TCP_FASTOPEN
-        setsockopt(proxy_context->tcp_listener_handle,
-                   IPPROTO_TCP, TCP_FASTOPEN,
-                   (void *) (int[]) { TCP_FASTOPEN_QUEUES }, sizeof (int));
-#endif
         proxy_context->tcp_conn_listener =
             evconnlistener_new(proxy_context->event_loop,
                                tcp_connection_cb, proxy_context,
@@ -592,6 +587,11 @@ tcp_listener_bind(ProxyContext * const proxy_context)
         logger_noformat(proxy_context, LOG_ERR, "Unable to bind (TCP)");
         return -1;
     }
+#ifdef TCP_FASTOPEN
+    setsockopt(evconnlistener_get_fd(proxy_context->tcp_conn_listener),
+               IPPROTO_TCP, TCP_FASTOPEN,
+               (void *) (int[]) { TCP_FASTOPEN_QUEUES }, sizeof (int));
+#endif
     if (evconnlistener_disable(proxy_context->tcp_conn_listener) != 0) {
         evconnlistener_free(proxy_context->tcp_conn_listener);
         proxy_context->tcp_conn_listener = NULL;

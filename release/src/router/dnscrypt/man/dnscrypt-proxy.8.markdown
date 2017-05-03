@@ -3,7 +3,9 @@ dnscrypt-proxy(8) -- A DNSCrypt forwarder
 
 ## SYNOPSIS
 
-`dnscrypt-proxy` [<options>]
+`dnscrypt-proxy <config file>`
+
+`dnscrypt-proxy [<option>, ...]`
 
 ## DESCRIPTION
 
@@ -19,18 +21,7 @@ forwards them to the local stub resolver.
 
 `dnscrypt-proxy` listens to `127.0.0.1` / port `53` by default.
 
-## WARNING
-
-**dnscrypt-proxy** is not a DNS cache. Unless your operating system
-already provides a decent built-in cache (and by default, most systems
-don't), clients shouldn't directly send requests to **dnscrypt-proxy**.
-
-Intead, run a DNS cache like **Unbound**, and configure it to use
-**dnscrypt-proxy** as a forwarder. Both can safely run on the same
-machine as long as they use different IP addresses and/or different
-ports.
-
-## OPTIONS
+## OPTIONS (ignored when a configuration file is provided)
 
   * `-R`, `--resolver-name=<name>`: name of the resolver to use, from
     the list of available resolvers (see `-L`).
@@ -125,17 +116,13 @@ string, with optional columns.
 
 ## COMMON USAGE EXAMPLE
 
+    $ dnscrypt-proxy /etc/dnscrypt.conf
+
+## COMMON USAGE EXAMPLE WITHOUT A CONFIGURATION FILE
+
     $ dnscrypt-proxy --daemonize --resolver-name=...
 
 The resolver name is the first column (Name) in the CSV file.
-
-## USAGE EXAMPLE WITH A PRIVATE SERVER
-
-    $ dnscrypt-proxy --daemonize --provider-key=... --provider-name=... --resolver-address=...
-
-## USAGE EXAMPLE WITH A CONFIGURATION FILE
-
-    $ dnscrypt-proxy /etc/dnscrypt.conf
 
 ## BUGS AND SUPPORT
 

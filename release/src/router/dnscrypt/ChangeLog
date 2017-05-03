@@ -1,3 +1,721 @@
+* Sun Jan 1 17:30:16 2017 +0100
+
+    generate-domains-blacklist.py: remove overlapping names
+
+* Sun Jan 1 15:23:42 2017 +0100
+
+    Include netinet/ip.h
+
+* Sun Jan 1 15:17:53 2017 +0100
+
+    Set the DSCP to AF32
+
+* Sun Jan 1 08:00:55 2017 +0100
+
+    Fix stupid pasto in util_ntohl()
+
+* Sun Jan 1 07:26:53 2017 +0100
+
+    Block eth0.me
+
+* Sun Jan 1 00:22:01 2017 +0100
+
+    Regen man pages
+
+* Sat Dec 31 23:35:10 2016 +0100
+
+    Fix string comparison after a previous iteration
+
+* Sat Dec 31 23:08:35 2016 +0100
+
+    Keep the frame pointers to get nicer backtraces on Windows
+
+* Sat Dec 31 23:07:04 2016 +0100
+
+    Actually run pkg-config and autoreconf
+
+* Sat Dec 31 22:27:05 2016 +0100
+
+    A short update to the NEWS file
+
+* Sat Dec 31 22:24:02 2016 +0100
+
+    Update ChangeLog
+
+* Sat Dec 31 22:23:42 2016 +0100
+
+    Add the ability to specify the minimum TTL a record has to be cached
+
+* Sat Dec 31 21:58:44 2016 +0100
+
+    Remove an useless assertion
+
+* Sat Dec 31 20:48:11 2016 +0100
+
+    inline
+
+* Sat Dec 31 20:45:18 2016 +0100
+
+    Reduce the value to 32 bits
+
+* Sat Dec 31 20:37:28 2016 +0100
+
+    The max length of a key is 32767 bytes
+
+* Sat Dec 31 20:29:33 2016 +0100
+
+    2017
+
+* Sat Dec 31 20:29:29 2016 +0100
+
+    C++ compat
+
+* Sat Dec 31 20:20:35 2016 +0100
+
+    Resume string comparison where we left after the previous iteration
+
+* Sat Dec 31 18:34:52 2016 +0100
+
+    Version bump
+
+* Sat Dec 31 18:32:40 2016 +0100
+
+    Rewrite the prefix matching algorithm for the blocking plugin
+
+* Thu Dec 29 21:06:38 2016 +0100
+
+    Add quotes around paths to blacklists in the example file
+    
+    Unnecessary for paths that don't include spaces, but paths with
+    spaces are common on Windows, so make the example more universal.
+
+* Thu Dec 29 16:12:28 2016 +0100
+
+    Dragonfly BSD doesn't have any problems with -fstack-protector-strong
+
+* Thu Dec 29 13:55:32 2016 +0100
+
+    `--install-service-with-config-file` -> `--install-with-config-file`
+
+* Thu Dec 29 13:52:43 2016 +0100
+
+    Do not print references to man pages on Windows
+
+* Thu Dec 29 11:21:29 2016 +0100
+
+    Properly include the contrib dir in the dist tarball
+
+* Thu Dec 29 10:28:52 2016 +0100
+
+    Document what plugins can do
+
+* Thu Dec 29 09:15:19 2016 +0100
+
+    Update ChangeLog
+
+* Thu Dec 29 09:14:49 2016 +0100
+
+    Do not use --high-entropy-va on i686
+
+* Thu Dec 29 09:03:22 2016 +0100
+
+    Typo
+
+* Thu Dec 29 08:42:29 2016 +0100
+
+    Update ChangeLog
+
+* Thu Dec 29 08:41:30 2016 +0100
+
+    Temporarily remove cs-uswest
+    
+    Since a new release is being tagged, this resolver cannot be included
+    in the default list.
+
+* Thu Dec 29 08:32:43 2016 +0100
+
+    Update ChangeLog
+
+* Thu Dec 29 08:32:35 2016 +0100
+
+    + TCP for hostip
+
+* Thu Dec 29 08:31:04 2016 +0100
+
+    hostip: retry using TCP on truncated responses, dont change qname case
+
+* Thu Dec 29 08:16:32 2016 +0100
+
+    Update some m4 scripts
+
+* Thu Dec 29 07:48:18 2016 +0100
+
+    win[32|64]-xcompile: Force some link options even for dependencies
+
+* Thu Dec 29 07:38:55 2016 +0100
+
+    Tweak AX_CHECK_COMPILE_FLAG to also try to link the test program
+    
+    This simplifies the main configure script.
+    
+    Also try to use -fstack-protector-strong if available instead of
+    -fstack-protector-all
+
+* Thu Dec 29 07:13:36 2016 +0100
+
+    The libsodium copy doesn't require POSIX threads on Windows
+
+* Thu Dec 29 00:33:08 2016 +0100
+
+    Add oas.* and oascentral.* (ads)
+
+* Thu Dec 29 00:12:29 2016 +0100
+
+    Don't assume that the proxy is in /usr/local for the systemd service
+    
+    People compiling the proxy themselves won't use systemd right away,
+    and people using dnscrypt-proxy via systemd are likely to use system
+    packages.
+
+* Thu Dec 29 00:07:51 2016 +0100
+
+    Update ChangeLog
+
+* Thu Dec 29 00:07:09 2016 +0100
+
+    Remove man pages, and .la files from the Windows distribution files
+
+* Wed Dec 28 23:56:51 2016 +0100
+
+    msys*: add the CSV + pub file to the root directory
+
+* Wed Dec 28 23:44:31 2016 +0100
+
+    Avoid ntohl() in example-ldns-blocking
+
+* Wed Dec 28 23:26:23 2016 +0100
+
+    Add *.workgroup
+
+* Wed Dec 28 23:25:12 2016 +0100
+
+    Block *.localdomain in the local-additions.txt example
+
+* Wed Dec 28 23:24:28 2016 +0100
+
+    Add SRV records
+
+* Wed Dec 28 23:11:13 2016 +0100
+
+    Try to enable TFO even after the listen() call
+
+* Wed Dec 28 22:32:37 2016 +0100
+
+    Update the ChangeLog
+
+* Wed Dec 28 22:28:58 2016 +0100
+
+    Use 1 fastopen queue on MacOS, 5 on Linux
+
+* Wed Dec 28 22:18:41 2016 +0100
+
+    Cache entries according to the minimum TTL, not the first one observed
+
+* Wed Dec 28 22:09:47 2016 +0100
+
+    Sync msys-* build scripts with the xcompile build script
+
+* Wed Dec 28 21:49:54 2016 +0100
+
+    Use sodium_memzero() to zero structures before a call to free()
+
+* Wed Dec 28 21:44:11 2016 +0100
+
+    Why I love Rust
+
+* Wed Dec 28 21:09:07 2016 +0100
+
+    Udpate ChangeLog
+
+* Wed Dec 28 21:08:51 2016 +0100
+
+    Mention plugins that require the ldns library
+
+* Wed Dec 28 17:32:11 2016 +0100
+
+    Improve plugin documentation
+
+* Wed Dec 28 17:09:56 2016 +0100
+
+    4 extra bytes after the qname are fine in a question RR
+
+* Wed Dec 28 16:55:01 2016 +0100
+
+    free() allocated command-line arguments when using the config parser
+
+* Wed Dec 28 16:51:01 2016 +0100
+
+    Allow options_parse() to alter argc/argv
+
+* Wed Dec 28 16:27:12 2016 +0100
+
+    Plug a memory leak when deleting the cache
+
+* Wed Dec 28 15:48:34 2016 +0100
+
+    options_read_file(): ensure that the output buffer is zero-terminated
+
+* Wed Dec 28 14:14:42 2016 +0100
+
+    Update ChangeLog
+
+* Wed Dec 28 14:14:29 2016 +0100
+
+    /etc/dnscrypt-proxy.conf is probably required in the apparmor profile
+
+* Wed Dec 28 13:48:10 2016 +0100
+
+    crypto_box_*_afternm() computes the hash, so it can't be shared
+
+* Wed Dec 28 13:21:22 2016 +0100
+
+    Print favored versions, not serials
+
+* Wed Dec 28 11:59:27 2016 +0100
+
+    Downgrade "Unsupported certificate version" to LOG_INFO
+
+* Wed Dec 28 11:45:00 2016 +0100
+
+    Do not assume that ntohl() is available without extra libraries
+
+* Wed Dec 28 11:13:54 2016 +0100
+
+    libgcc_s* is required after all :/
+
+* Wed Dec 28 10:44:19 2016 +0100
+
+    Revert "Add -static-libgcc to mingw builds"
+    
+
+* Wed Dec 28 10:43:55 2016 +0100
+
+    Revert "libgcc_s_*.dll should not be required any more"
+    
+
+* Wed Dec 28 09:05:06 2016 +0100
+
+    Doc update
+
+* Wed Dec 28 08:45:24 2016 +0100
+
+    Block *.local and *.lan in domains-blacklist-local-additions.txt
+
+* Wed Dec 28 08:26:03 2016 +0100
+
+    Mention that LocalAddress doesn't work if systemd interferes
+
+* Wed Dec 28 00:48:48 2016 +0100
+
+    When using systemd, daemonization should apparently be disabled
+
+* Tue Dec 27 23:35:21 2016 +0100
+
+    Add domains-blacklist-local-additions.txt for... local additions
+
+* Tue Dec 27 22:22:12 2016 +0100
+
+    Fix more memory leaks on error path
+
+* Tue Dec 27 21:45:34 2016 +0100
+
+    Update the NEWS file for version 1.9.0
+
+* Tue Dec 27 21:21:25 2016 +0100
+
+    Update ChangeLog
+
+* Tue Dec 27 21:10:29 2016 +0100
+
+    Sign
+
+* Tue Dec 27 21:10:14 2016 +0100
+
+    d0wn-ua-ns1 is down
+
+* Tue Dec 27 21:07:39 2016 +0100
+
+    Change ifreenet location to unicast
+
+* Wed Dec 28 03:04:32 2016 +0700
+
+    Added d0wn Indonesia resolver (#522)
+    
+    Added d0wn Indonesia resolver from https://dns.d0wn.biz
+
+* Tue Dec 27 20:54:04 2016 +0100
+
+    Plug leak on error path
+
+* Tue Dec 27 20:33:20 2016 +0100
+
+    Add Forward domains:(<any>) to:(<any>)
+
+* Tue Dec 27 20:08:11 2016 +0100
+
+    Mention that `--service-name` only makes sense with `--[un]install`
+
+* Tue Dec 27 20:05:21 2016 +0100
+
+    Typo
+
+* Tue Dec 27 20:02:15 2016 +0100
+
+    Remove `ServiceName` from the config file
+
+* Tue Dec 27 19:38:03 2016 +0100
+
+    Add a plugin to forward queries to specific resolvers
+
+* Tue Dec 27 12:26:04 2016 +0100
+
+    Plug some memory leaks on error path
+
+* Tue Dec 27 10:20:19 2016 +0100
+
+    line->str for consistency
+
+* Tue Dec 27 09:31:38 2016 +0100
+
+    Mention that ServiceName is only used when installing the service.
+
+* Tue Dec 27 09:25:43 2016 +0100
+
+    Also leverage `LT_LIBPREFIX`
+
+* Tue Dec 27 09:16:36 2016 +0100
+
+    Use `LT_MODULE_EXT` to retrieve the module extension
+    
+    This renders the presence of .la files optional.
+
+* Mon Dec 26 22:05:58 2016 +0100
+
+    Correct the synopsis
+
+* Mon Dec 26 22:04:15 2016 +0100
+
+    Update the man page
+
+* Mon Dec 26 18:56:00 2016 +0100
+
+    Clarify
+
+* Mon Dec 26 18:52:20 2016 +0100
+
+    Add a port number in the ResolverAddress example
+
+* Mon Dec 26 18:47:37 2016 +0100
+
+    -Z should not imply -S
+
+* Mon Dec 26 18:45:40 2016 +0100
+
+    Allow ResolverAddress to override the CSV-provided address
+
+* Mon Dec 26 18:34:49 2016 +0100
+
+    Update the help message when no command-line options have been given
+
+* Mon Dec 26 10:40:16 2016 +0100
+
+    Move the blacklist generation script to a contrib folder
+
+* Mon Dec 26 10:38:52 2016 +0100
+
+    Toy might be misinterpreted
+
+* Sun Dec 25 23:22:34 2016 +0100
+
+    Add a sample script to generate lists of blacklisted domains
+
+* Sun Dec 25 11:42:51 2016 +0100
+
+    Shorten
+
+* Sun Dec 25 11:41:22 2016 +0100
+
+    Rephrase, remove double space
+
+* Sat Dec 24 19:11:30 2016 +0100
+
+    Final stop
+
+* Sat Dec 24 01:38:33 2016 +0100
+
+    Use the config file in the systemd service
+
+* Sat Dec 24 01:33:55 2016 +0100
+
+    Shorten even more
+
+* Sat Dec 24 01:32:05 2016 +0100
+
+    The disclaimer can be moved to the wiki, too
+
+* Sat Dec 24 01:30:44 2016 +0100
+
+    Remove a lot of the documentation. The Wiki is a better tool.
+
+* Sat Dec 24 00:27:31 2016 +0100
+
+    web sites -> websites
+
+* Fri Dec 23 23:17:28 2016 +0100
+
+    doc update
+
+* Fri Dec 23 23:15:43 2016 +0100
+
+    Doc update
+
+* Fri Dec 23 22:50:07 2016 +0100
+
+    Doc update
+
+* Fri Dec 23 22:41:05 2016 +0100
+
+    Use the config file in the .plist example
+
+* Fri Dec 23 22:26:31 2016 +0100
+
+    Typo
+
+* Fri Dec 23 21:49:20 2016 +0100
+
+    Update the minisign check example
+
+* Fri Dec 23 19:21:47 2016 +0300
+
+    Correct spelling (#521)
+
+* Fri Dec 23 11:50:37 2016 +0100
+
+    Update ChangeLog
+
+* Fri Dec 23 11:38:08 2016 +0100
+
+    SIGHUP now reloads the plugins
+    
+    Useful to rotate logs, and to update blacklists
+
+* Fri Dec 23 11:15:03 2016 +0100
+
+    Make plugin_support.h more readable
+
+* Thu Dec 22 16:47:16 2016 +0100
+
+    Fix `--ignore-timestamps`
+    
+    Reported by Toni Uhlig - Thanks!
+
+* Thu Dec 22 11:18:53 2016 +0100
+
+    Recommend checking the Daemonize option
+
+* Thu Dec 22 11:16:34 2016 +0100
+
+    Do not overwrite an existing dnscrypt-proxy.conf file
+
+* Thu Dec 22 11:09:14 2016 +0100
+
+    OSX -> MacOS and other minor changes to the documentation
+
+* Thu Dec 22 10:51:09 2016 +0100
+
+    Next will be 1.9.0 due to the major changes to the plugins
+
+* Thu Dec 22 10:48:06 2016 +0100
+
+    Just define some constants for clarity
+
+* Thu Dec 22 10:43:45 2016 +0100
+
+    empty -> is_empty
+
+* Thu Dec 22 10:38:45 2016 +0100
+
+    Lookup the frequent cache before the recent one
+
+* Thu Dec 22 10:28:27 2016 +0100
+
+    Add a second queue to the cache
+
+* Thu Dec 22 09:52:56 2016 +0100
+
+    up
+
+* Thu Dec 22 09:22:52 2016 +0100
+
+    Keep things together
+
+* Thu Dec 22 09:21:32 2016 +0100
+
+    Move code updating the cache to its own set of functions for clarity
+
+* Thu Dec 22 08:55:09 2016 +0100
+
+    Move the code that deallocates cache entries to its own function
+
+* Thu Dec 22 07:51:22 2016 +0100
+
+    Move a few definitions to example-cache.h
+
+* Thu Dec 22 07:44:11 2016 +0100
+
+    space->tab in Makefile.am
+
+* Thu Dec 22 03:02:00 2016 +0100
+
+    Do not change the TTL of OPT records
+    
+    Also properly copy the casing of the original client query
+
+* Thu Dec 22 02:36:12 2016 +0100
+
+    Ignore the TTL of OPT records
+    
+    And use the minimum TTL for empty zones.
+    
+    Probably not as great as looking at the SOA, very likely better than
+    assuming the maximum TTL.
+
+* Wed Dec 21 18:14:12 2016 +0100
+
+    Only recommend one verification procedure
+
+* Wed Dec 21 18:12:37 2016 +0100
+
+    Bump the example version number
+
+* Thu Dec 22 01:58:33 2016 +0100
+
+    Add a simple DNS cache
+
+* Thu Dec 22 01:45:30 2016 +0100
+
+    Do not forget the file extension in plugins descriptions
+
+* Tue Dec 20 20:59:11 2016 +0100
+
+    Correct format string
+
+* Tue Dec 20 16:46:09 2016 +0100
+
+    Use lowercase hex digits
+
+* Tue Dec 20 16:45:03 2016 +0100
+
+    logging: add some common query types
+
+* Tue Dec 20 14:09:29 2016 +0100
+
+    libgcc_s_*.dll should not be required any more
+
+* Tue Dec 20 13:55:39 2016 +0100
+
+    Add -static-libgcc to mingw builds
+
+* Tue Dec 20 13:43:17 2016 +0100
+
+    Include <netinet/in.h> for sockaddr_* definitions
+
+* Tue Dec 20 13:41:18 2016 +0100
+
+    Add /usr/${TARGET}/bin/libgcc_s_* to the distributed file
+
+* Tue Dec 20 13:08:25 2016 +0100
+
+    Keep only one port per service
+    
+    A way to list the set of ports every service can be reached at
+    would be great, and we really need to find a clean way to
+    support this in the future.
+
+* Tue Dec 20 11:33:51 2016 +0100
+
+    Add the ability to log queries using LTSV, too
+
+* Tue Dec 20 11:18:57 2016 +0100
+
+    Version bump even if we're not there yet
+
+* Tue Dec 20 11:15:15 2016 +0100
+
+    example-ldns-blocking: support the LTSV logging format
+
+* Tue Dec 20 10:34:18 2016 +0100
+
+    untab input
+
+* Tue Dec 20 10:29:09 2016 +0100
+
+    Major additions to the way [blocked] queries are logged
+
+* Tue Dec 20 09:25:11 2016 +0100
+
+    Print IPv6 addresses
+
+* Tue Dec 20 01:26:22 2016 +0100
+
+    Add the client IP address
+
+* Tue Dec 20 00:57:56 2016 +0100
+
+    `*.example.com` now matches example.com and x.example.com, not xexample.com
+
+* Mon Dec 19 11:54:25 2016 +0100
+
+    Complete rewrite of the blocking plugin to make it really fast
+    
+    This was intended to be nothing but a simple example of a plugin.
+    
+    However, this example turned out to be useful. And actually used.
+    
+    So, let's get serious about it and do better than a linear scan
+    in order to match names and IPs.
+    
+    A critbit-like data structure is a perfect fit for that kind of list.
+    
+    So, split blacklists into 4 tries (5-bit variant of qp-tries):
+    - ips
+    - name prefixes
+    - name suffixes
+    - patterns that can be found anywhere
+    
+    Linear scans could have been kept for case #4, but this is not a
+    common use case, and having a single data structure for everything
+    reduces bloat.
+    
+    Suffix matching currently works the same way as prefix matching, with
+    keys and strings being reversed first. However, from a user perspective,
+    it makes sense to have `*.example.com` match `example.com` and
+    `www.example.com` but not `abcexample.com`. This will be addressed next.
+    
+    Meanwhile, the plugin can now seamlessly handle very large blacklists.
+
+* Mon Dec 19 12:06:37 2016 +0100
+
+    Update ChangeLog for 1.8.1
+
+* Mon Dec 19 11:31:08 2016 +0100
+
+    host_only() -> trim_comments()
+
+* Mon Dec 19 10:25:50 2016 +0100
+
+    Version bump
+
 * Mon Dec 19 10:10:49 2016 +0100
 
     Android: downgrade the NDK to 19 when building for platform 16

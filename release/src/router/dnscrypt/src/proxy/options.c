@@ -107,7 +107,9 @@ options_usage(void)
         }
         options++;
     } while (options->name != NULL);
+#ifndef _WIN32
     puts("\nPlease consult the dnscrypt-proxy(8) man page for details.\n");
+#endif
 }
 
 static
@@ -178,7 +180,7 @@ options_read_file(const char * const file_name)
         return NULL;
     }
     rewind(fp);
-    if ((file_buf = malloc(file_size)) == NULL) {
+    if ((file_buf = malloc(file_size + 1U)) == NULL) {
         fclose(fp);
         return NULL;
     }
@@ -188,6 +190,7 @@ options_read_file(const char * const file_name)
         return NULL;
     }
     (void) fclose(fp);
+    file_buf[file_size] = 0;
 
     return file_buf;
 }
@@ -294,7 +297,12 @@ options_parse_resolver(ProxyContext * const proxy_context,
 
     proxy_context->provider_name = strdup(provider_name);
     proxy_context->provider_publickey_s = strdup(provider_publickey_s);
-    proxy_context->resolver_ip = strdup(resolver_ip);
+    if (proxy_context->resolver_ip == NULL) {
+        proxy_context->resolver_ip = strdup(resolver_ip);
+    } else {
+        logger(proxy_context, LOG_INFO,
+               "Resolver address forced to [%s]", proxy_context->resolver_ip);
+    }
     if (proxy_context->provider_name == NULL ||
         proxy_context->provider_publickey_s == NULL ||
         proxy_context->resolver_ip == NULL) {
@@ -441,29 +449,18 @@ options_apply(ProxyContext * const proxy_context)
         proxy_context->provider_publickey_s == NULL ||
         *proxy_context->provider_publickey_s == 0) {
         logger_noformat(proxy_context, LOG_ERR,
-                        "Resolver information required.");
+                        "Error: no resolver name given, no configuration file either.");
         logger_noformat(proxy_context, LOG_ERR,
-                        "The easiest way to do so is to provide a resolver name.");
+                        "The easiest way to get started is to edit the example configuration file");
         logger_noformat(proxy_context, LOG_ERR,
-                        "Example: dnscrypt-proxy -R mydnsprovider");
+                        "and to append the full path to that file to the dnscrypt-proxy command.");
+        logger_noformat(proxy_context, LOG_ERR,
+                        "Example: dnscrypt-proxy /usr/local/etc/dnscrypt-proxy.conf");
         logger(proxy_context, LOG_ERR,
-               "See the file [%s] for a list of compatible public resolvers",
+               "The local list of public resolvers is loaded from: [%s]",
                proxy_context->resolvers_list);
         logger_noformat(proxy_context, LOG_ERR,
-                        "The name is the first column in this table.");
-        logger_noformat(proxy_context, LOG_ERR,
-                        "Alternatively, an IP address, a provider name "
-                        "and a provider key can be supplied.");
-#ifdef _WIN32
-        logger_noformat(proxy_context, LOG_ERR,
-                        "Consult https://dnscrypt.org "
-                        "and https://github.com/jedisct1/dnscrypt-proxy/blob/master/README-WINDOWS.markdown "
-                        "for details.");
-#else
-        logger_noformat(proxy_context, LOG_ERR,
-                        "Please consult https://dnscrypt.org "
-                        "and the dnscrypt-proxy(8) man page for details.");
-#endif
+                        "Consult https://dnscrypt.org for more information about dnscrypt-proxy.");
         exit(1);
     }
     if (proxy_context->provider_name == NULL ||
@@ -518,7 +515,7 @@ options_apply(ProxyContext * const proxy_context)
 
 int
 options_parse(AppContext * const app_context,
-              ProxyContext * const proxy_context, int argc, char *argv[])
+              ProxyContext * const proxy_context, int *argc_p, char ***argv_p)
 {
     const char *service_config_file = NULL;
     int         opt_flag;
@@ -528,16 +525,18 @@ options_parse(AppContext * const app_context,
 #endif
 
     options_init_with_default(app_context, proxy_context);
-    if (argc == 2 && *argv[1] != '-' &&
-        sc_build_command_line_from_file(argv[1], simpleconf_options,
-                                        (sizeof simpleconf_options) /
-                                        (sizeof simpleconf_options[0]),
-                                        argv[0], &argc, &argv) != 0) {
-        logger_noformat(proxy_context, LOG_ERR,
-                        "Unable to read the configuration file");
-        return -1;
+    if (*argc_p == 2 && *(*argv_p)[1] != '-') {
+        if (sc_build_command_line_from_file((*argv_p)[1], simpleconf_options,
+                                            (sizeof simpleconf_options) /
+                                            (sizeof simpleconf_options[0]),
+                                            *(argv_p)[0], argc_p, argv_p) != 0) {
+            logger_noformat(proxy_context, LOG_ERR,
+                            "Unable to read the configuration file");
+            return -1;
+        }
+        app_context->allocated_args = 1;
     }
-    while ((opt_flag = getopt_long(argc, argv,
+    while ((opt_flag = getopt_long(*argc_p, *argv_p,
                                    getopt_options, getopt_long_options,
                                    &option_index)) != -1) {
         switch (opt_flag) {
@@ -601,7 +600,6 @@ options_parse(AppContext * const app_context,
             proxy_context->syslog = 1;
             break;
         case 'Z':
-            proxy_context->syslog = 1;
             proxy_context->syslog_prefix = optarg;
             break;
 #endif
