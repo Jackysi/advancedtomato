@@ -54,7 +54,7 @@
 #define MAX_NDAILY		62
 #define MAX_NMONTHLY	25
 #define MAX_SPEED_IF	32
-#define MAX_ROLLOVER	(225 * M)
+#define MAX_ROLLOVER	(3750UL * M) // 3750 MByte - new rollover limit
 
 #define MAX_COUNTER	2
 #define RX 			0
@@ -601,6 +601,10 @@ static void calc(void)
 	long tick;
 	int n;
 	char *exclude;
+	char prefix[] = "wanXX_";
+
+	int wanup = 0; // 0 = FALSE, 1 = TRUE
+	long wanuptime = 0; // wanuptime in seconds
 
 	now = time(0);
 	exclude = nvram_safe_get("rstats_exclude");
@@ -665,8 +669,12 @@ static void calc(void)
 				c = counter[i];
 				sc = sp->last[i];
 				if (c < sc) {
-					diff = (0xFFFFFFFF - sc + 1) + c;
-					//if (diff > MAX_ROLLOVER) diff = 0;
+					wanup = check_wanup(prefix); // router/shared/misc.c
+					wanuptime = check_wanup_time(); // router/shared/misc.c
+					diff = ((0xFFFFFFFFUL) - sc + 1UL) + c; // rollover calculation
+					if(diff > MAX_ROLLOVER) diff = 0UL; // 3750 MByte / 120 sec => 250 MBit/s maximum limit with roll-over! Try to catch unknown/unwanted traffic peaks - Part 1/2
+					if(wanup && (wanuptime < (INTERVAL + 10))) diff = 0UL; // Try to catch traffic peaks at connection startup/reconnect (ADSL/PPPoE) - Part 2/2
+					// see https://www.linksysinfo.org/index.php?threads/tomato-toastmans-releases.36106/page-39#post-281722
 				}
 				else {
 					diff = c - sc;

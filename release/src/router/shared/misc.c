@@ -256,6 +256,25 @@ void notice_set(const char *path, const char *format, ...)
 //	#define _x_dprintf(args...)	syslog(LOG_DEBUG, args);
 #define _x_dprintf(args...)	do { } while (0);
 
+//function for rstats & cstats
+long check_wanup_time(void)
+{
+	long wanuptime = 0; // wanuptime in seconds
+	struct sysinfo si;
+	long uptime;
+
+	sysinfo(&si); //get time
+	if(f_read("/var/lib/misc/wan_time", &uptime, sizeof(uptime)) == sizeof(uptime)) {
+		wanuptime = si.uptime - uptime; //calculate the difference
+        	if(wanuptime < 0) wanuptime = 0; //something wrong?
+	}
+	else {
+		wanuptime = 0; //something wrong? f_read()?
+	}
+
+	return wanuptime;
+}
+
 int check_wanup(char *prefix)
 {
 	int up = 0;
