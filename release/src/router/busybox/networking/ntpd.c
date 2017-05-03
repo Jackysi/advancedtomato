@@ -2048,6 +2048,12 @@ recv_and_process_client_pkt(void /*int fd*/)
 		addr = xmalloc_sockaddr2dotted_noport(from);
 		bb_error_msg("malformed packet received from %s: size %u", addr, (int)size);
 		free(addr);
+	}
+
+	/* Respond only to client and symmetric active packets */
+	if ((msg.m_status & MODE_MASK) != MODE_CLIENT
+	 && (msg.m_status & MODE_MASK) != MODE_SYM_ACT
+	) {
 		goto bail;
 	}
 
