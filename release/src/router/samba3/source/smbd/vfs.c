@@ -817,6 +817,7 @@ NTSTATUS reduce_name(connection_struct *conn, const pstring fname)
 	char *resolved_name = NULL;
 	size_t con_path_len = strlen(conn->connectpath);
 	char *p = NULL;
+	bool matched;
 
 	DEBUG(3,("reduce_name [%s] [%s]\n", fname, conn->connectpath));
 
@@ -893,12 +894,15 @@ NTSTATUS reduce_name(connection_struct *conn, const pstring fname)
 	}
 
 	/* Check for widelinks allowed. */
-	if (!lp_widelinks(SNUM(conn)) && (strncmp(conn->connectpath, resolved_name, con_path_len) != 0)) {
-		DEBUG(2, ("reduce_name: Bad access attempt: %s is a symlink outside the share path", fname));
-		if (free_resolved_name) {
-			SAFE_FREE(resolved_name);
-		}
+	if (!lp_widelinks(SNUM(conn))) {
+		matched = (strncmp(conn->connectpath, resolved_name, con_path_len) == 0);
+		if (!matched || (resolved_name[con_path_len] != '/' && resolved_name[con_path_len] != '\0')) {
+			DEBUG(2, ("reduce_name: Bad access attempt: %s is a symlink outside the share path\n", fname));
+			if (free_resolved_name) {
+				SAFE_FREE(resolved_name);
+			}
 		return NT_STATUS_ACCESS_DENIED;
+		}
 	}
 
         /* Check if we are allowing users to follow symlinks */
