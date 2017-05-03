@@ -1,7 +1,7 @@
 /*
     tincd.c -- the main file for tincd
     Copyright (C) 1998-2005 Ivo Timmermans
-                  2000-2014 Guus Sliepen <guus@tinc-vpn.org>
+                  2000-2016 Guus Sliepen <guus@tinc-vpn.org>
                   2008      Max Rijevski <maksuf@gmail.com>
                   2009      Michael Tokarev <mjt@tls.msk.ru>
                   2010      Julien Muchembled <jm@jmuchemb.eu>
@@ -43,8 +43,6 @@
 #include <time.h>
 #endif
 
-#include <getopt.h>
-
 #include "conf.h"
 #include "control.h"
 #include "crypto.h"
@@ -85,6 +83,9 @@ static const char *switchuser = NULL;
 /* If nonzero, write log entries to a separate file. */
 bool use_logfile = false;
 
+/* If nonzero, use syslog instead of stderr in no-detach mode. */
+bool use_syslog = false;
+
 char **g_argv;                  /* a copy of the cmdline arguments */
 
 static int status = 1;
@@ -101,6 +102,7 @@ static struct option const long_options[] = {
 	{"chroot", no_argument, NULL, 'R'},
 	{"user", required_argument, NULL, 'U'},
 	{"logfile", optional_argument, NULL, 4},
+	{"syslog", no_argument, NULL, 's'},
 	{"pidfile", required_argument, NULL, 5},
 	{"option", required_argument, NULL, 'o'},
 	{NULL, 0, NULL, 0}
@@ -125,6 +127,7 @@ static void usage(bool status) {
 				"  -L, --mlock                   Lock tinc into main memory.\n"
 #endif
 				"      --logfile[=FILENAME]      Write log entries to a logfile.\n"
+				"  -s  --syslog                  Use syslog instead of stderr with --no-detach.\n"
 				"      --pidfile=FILENAME        Write PID and control socket cookie to FILENAME.\n"
 				"      --bypass-security         Disables meta protocol security, for debugging.\n"
 				"  -o, --option[HOST.]KEY=VALUE  Set global/host configuration value.\n"
@@ -146,7 +149,7 @@ static bool parse_options(int argc, char **argv) {
 
 	cmdline_conf = list_alloc((list_action_t)free_config);
 
-	while((r = getopt_long(argc, argv, "c:DLd::n:o:RU:", long_options, &option_index)) != EOF) {
+	while((r = getopt_long(argc, argv, "c:DLd::n:so:RU:", long_options, &option_index)) != EOF) {
 		switch (r) {
 			case 0:   /* long option */
 				break;
@@ -179,6 +182,11 @@ static bool parse_options(int argc, char **argv) {
 
 			case 'n': /* net name given */
 				netname = xstrdup(optarg);
+				break;
+
+			case 's': /* syslog */
+				use_logfile = false;
+				use_syslog = true;
 				break;
 
 			case 'o': /* option */
@@ -216,6 +224,7 @@ static bool parse_options(int argc, char **argv) {
 				break;
 
 			case 4:   /* write log entries to a file */
+				use_syslog = false;
 				use_logfile = true;
 				if(!optarg && optind < argc && *argv[optind] != '-')
 					optarg = argv[optind++];
@@ -252,10 +261,13 @@ static bool parse_options(int argc, char **argv) {
 		netname = NULL;
 	}
 
-	if(netname && (strpbrk(netname, "\\/") || *netname == '.')) {
+	if(netname && !check_netname(netname, false)) {
 		fprintf(stderr, "Invalid character in netname!\n");
 		return false;
 	}
+
+	if(netname && !check_netname(netname, true))
+		fprintf(stderr, "Warning: unsafe character in netname!\n");
 
 	return true;
 }
@@ -328,12 +340,13 @@ int main(int argc, char **argv) {
 	if(!parse_options(argc, argv))
 		return 1;
 
-	make_names();
+	make_names(true);
+	chdir(confbase);
 
 	if(show_version) {
 		printf("%s version %s (built %s %s, protocol %d.%d)\n", PACKAGE,
-			   VERSION, BUILD_DATE, BUILD_TIME, PROT_MAJOR, PROT_MINOR);
-		printf("Copyright (C) 1998-2014 Ivo Timmermans, Guus Sliepen and others.\n"
+			   BUILD_VERSION, BUILD_DATE, BUILD_TIME, PROT_MAJOR, PROT_MINOR);
+		printf("Copyright (C) 1998-2016 Ivo Timmermans, Guus Sliepen and others.\n"
 				"See the AUTHORS file for a complete list.\n\n"
 				"tinc comes with ABSOLUTELY NO WARRANTY.  This is free software,\n"
 				"and you are welcome to redistribute it under certain conditions;\n"
@@ -351,6 +364,18 @@ int main(int argc, char **argv) {
 	if(WSAStartup(MAKEWORD(2, 2), &wsa_state)) {
 		logger(DEBUG_ALWAYS, LOG_ERR, "System call `%s' failed: %s", "WSAStartup", winerror(GetLastError()));
 		return 1;
+	}
+#else
+	// Check if we got an umbilical fd from the process that started us
+	char *umbstr = getenv("TINC_UMBILICAL");
+	if(umbstr) {
+		umbilical = atoi(umbstr);
+		if(fcntl(umbilical, F_GETFL) < 0)
+			umbilical = 0;
+#ifdef FD_CLOEXEC
+		if(umbilical)
+			fcntl(umbilical, F_SETFD, FD_CLOEXEC);
+#endif
 	}
 #endif
 
@@ -454,6 +479,12 @@ int main2(int argc, char **argv) {
 	/* Start main loop. It only exits when tinc is killed. */
 
 	logger(DEBUG_ALWAYS, LOG_NOTICE, "Ready");
+
+	if(umbilical) { // snip!
+		write(umbilical, "", 1);
+		close(umbilical);
+		umbilical = 0;
+	}
 
 	try_outgoing_connections();
 

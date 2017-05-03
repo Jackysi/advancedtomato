@@ -38,7 +38,9 @@ int device_fd = -1;
 static HANDLE device_handle = INVALID_HANDLE_VALUE;
 static io_t device_read_io;
 static OVERLAPPED device_read_overlapped;
+static OVERLAPPED device_write_overlapped;
 static vpn_packet_t device_read_packet;
+static vpn_packet_t device_write_packet;
 char *device = NULL;
 char *iface = NULL;
 static char *device_info = NULL;
@@ -98,6 +100,9 @@ static bool setup_device(void) {
 
 	get_config_string(lookup_config(config_tree, "Device"), &device);
 	get_config_string(lookup_config(config_tree, "Interface"), &iface);
+
+	if(device && iface)
+		logger(DEBUG_ALWAYS, LOG_WARNING, "Warning: both Device and Interface specified, results may not be as expected");
 
 	/* Open registry and look for network adapters */
 
@@ -175,6 +180,25 @@ static bool setup_device(void) {
 		return false;
 	}
 
+	/* Get version information from tap device */
+
+	{
+		ULONG info[3] = {0};
+		DWORD len;
+		if(!DeviceIoControl(device_handle, TAP_IOCTL_GET_VERSION, &info, sizeof info, &info, sizeof info, &len, NULL))
+			logger(DEBUG_ALWAYS, LOG_WARNING, "Could not get version information from Windows tap device %s (%s): %s", device, iface, winerror(GetLastError()));
+		else {
+			logger(DEBUG_ALWAYS, LOG_INFO, "TAP-Windows driver version: %lu.%lu%s", info[0], info[1], info[2] ? " (DEBUG)" : "");
+
+			/* Warn if using >=9.21. This is because starting from 9.21, TAP-Win32 seems to use a different, less efficient write path. */
+			if(info[0] == 9 && info[1] >= 21)
+				logger(DEBUG_ALWAYS, LOG_WARNING,
+					"You are using the newer (>= 9.0.0.21, NDIS6) series of TAP-Win32 drivers. "
+					"Using these drivers with tinc is not recommanded as it can result in poor performance. "
+					"You might want to revert back to 9.0.0.9 instead.");
+		}
+	}
+
 	/* Get MAC address from tap device */
 
 	if(!DeviceIoControl(device_handle, TAP_IOCTL_GET_MAC, mymac.x, sizeof mymac.x, mymac.x, sizeof mymac.x, &len, 0)) {
@@ -200,8 +224,12 @@ static void enable_device(void) {
 	DWORD len;
 	DeviceIoControl(device_handle, TAP_IOCTL_SET_MEDIA_STATUS, &status, sizeof status, &status, sizeof status, &len, NULL);
 
-	io_add_event(&device_read_io, device_handle_read, NULL, CreateEvent(NULL, TRUE, FALSE, NULL));
-	device_read_overlapped.hEvent = device_read_io.event;
+	/* We don't use the write event directly, but GetOverlappedResult() does, internally. */
+
+	device_read_overlapped.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+	device_write_overlapped.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+
+	io_add_event(&device_read_io, device_handle_read, NULL, device_read_overlapped.hEvent);
 	device_issue_read();
 }
 
@@ -210,10 +238,22 @@ static void disable_device(void) {
 
 	io_del(&device_read_io);
 	CancelIo(device_handle);
+
+	/* According to MSDN, CancelIo() does not necessarily wait for the operation to complete.
+	   To prevent race conditions, make sure the operation is complete
+	   before we close the event it's referencing. */
+
+	DWORD len;
+	if(!GetOverlappedResult(device_handle, &device_read_overlapped, &len, TRUE) && GetLastError() != ERROR_OPERATION_ABORTED)
+		logger(DEBUG_ALWAYS, LOG_ERR, "Could not wait for %s %s read to cancel: %s", device_info, device, winerror(GetLastError()));
+	if(device_write_packet.len > 0 && !GetOverlappedResult(device_handle, &device_write_overlapped, &len, TRUE) && GetLastError() != ERROR_OPERATION_ABORTED)
+		logger(DEBUG_ALWAYS, LOG_ERR, "Could not wait for %s %s write to cancel: %s", device_info, device, winerror(GetLastError()));
+	device_write_packet.len = 0;
+
 	CloseHandle(device_read_overlapped.hEvent);
+	CloseHandle(device_write_overlapped.hEvent);
 
 	ULONG status = 0;
-	DWORD len;
 	DeviceIoControl(device_handle, TAP_IOCTL_SET_MEDIA_STATUS, &status, sizeof status, &status, sizeof status, &len, NULL);
 }
 
@@ -231,12 +271,29 @@ static bool read_packet(vpn_packet_t *packet) {
 
 static bool write_packet(vpn_packet_t *packet) {
 	DWORD outlen;
-	OVERLAPPED overlapped = {0};
 
 	logger(DEBUG_TRAFFIC, LOG_DEBUG, "Writing packet of %d bytes to %s",
 			   packet->len, device_info);
 
-	if(!WriteFile(device_handle, DATA(packet), packet->len, &outlen, &overlapped)) {
+	if(device_write_packet.len > 0) {
+		/* Make sure the previous write operation is finished before we start the next one;
+		   otherwise we end up with multiple write ops referencing the same OVERLAPPED structure,
+		   which according to MSDN is a no-no. */
+
+		if(!GetOverlappedResult(device_handle, &device_write_overlapped, &outlen, FALSE)) {
+			int log_level = (GetLastError() == ERROR_IO_INCOMPLETE) ? DEBUG_TRAFFIC : DEBUG_ALWAYS;
+			logger(log_level, LOG_ERR, "Error while checking previous write to %s %s: %s", device_info, device, winerror(GetLastError()));
+			return false;
+		}
+	}
+
+	/* Copy the packet, since the write operation might still be ongoing after we return. */
+
+	memcpy(&device_write_packet, packet, sizeof *packet);
+
+	if(WriteFile(device_handle, DATA(&device_write_packet), device_write_packet.len, &outlen, &device_write_overlapped))
+		device_write_packet.len = 0;
+	else if (GetLastError() != ERROR_IO_PENDING) {
 		logger(DEBUG_ALWAYS, LOG_ERR, "Error while writing to %s %s: %s", device_info, device, winerror(GetLastError()));
 		return false;
 	}

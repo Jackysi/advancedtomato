@@ -1,7 +1,7 @@
 /*
     net.c -- most of the network code
     Copyright (C) 1998-2005 Ivo Timmermans,
-                  2000-2013 Guus Sliepen <guus@tinc-vpn.org>
+                  2000-2015 Guus Sliepen <guus@tinc-vpn.org>
                   2006      Scott Lamb <slamb@slamb.org>
                   2011      Loïc Grenié <loic.grenie@gmail.com>
 
@@ -35,10 +35,6 @@
 #include "protocol.h"
 #include "subnet.h"
 #include "xalloc.h"
-
-#ifdef HAVE_RESOLV_H
-#include <resolv.h>
-#endif
 
 int contradicting_add_edge = 0;
 int contradicting_del_edge = 0;
@@ -154,8 +150,9 @@ static void timeout_handler(void *data) {
 
 		if(c->last_ping_time + pingtimeout <= now.tv_sec) {
 			if(c->edge) {
+				try_tx(c->node, false);
 				if(c->status.pinged) {
-					logger(DEBUG_CONNECTIONS, LOG_INFO, "%s (%s) didn't respond to PING in %ld seconds", c->name, c->hostname, (long)now.tv_sec - c->last_ping_time);
+					logger(DEBUG_CONNECTIONS, LOG_INFO, "%s (%s) didn't respond to PING in %ld seconds", c->name, c->hostname, (long)(now.tv_sec - c->last_ping_time));
 				} else if(c->last_ping_time + pinginterval <= now.tv_sec) {
 					send_ping(c);
 					continue;
@@ -170,9 +167,10 @@ static void timeout_handler(void *data) {
 			}
 			terminate_connection(c, c->edge);
 		}
+
 	}
 
-	timeout_set(data, &(struct timeval){pingtimeout, rand() % 100000});
+	timeout_set(data, &(struct timeval){1, rand() % 100000});
 }
 
 static void periodic_handler(void *data) {
@@ -183,7 +181,7 @@ static void periodic_handler(void *data) {
 
 	if(contradicting_del_edge > 100 && contradicting_add_edge > 100) {
 		logger(DEBUG_ALWAYS, LOG_WARNING, "Possible node with same Name as us! Sleeping %d seconds.", sleeptime);
-		usleep(sleeptime * 1000000LL);
+		nanosleep(&(struct timespec){sleeptime, 0}, NULL);
 		sleeptime *= 2;
 		if(sleeptime < 0)
 			sleeptime = 3600;
@@ -212,15 +210,24 @@ static void periodic_handler(void *data) {
 			   and we are not already trying to make one, create an
 			   outgoing connection to this node.
 			*/
-			int r = rand() % node_tree->count;
-			int i = 0;
+			int count = 0;
+			for splay_each(node_t, n, node_tree) {
+				if(n == myself || n->connection || !(n->status.has_address || n->status.reachable))
+					continue;
+				count++;
+			}
+
+			if(!count)
+				goto end;
+
+			int r = rand() % count;
 
 			for splay_each(node_t, n, node_tree) {
-				if(i++ != r)
+				if(n == myself || n->connection || !(n->status.has_address || n->status.reachable))
 					continue;
 
-				if(n->connection)
-					break;
+				if(r--)
+					continue;
 
 				bool found = false;
 
@@ -238,6 +245,7 @@ static void periodic_handler(void *data) {
 					list_insert_tail(outgoing_list, outgoing);
 					setup_outgoing_connection(outgoing);
 				}
+
 				break;
 			}
 		} else if(nc > 3) {
@@ -286,6 +294,7 @@ static void periodic_handler(void *data) {
 		}
 	}
 
+end:
 	timeout_set(data, &(struct timeval){5, rand() % 100000});
 }
 
@@ -311,15 +320,12 @@ static void sighup_handler(void *data) {
 
 static void sigalrm_handler(void *data) {
 	logger(DEBUG_ALWAYS, LOG_NOTICE, "Got %s signal", strsignal(((signal_t *)data)->signum));
-#ifdef HAVE_DECL_RES_INIT
-	res_init();
-#endif
 	retry();
 }
 #endif
 
 int reload_configuration(void) {
-	char *fname = NULL;
+	char fname[PATH_MAX];
 
 	/* Reread our own configuration file */
 
@@ -333,9 +339,8 @@ int reload_configuration(void) {
 
 	read_config_options(config_tree, NULL);
 
-	xasprintf(&fname, "%s" SLASH "hosts" SLASH "%s", confbase, myself->name);
+	snprintf(fname, sizeof fname, "%s" SLASH "hosts" SLASH "%s", confbase, myself->name);
 	read_config_file(config_tree, fname);
-	free(fname);
 
 	/* Parse some options that are allowed to be changed while tinc is running */
 
@@ -347,9 +352,14 @@ int reload_configuration(void) {
 		for splay_each(subnet_t, subnet, subnet_tree)
 			if (subnet->owner)
 				subnet->expires = 1;
+	}
 
-		load_all_subnets();
+	for splay_each(node_t, n, node_tree)
+		n->status.has_address = false;
 
+	load_all_nodes();
+
+	if(strictsubnets) {
 		for splay_each(subnet_t, subnet, subnet_tree) {
 			if (!subnet->owner)
 				continue;
@@ -412,13 +422,12 @@ int reload_configuration(void) {
 		if(c->status.control)
 			continue;
 
-		xasprintf(&fname, "%s" SLASH "hosts" SLASH "%s", confbase, c->name);
+		snprintf(fname, sizeof fname, "%s" SLASH "hosts" SLASH "%s", confbase, c->name);
 		struct stat s;
 		if(stat(fname, &s) || s.st_mtime > last_config_check) {
 			logger(DEBUG_CONNECTIONS, LOG_INFO, "Host config file of %s has been changed", c->name);
 			terminate_connection(c, c->edge);
 		}
-		free(fname);
 	}
 
 	last_config_check = now.tv_sec;
@@ -449,7 +458,7 @@ void retry(void) {
 */
 int main_loop(void) {
 	timeout_add(&pingtimer, timeout_handler, &pingtimer, &(struct timeval){pingtimeout, rand() % 100000});
-	timeout_add(&periodictimer, periodic_handler, &periodictimer, &(struct timeval){pingtimeout, rand() % 100000});
+	timeout_add(&periodictimer, periodic_handler, &periodictimer, &(struct timeval){0, 0});
 
 #ifndef HAVE_MINGW
 	signal_t sighup = {0};

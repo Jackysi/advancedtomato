@@ -42,6 +42,7 @@ bool sigalrm = false;
 
 extern char **g_argv;
 extern bool use_logfile;
+extern bool use_syslog;
 
 /* Some functions the less gifted operating systems might lack... */
 
@@ -61,12 +62,9 @@ static bool install_service(void) {
 		return false;
 	}
 
-	if(!strchr(program_name, '\\')) {
-		GetCurrentDirectory(sizeof command - 1, command + 1);
-		strncat(command, "\\", sizeof command - strlen(command));
-	}
-
-	strncat(command, program_name, sizeof command - strlen(command));
+	HMODULE module = GetModuleHandle(NULL);
+	GetModuleFileName(module, command + 1, sizeof command - 1);
+	command[sizeof command - 1] = 0;
 
 	strncat(command, "\"", sizeof command - strlen(command));
 
@@ -189,6 +187,8 @@ bool init_service(void) {
   Detach from current terminal
 */
 bool detach(void) {
+	logmode_t logmode;
+
 #ifndef HAVE_MINGW
 	signal(SIGPIPE, SIG_IGN);
 	signal(SIGUSR1, SIG_IGN);
@@ -200,7 +200,7 @@ bool detach(void) {
 
 	if(do_detach) {
 #ifndef HAVE_MINGW
-		if(daemon(0, 0)) {
+		if(daemon(1, 0)) {
 			logger(DEBUG_ALWAYS, LOG_ERR, "Couldn't detach from terminal: %s", strerror(errno));
 			return false;
 		}
@@ -210,12 +210,17 @@ bool detach(void) {
 #endif
 	}
 
-	openlogger(identname, use_logfile?LOGMODE_FILE:(do_detach?LOGMODE_SYSLOG:LOGMODE_STDERR));
+	if(use_logfile)
+		logmode = LOGMODE_FILE;
+	else if(use_syslog || do_detach)
+		logmode = LOGMODE_SYSLOG;
+	else
+		logmode = LOGMODE_STDERR;
+
+	openlogger(identname, logmode);
 
 	logger(DEBUG_ALWAYS, LOG_NOTICE, "tincd %s (%s %s) starting, debug level %d",
-			   VERSION, BUILD_DATE, BUILD_TIME, debug_level);
+			   BUILD_VERSION, BUILD_DATE, BUILD_TIME, debug_level);
 
 	return true;
 }
-
-

@@ -59,9 +59,9 @@ typedef struct connection_status_t {
 
 typedef struct connection_t {
 	char *name;                     /* name he claims to have */
+	char *hostname;                 /* the hostname of its real ip */
 
 	union sockaddr_t address;       /* his real (internet) ip */
-	char *hostname;                 /* the hostname of its real ip */
 	int protocol_major;             /* used protocol */
 	int protocol_minor;             /* used protocol */
 
@@ -75,12 +75,15 @@ typedef struct connection_t {
 	struct node_t *node;            /* node associated with the other end */
 	struct edge_t *edge;            /* edge associated with this connection */
 
+#ifndef DISABLE_LEGACY
 	rsa_t *rsa;                     /* his public RSA key */
-	ecdsa_t *ecdsa;                 /* his public ECDSA key */
 	cipher_t *incipher;             /* Cipher he will use to send data to us */
 	cipher_t *outcipher;            /* Cipher we will use to send data to him */
 	digest_t *indigest;
 	digest_t *outdigest;
+#endif
+
+	ecdsa_t *ecdsa;                 /* his public ECDSA key */
 	sptps_t sptps;
 
 	int inmaclength;
@@ -94,6 +97,7 @@ typedef struct connection_t {
 	struct buffer_t outbuf;
 	io_t io;                        /* input/output event on this metadata connection */
 	int tcplen;                     /* length of incoming TCPpacket */
+	int sptpslen;			/* length of incoming SPTPS packet */
 	int allow_request;              /* defined if there's only one request possible */
 
 	time_t last_ping_time;          /* last time we saw some activity from the other end or pinged them */
