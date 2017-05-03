@@ -37,6 +37,52 @@ int server_socket;              /* Server socket */
 int kernel_support;             /* Kernel Support there or not? */
 #endif
 
+#ifdef USE_KERNEL
+void modprobe() {
+    char * modules[] = { "l2tp_ppp", "pppol2tp", NULL };
+    char ** module;
+    char buf[256], *tok;
+    int pid, exit_status, fd;
+
+    FILE * fmod = fopen("/proc/modules", "r");
+
+    if (fmod == NULL)
+        return;
+
+    while (fgets(buf, 255, fmod) != NULL) {
+        if ((tok = strtok(buf, " ")) != NULL) {
+            for (module = modules; *module != NULL; ++module) {
+                if (!strcmp(*module, tok)) {
+                    fclose(fmod);
+                    return;
+                }
+            }
+        }
+    }
+
+    fclose(fmod);
+
+    for (module = modules; *module != NULL; ++module) {
+        if ((pid = fork()) >= 0) {
+            if (pid == 0) {
+                setenv("PATH", "/sbin:/usr/sbin:/bin:/usr/bin", 1);
+                if ((fd = open("/dev/null", O_RDWR)) > -1) {
+                    dup2(fd, 1);
+                    dup2(fd, 2);
+                }
+                execlp("modprobe", "modprobe", "-q", *module, (char *)NULL);
+                exit(1);
+            } else {
+                if ((pid = waitpid(pid, &exit_status, 0)) != -1 && WIFEXITED(exit_status)) {
+                    if (WEXITSTATUS(exit_status) == 0)
+                        return;
+                }
+            }
+        }
+    }
+}
+#endif
+
 int init_network (void)
 {
     long arg;

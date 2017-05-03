@@ -28,7 +28,7 @@
  * xl2tpd-control capture the output, instead of creating tmp files?
  */
 /* result filename format including absolute path and formatting %i for pid */
-#define RESULT_FILENAME_FORMAT "/var/run/xl2tpd/xl2tpd-control-%i.out"
+#define RESULT_FILENAME_FORMAT "/var/run/xl2tpd-control-%i.out"
 
 #define ERROR_LEVEL 1
 #define DEBUG_LEVEL 2

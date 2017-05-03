@@ -41,6 +41,8 @@
 #include <fcntl.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <net/route.h>
+#include <sys/ioctl.h>
 #include "l2tp.h"
 
 struct tunnel_list tunnels;
@@ -693,6 +695,14 @@ struct tunnel *l2tp_call (char *host, int port, struct lac *lac,
     struct call *tmp = NULL;
     struct hostent *hp;
     struct in_addr addr;
+    
+#if !defined(__UCLIBC__) \
+ || (__UCLIBC_MAJOR__ == 0 \
+ && (__UCLIBC_MINOR__ < 9 || (__UCLIBC_MINOR__ == 9 && __UCLIBC_SUBLEVEL__ < 31)))
+    /* force ns refresh from resolv.conf with uClibc pre-0.9.31 */
+    res_init();
+#endif
+
     port = htons (port);
     hp = gethostbyname (host);
     if (!hp)
@@ -1896,3 +1906,96 @@ int main (int argc, char *argv[])
     return 0;
 }
 
+/* Route manipulation */
+
+static int
+route_ctrl(int ctrl, struct rtentry *rt)
+{
+	int s;
+
+	/* Open a raw socket to the kernel */
+	if ((s = socket(AF_INET, SOCK_DGRAM, 0)) < 0 ||	ioctl(s, ctrl, rt) < 0)
+		l2tp_log (LOG_ERR, "route_ctrl: %s", strerror(errno));
+	else errno = 0;
+
+	close(s);
+	return errno;
+}
+
+int
+route_del(struct rtentry *rt)
+{
+	if (rt->rt_dev) {
+		route_ctrl(SIOCDELRT, rt);
+		free(rt->rt_dev);
+		rt->rt_dev = NULL;
+	}
+	return 0;
+}
+
+int
+route_add(const struct in_addr inetaddr, struct rtentry *rt)
+{
+	char buf[256], dev[64];
+	int metric, flags;
+	u_int32_t dest, mask;
+
+	FILE *f = fopen("/proc/net/route", "r");
+	if (f == NULL) {
+	        l2tp_log (LOG_ERR, "/proc/net/route: %s", strerror(errno));
+		return -1;
+	}
+
+	while (fgets(buf, sizeof(buf), f)) {
+		if (sscanf(buf, "%63s %x %x %X %*s %*s %d %x", dev, &dest,
+		    	&sin_addr(&rt->rt_gateway).s_addr, &flags, &metric, &mask) != 6)
+			continue;
+		if ((flags & RTF_UP) == (RTF_UP) && (inetaddr.s_addr & mask) == dest &&
+		    (dest || strncmp(dev, "ppp", 3)) /* avoid default via pppX to avoid on-demand loops*/) {
+			rt->rt_metric = metric + 1;
+			rt->rt_gateway.sa_family = AF_INET;
+			break;
+		}
+	}
+
+	fclose(f);
+
+	/* check for no route */
+	if (rt->rt_gateway.sa_family != AF_INET) {
+	        /* l2tp_log (LOG_ERR, "route_add: no route to host"); */
+		return -1;
+	}
+
+	/* check for existing route to this host, 
+	add if missing based on the existing routes */
+	if (flags & RTF_HOST) {
+	        /* l2tp_log (LOG_ERR, "route_add: not adding existing route"); */
+		return -1;
+	}
+
+	sin_addr(&rt->rt_dst) = inetaddr;
+	rt->rt_dst.sa_family = AF_INET;
+
+	sin_addr(&rt->rt_genmask).s_addr = INADDR_BROADCAST;
+	rt->rt_genmask.sa_family = AF_INET;
+
+	rt->rt_flags = RTF_UP | RTF_HOST;
+	if (flags & RTF_GATEWAY)
+		rt->rt_flags |= RTF_GATEWAY;
+
+	rt->rt_metric++;
+	rt->rt_dev = strdup(dev);
+
+	if (!rt->rt_dev) {
+	        l2tp_log (LOG_ERR, "route_add: no memory");
+		return -1;
+	}
+
+	if (!route_ctrl(SIOCADDRT, rt))
+		return 0;
+
+	free(rt->rt_dev);
+	rt->rt_dev = NULL;
+
+	return -1;
+}

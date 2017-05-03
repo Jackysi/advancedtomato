@@ -38,8 +38,9 @@ typedef unsigned long long _u64;
 #include "aaa.h"
 #include "common.h"
 #include "ipsecmast.h"
+#include <net/route.h>
 
-#define CONTROL_PIPE "/var/run/xl2tpd/l2tp-control"
+#define CONTROL_PIPE "/var/run/l2tp-control"
 #define CONTROL_PIPE_MESSAGE_SIZE 1024
 
 /* Control pip request types */
@@ -183,6 +184,7 @@ struct tunnel
     struct lns *lns;            /* LNS that owns us */
     struct lac *lac;            /* LAC that owns us */
     struct in_pktinfo my_addr;  /* Address of my endpoint */
+    struct rtentry rt;          /* Route added to destination */
     char hostname[MAXSTRLEN];   /* Remote hostname */
     char vendor[MAXSTRLEN];     /* Vendor of remote product */
     struct challenge chal_us;   /* Their Challenge to us */
@@ -250,6 +252,10 @@ extern int get_entropy (unsigned char *, int);
 #endif
 #endif
 
+/* Route manipulation */
+#define sin_addr(s) (((struct sockaddr_in *)(s))->sin_addr)
+extern int route_add(const struct in_addr inetaddr, struct rtentry *rt);
+extern int route_del(struct rtentry *rt);
 
 /* 
  * This is just some stuff to take
