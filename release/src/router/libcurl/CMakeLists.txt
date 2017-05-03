@@ -72,7 +72,6 @@ include_directories(${PROJECT_BINARY_DIR}/include/curl)
 include_directories( ${CURL_SOURCE_DIR}/include )
 
 option(BUILD_CURL_EXE "Set to ON to build cURL executable." ON)
-option(BUILD_CURL_TESTS "Set to ON to build cURL tests." ON)
 option(CURL_STATICLIB "Set to ON to build libcurl with static linking." OFF)
 option(ENABLE_ARES "Set to ON to enable c-ares support" OFF)
 option(ENABLE_THREADED_RESOLVER "Set to ON to enable POSIX threaded DNS lookup" OFF)
@@ -107,12 +106,6 @@ if(ENABLE_ARES)
   list(APPEND CURL_LIBS ${CARES_LIBRARY} )
   set(CURL_LIBS ${CURL_LIBS} ${CARES_LIBRARY})
 endif()
-
-option(BUILD_DASHBOARD_REPORTS "Set to ON to activate reporting of cURL builds here http://www.cdash.org/CDashPublic/index.php?project=CURL" OFF)
-if(BUILD_DASHBOARD_REPORTS)
-  #INCLUDE(Dart)
-  include(CTest)
-endif(BUILD_DASHBOARD_REPORTS)
 
 if(MSVC)
   option(BUILD_RELEASE_DEBUG_DIRS "Set OFF to build each configuration to a separate directory" OFF)
@@ -330,11 +323,10 @@ if(CMAKE_USE_OPENSSL)
 endif()
 
 if(NOT CURL_DISABLE_LDAP)
-
   if(WIN32)
     option(USE_WIN32_LDAP "Use Windows LDAP implementation" ON)
     if(USE_WIN32_LDAP)
-      check_library_exists("wldap32" cldap_open "" HAVE_WLDAP32)
+      check_library_exists_concat("wldap32" cldap_open HAVE_WLDAP32)
       if(NOT HAVE_WLDAP32)
         set(USE_WIN32_LDAP OFF)
       endif()
@@ -349,78 +341,78 @@ if(NOT CURL_DISABLE_LDAP)
   if(CMAKE_USE_OPENLDAP AND USE_WIN32_LDAP)
     message(FATAL_ERROR "Cannot use USE_WIN32_LDAP and CMAKE_USE_OPENLDAP at the same time")
   endif()
-  
+
   # Now that we know, we're not using windows LDAP...
-  if(NOT USE_WIN32_LDAP)
+  if(USE_WIN32_LDAP)
+    check_include_file_concat("winldap.h" HAVE_WINLDAP_H)
+    check_include_file_concat("winber.h"  HAVE_WINBER_H)
+  else()
     # Check for LDAP
     set(CMAKE_REQUIRED_LIBRARIES ${OPENSSL_LIBRARIES})
     check_library_exists_concat(${CMAKE_LDAP_LIB} ldap_init HAVE_LIBLDAP)
     check_library_exists_concat(${CMAKE_LBER_LIB} ber_init HAVE_LIBLBER)
-  else()
-    check_include_file_concat("winldap.h" HAVE_WINLDAP_H)
-    check_include_file_concat("winber.h"  HAVE_WINBER_H)
-  endif()
-  
-  set(CMAKE_REQUIRED_INCLUDES_BAK ${CMAKE_REQUIRED_INCLUDES})
-  set(CMAKE_LDAP_INCLUDE_DIR "" CACHE STRING "Path to LDAP include directory")
-  if(CMAKE_LDAP_INCLUDE_DIR)
-    list(APPEND CMAKE_REQUIRED_INCLUDES ${CMAKE_LDAP_INCLUDE_DIR})
-  endif()
-  check_include_file_concat("ldap.h"           HAVE_LDAP_H)
-  check_include_file_concat("lber.h"           HAVE_LBER_H)
 
-  if(NOT HAVE_LDAP_H)
-    message(STATUS "LDAP_H not found CURL_DISABLE_LDAP set ON")
-    set(CURL_DISABLE_LDAP ON CACHE BOOL "" FORCE)
-    set(CMAKE_REQUIRED_INCLUDES ${CMAKE_REQUIRED_INCLUDES_BAK}) #LDAP includes won't be used
-  elseif(NOT HAVE_LIBLDAP)
-    message(STATUS "LDAP library '${CMAKE_LDAP_LIB}' not found CURL_DISABLE_LDAP set ON")
-    set(CURL_DISABLE_LDAP ON CACHE BOOL "" FORCE)
-    set(CMAKE_REQUIRED_INCLUDES ${CMAKE_REQUIRED_INCLUDES_BAK}) #LDAP includes won't be used
-  else()
-    if(CMAKE_USE_OPENLDAP)
-      set(USE_OPENLDAP ON)
-    endif()
+    set(CMAKE_REQUIRED_INCLUDES_BAK ${CMAKE_REQUIRED_INCLUDES})
+    set(CMAKE_LDAP_INCLUDE_DIR "" CACHE STRING "Path to LDAP include directory")
     if(CMAKE_LDAP_INCLUDE_DIR)
-      include_directories(${CMAKE_LDAP_INCLUDE_DIR})
+      list(APPEND CMAKE_REQUIRED_INCLUDES ${CMAKE_LDAP_INCLUDE_DIR})
     endif()
-    set(NEED_LBER_H ON)
-    set(_HEADER_LIST)
-    if(HAVE_WINDOWS_H)
-      list(APPEND _HEADER_LIST "windows.h")
-    endif()
-    if(HAVE_SYS_TYPES_H)
-      list(APPEND _HEADER_LIST "sys/types.h")
-    endif()
-    list(APPEND _HEADER_LIST "ldap.h")
+    check_include_file_concat("ldap.h"           HAVE_LDAP_H)
+    check_include_file_concat("lber.h"           HAVE_LBER_H)
 
-    set(_SRC_STRING "")
-    foreach(_HEADER ${_HEADER_LIST})
-      set(_INCLUDE_STRING "${_INCLUDE_STRING}#include <${_HEADER}>\n")
-    endforeach()
-
-    set(_SRC_STRING
-      "
-      ${_INCLUDE_STRING}
-      int main(int argc, char ** argv)
-      {
-        BerValue *bvp = NULL;
-        BerElement *bep = ber_init(bvp);
-        ber_free(bep, 1);
-        return 0;
-      }"
-    )
-    set(CMAKE_REQUIRED_DEFINITIONS "${CMAKE_REQUIRED_DEFINITIONS} -DLDAP_DEPRECATED=1")
-    list(APPEND CMAKE_REQUIRED_LIBRARIES ${CMAKE_LDAP_LIB})
-    if(HAVE_LIBLBER)
-      list(APPEND CMAKE_REQUIRED_LIBRARIES ${CMAKE_LBER_LIB})
-    endif()
-    check_c_source_compiles("${_SRC_STRING}" NOT_NEED_LBER_H)
-
-    if(NOT_NEED_LBER_H)
-      set(NEED_LBER_H OFF)
+    if(NOT HAVE_LDAP_H)
+      message(STATUS "LDAP_H not found CURL_DISABLE_LDAP set ON")
+      set(CURL_DISABLE_LDAP ON CACHE BOOL "" FORCE)
+      set(CMAKE_REQUIRED_INCLUDES ${CMAKE_REQUIRED_INCLUDES_BAK}) #LDAP includes won't be used
+    elseif(NOT HAVE_LIBLDAP)
+      message(STATUS "LDAP library '${CMAKE_LDAP_LIB}' not found CURL_DISABLE_LDAP set ON")
+      set(CURL_DISABLE_LDAP ON CACHE BOOL "" FORCE)
+      set(CMAKE_REQUIRED_INCLUDES ${CMAKE_REQUIRED_INCLUDES_BAK}) #LDAP includes won't be used
     else()
-      set(CURL_TEST_DEFINES "${CURL_TEST_DEFINES} -DNEED_LBER_H")
+      if(CMAKE_USE_OPENLDAP)
+        set(USE_OPENLDAP ON)
+      endif()
+      if(CMAKE_LDAP_INCLUDE_DIR)
+        include_directories(${CMAKE_LDAP_INCLUDE_DIR})
+      endif()
+      set(NEED_LBER_H ON)
+      set(_HEADER_LIST)
+      if(HAVE_WINDOWS_H)
+        list(APPEND _HEADER_LIST "windows.h")
+      endif()
+      if(HAVE_SYS_TYPES_H)
+        list(APPEND _HEADER_LIST "sys/types.h")
+      endif()
+      list(APPEND _HEADER_LIST "ldap.h")
+
+      set(_SRC_STRING "")
+      foreach(_HEADER ${_HEADER_LIST})
+        set(_INCLUDE_STRING "${_INCLUDE_STRING}#include <${_HEADER}>\n")
+      endforeach()
+
+      set(_SRC_STRING
+        "
+        ${_INCLUDE_STRING}
+        int main(int argc, char ** argv)
+        {
+          BerValue *bvp = NULL;
+          BerElement *bep = ber_init(bvp);
+          ber_free(bep, 1);
+          return 0;
+        }"
+      )
+      set(CMAKE_REQUIRED_DEFINITIONS "${CMAKE_REQUIRED_DEFINITIONS} -DLDAP_DEPRECATED=1")
+      list(APPEND CMAKE_REQUIRED_LIBRARIES ${CMAKE_LDAP_LIB})
+      if(HAVE_LIBLBER)
+        list(APPEND CMAKE_REQUIRED_LIBRARIES ${CMAKE_LBER_LIB})
+      endif()
+      check_c_source_compiles("${_SRC_STRING}" NOT_NEED_LBER_H)
+
+      if(NOT_NEED_LBER_H)
+        set(NEED_LBER_H OFF)
+      else()
+        set(CURL_TEST_DEFINES "${CURL_TEST_DEFINES} -DNEED_LBER_H")
+      endif()
     endif()
   endif()
 
@@ -578,6 +570,7 @@ if(NOT UNIX)
       if(HAVE_SCHANNEL_H)
         set(USE_SCHANNEL ON)
         set(SSL_ENABLED ON)
+        set(CURL_LIBS ${CURL_LIBS} "crypt32")
       endif()
     endif()
   endif()
@@ -1041,7 +1034,9 @@ add_subdirectory(lib)
 if(BUILD_CURL_EXE)
   add_subdirectory(src)
 endif()
-if(BUILD_CURL_TESTS)
+
+include(CTest)
+if(BUILD_TESTING)
   add_subdirectory(tests)
 endif()
 

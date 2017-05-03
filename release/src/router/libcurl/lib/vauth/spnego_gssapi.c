@@ -58,7 +58,7 @@
  *
  * Returns CURLE_OK on success.
  */
-CURLcode Curl_auth_decode_spnego_message(struct SessionHandle *data,
+CURLcode Curl_auth_decode_spnego_message(struct Curl_easy *data,
                                          const char *user,
                                          const char *password,
                                          const char *service,
@@ -187,7 +187,7 @@ CURLcode Curl_auth_decode_spnego_message(struct SessionHandle *data,
  *
  * Returns CURLE_OK on success.
  */
-CURLcode Curl_auth_create_spnego_message(struct SessionHandle *data,
+CURLcode Curl_auth_create_spnego_message(struct Curl_easy *data,
                                          struct negotiatedata *nego,
                                          char **outptr, size_t *outlen)
 {
@@ -229,7 +229,7 @@ CURLcode Curl_auth_create_spnego_message(struct SessionHandle *data,
  * nego     [in/out] - The Negotiate data struct being cleaned up.
  *
  */
-void Curl_auth_spnego_cleanup(struct negotiatedata* nego)
+void Curl_auth_spnego_cleanup(struct negotiatedata *nego)
 {
   OM_uint32 minor_status;
 

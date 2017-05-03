@@ -99,6 +99,7 @@ Curl_ssl_config_matches(struct ssl_config_data* data,
      (data->verifyhost == needle->verifyhost) &&
      safe_strequal(data->CApath, needle->CApath) &&
      safe_strequal(data->CAfile, needle->CAfile) &&
+     safe_strequal(data->clientcert, needle->clientcert) &&
      safe_strequal(data->random_file, needle->random_file) &&
      safe_strequal(data->egdsocket, needle->egdsocket) &&
      safe_strequal(data->cipher_list, needle->cipher_list))
@@ -156,6 +157,15 @@ Curl_clone_ssl_config(struct ssl_config_data *source,
   else
     dest->random_file = NULL;
 
+  if(source->clientcert) {
+    dest->clientcert = strdup(source->clientcert);
+    if(!dest->clientcert)
+      return FALSE;
+    dest->sessionid = FALSE;
+  }
+  else
+    dest->clientcert = NULL;
+
   return TRUE;
 }
 
@@ -166,6 +176,7 @@ void Curl_free_ssl_config(struct ssl_config_data* sslc)
   Curl_safefree(sslc->cipher_list);
   Curl_safefree(sslc->egdsocket);
   Curl_safefree(sslc->random_file);
+  Curl_safefree(sslc->clientcert);
 }
 
 
@@ -181,7 +192,7 @@ void Curl_free_ssl_config(struct ssl_config_data* sslc)
  *
  */
 
-unsigned int Curl_rand(struct SessionHandle *data)
+unsigned int Curl_rand(struct Curl_easy *data)
 {
   unsigned int r = 0;
   static unsigned int randseed;
@@ -276,7 +287,7 @@ void Curl_ssl_cleanup(void)
   }
 }
 
-static bool ssl_prefs_check(struct SessionHandle *data)
+static bool ssl_prefs_check(struct Curl_easy *data)
 {
   /* check for CURLOPT_SSLVERSION invalid parameter value */
   if((data->set.ssl.version < 0)
@@ -330,6 +341,25 @@ Curl_ssl_connect_nonblocking(struct connectdata *conn, int sockindex,
 }
 
 /*
+ * Lock shared SSL session data
+ */
+void Curl_ssl_sessionid_lock(struct connectdata *conn)
+{
+  if(SSLSESSION_SHARED(conn->data))
+    Curl_share_lock(conn->data,
+                    CURL_LOCK_DATA_SSL_SESSION, CURL_LOCK_ACCESS_SINGLE);
+}
+
+/*
+ * Unlock shared SSL session data
+ */
+void Curl_ssl_sessionid_unlock(struct connectdata *conn)
+{
+  if(SSLSESSION_SHARED(conn->data))
+    Curl_share_unlock(conn->data, CURL_LOCK_DATA_SSL_SESSION);
+}
+
+/*
  * Check if there's a session ID for the given connection in the cache, and if
  * there's one suitable, it is provided. Returns TRUE when no entry matched.
  */
@@ -338,22 +368,22 @@ bool Curl_ssl_getsessionid(struct connectdata *conn,
                            size_t *idsize) /* set 0 if unknown */
 {
   struct curl_ssl_session *check;
-  struct SessionHandle *data = conn->data;
+  struct Curl_easy *data = conn->data;
   size_t i;
   long *general_age;
   bool no_match = TRUE;
 
   *ssl_sessionid = NULL;
 
+  DEBUGASSERT(conn->ssl_config.sessionid);
+
   if(!conn->ssl_config.sessionid)
     /* session ID re-use is disabled */
     return TRUE;
 
   /* Lock if shared */
-  if(SSLSESSION_SHARED(data)) {
-    Curl_share_lock(data, CURL_LOCK_DATA_SSL_SESSION, CURL_LOCK_ACCESS_SINGLE);
+  if(SSLSESSION_SHARED(data))
     general_age = &data->share->sessionage;
-  }
   else
     general_age = &data->state.sessionage;
 
@@ -381,10 +411,6 @@ bool Curl_ssl_getsessionid(struct connectdata *conn,
       break;
     }
   }
-
-  /* Unlock */
-  if(SSLSESSION_SHARED(data))
-    Curl_share_unlock(data, CURL_LOCK_DATA_SSL_SESSION);
 
   return no_match;
 }
@@ -416,10 +442,7 @@ void Curl_ssl_kill_session(struct curl_ssl_session *session)
 void Curl_ssl_delsessionid(struct connectdata *conn, void *ssl_sessionid)
 {
   size_t i;
-  struct SessionHandle *data=conn->data;
-
-  if(SSLSESSION_SHARED(data))
-    Curl_share_lock(data, CURL_LOCK_DATA_SSL_SESSION, CURL_LOCK_ACCESS_SINGLE);
+  struct Curl_easy *data=conn->data;
 
   for(i = 0; i < data->set.ssl.max_ssl_sessions; i++) {
     struct curl_ssl_session *check = &data->state.session[i];
@@ -429,9 +452,6 @@ void Curl_ssl_delsessionid(struct connectdata *conn, void *ssl_sessionid)
       break;
     }
   }
-
-  if(SSLSESSION_SHARED(data))
-    Curl_share_unlock(data, CURL_LOCK_DATA_SSL_SESSION);
 }
 
 /*
@@ -445,7 +465,7 @@ CURLcode Curl_ssl_addsessionid(struct connectdata *conn,
                                size_t idsize)
 {
   size_t i;
-  struct SessionHandle *data=conn->data; /* the mother of all structs */
+  struct Curl_easy *data=conn->data; /* the mother of all structs */
   struct curl_ssl_session *store = &data->state.session[0];
   long oldest_age=data->state.session[0].age; /* zero if unused */
   char *clone_host;
@@ -453,9 +473,7 @@ CURLcode Curl_ssl_addsessionid(struct connectdata *conn,
   int conn_to_port;
   long *general_age;
 
-  /* Even though session ID re-use might be disabled, that only disables USING
-     IT. We still store it here in case the re-using is again enabled for an
-     upcoming transfer */
+  DEBUGASSERT(conn->ssl_config.sessionid);
 
   clone_host = strdup(conn->host.name);
   if(!clone_host)
@@ -481,7 +499,6 @@ CURLcode Curl_ssl_addsessionid(struct connectdata *conn,
 
   /* If using shared SSL session, lock! */
   if(SSLSESSION_SHARED(data)) {
-    Curl_share_lock(data, CURL_LOCK_DATA_SSL_SESSION, CURL_LOCK_ACCESS_SINGLE);
     general_age = &data->share->sessionage;
   }
   else {
@@ -514,10 +531,6 @@ CURLcode Curl_ssl_addsessionid(struct connectdata *conn,
   store->conn_to_port = conn_to_port; /* connect to port number */
   store->remote_port = conn->remote_port; /* port number */
 
-  /* Unlock */
-  if(SSLSESSION_SHARED(data))
-    Curl_share_unlock(data, CURL_LOCK_DATA_SSL_SESSION);
-
   if(!Curl_clone_ssl_config(&conn->ssl_config, &store->ssl_config)) {
     store->sessionid = NULL; /* let caller free sessionid */
     free(clone_host);
@@ -529,7 +542,7 @@ CURLcode Curl_ssl_addsessionid(struct connectdata *conn,
 }
 
 
-void Curl_ssl_close_all(struct SessionHandle *data)
+void Curl_ssl_close_all(struct Curl_easy *data)
 {
   size_t i;
   /* kill the session ID cache if not shared */
@@ -567,20 +580,20 @@ CURLcode Curl_ssl_shutdown(struct connectdata *conn, int sockindex)
 
 /* Selects an SSL crypto engine
  */
-CURLcode Curl_ssl_set_engine(struct SessionHandle *data, const char *engine)
+CURLcode Curl_ssl_set_engine(struct Curl_easy *data, const char *engine)
 {
   return curlssl_set_engine(data, engine);
 }
 
 /* Selects the default SSL crypto engine
  */
-CURLcode Curl_ssl_set_engine_default(struct SessionHandle *data)
+CURLcode Curl_ssl_set_engine_default(struct Curl_easy *data)
 {
   return curlssl_set_engine_default(data);
 }
 
 /* Return list of OpenSSL crypto engine names. */
-struct curl_slist *Curl_ssl_engines_list(struct SessionHandle *data)
+struct curl_slist *Curl_ssl_engines_list(struct Curl_easy *data)
 {
   return curlssl_engines_list(data);
 }
@@ -589,7 +602,7 @@ struct curl_slist *Curl_ssl_engines_list(struct SessionHandle *data)
  * This sets up a session ID cache to the specified size. Make sure this code
  * is agnostic to what underlying SSL technology we use.
  */
-CURLcode Curl_ssl_initsessions(struct SessionHandle *data, size_t amount)
+CURLcode Curl_ssl_initsessions(struct Curl_easy *data, size_t amount)
 {
   struct curl_ssl_session *session;
 
@@ -632,7 +645,7 @@ bool Curl_ssl_data_pending(const struct connectdata *conn,
   return curlssl_data_pending(conn, connindex);
 }
 
-void Curl_ssl_free_certinfo(struct SessionHandle *data)
+void Curl_ssl_free_certinfo(struct Curl_easy *data)
 {
   int i;
   struct curl_certinfo *ci = &data->info.certs;
@@ -650,7 +663,7 @@ void Curl_ssl_free_certinfo(struct SessionHandle *data)
   }
 }
 
-CURLcode Curl_ssl_init_certinfo(struct SessionHandle *data, int num)
+CURLcode Curl_ssl_init_certinfo(struct Curl_easy *data, int num)
 {
   struct curl_certinfo *ci = &data->info.certs;
   struct curl_slist **table;
@@ -672,7 +685,7 @@ CURLcode Curl_ssl_init_certinfo(struct SessionHandle *data, int num)
 /*
  * 'value' is NOT a zero terminated string
  */
-CURLcode Curl_ssl_push_certinfo_len(struct SessionHandle *data,
+CURLcode Curl_ssl_push_certinfo_len(struct Curl_easy *data,
                                     int certnum,
                                     const char *label,
                                     const char *value,
@@ -713,7 +726,7 @@ CURLcode Curl_ssl_push_certinfo_len(struct SessionHandle *data,
  * This is a convenience function for push_certinfo_len that takes a zero
  * terminated value.
  */
-CURLcode Curl_ssl_push_certinfo(struct SessionHandle *data,
+CURLcode Curl_ssl_push_certinfo(struct Curl_easy *data,
                                 int certnum,
                                 const char *label,
                                 const char *value)
@@ -723,7 +736,7 @@ CURLcode Curl_ssl_push_certinfo(struct SessionHandle *data,
   return Curl_ssl_push_certinfo_len(data, certnum, label, value, valuelen);
 }
 
-int Curl_ssl_random(struct SessionHandle *data,
+int Curl_ssl_random(struct Curl_easy *data,
                      unsigned char *entropy,
                      size_t length)
 {
@@ -792,7 +805,7 @@ static CURLcode pubkey_pem_to_der(const char *pem,
  * Generic pinned public key check.
  */
 
-CURLcode Curl_pin_peer_pubkey(struct SessionHandle *data,
+CURLcode Curl_pin_peer_pubkey(struct Curl_easy *data,
                               const char *pinnedpubkey,
                               const unsigned char *pubkey, size_t pubkeylen)
 {

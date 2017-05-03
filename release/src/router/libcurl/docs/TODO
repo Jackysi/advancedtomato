@@ -33,6 +33,8 @@
  1.15 TCP Fast Open
  1.16 Try to URL encode given URL
  1.17 Add support for IRIs
+ 1.18 try next proxy if one doesn't work
+ 1.19 Timeout idle connections from the pool
 
  2. libcurl - multi interface
  2.1 More non-blocking
@@ -43,6 +45,7 @@
 
  3. Documentation
  3.1 Update date and version in man pages
+ 3.2 Provide cmake config-file
 
  4. FTP
  4.1 HOST
@@ -288,10 +291,19 @@
 
   curl_easy_set_cb() - sets a callback PLUS its callback data
 
-1.15 TCP Fast Open
+1.15 Monitor connections in the connection pool
 
- RFC 7413 defines how to include data already in the TCP SYN handshake to
- reduce latency.
+ libcurl's connection cache or pool holds a number of open connections for the
+ purpose of possible subsequent connection reuse. It may contain a few up to a
+ significant amount of connections. Currently, libcurl leaves all connections
+ as they are and first when a connection is iterated over for matching or
+ reuse purpose it is verified that it is still alive.
+
+ Those connections may get closed by the server side for idleness or they may
+ get a HTTP/2 ping from the peer to verify that they're still alive. By adding
+ monitoring of the connections while in the pool, libcurl can detect dead
+ connections (and close them) better and earlier, and it can handle HTTP/2
+ pings to keep such ones alive even when not actively doing transfers on them.
 
 1.16 Try to URL encode given URL
 
@@ -310,6 +322,25 @@
 
  To make that work smoothly for curl users even on Windows, curl would
  probably need to be able to convert from several input encodings.
+
+1.18 try next proxy if one doesn't work
+
+ Allow an application to specify a list of proxies to try, and failing to
+ connect to the first go on and try the next instead until the list is
+ exhausted. Browsers support this feature at least when they specify proxies
+ using PACs.
+
+ https://github.com/curl/curl/issues/896
+
+1.19 Timeout idle connections from the pool
+
+ libcurl currently keeps connections in its connection pool for an indefinite
+ period of time, until it either gets reused, gets noticed that it has been
+ closed by the server or gets pruned to make room for a new connection.
+
+ To reduce overhead (especially for when we add monitoring of the connections
+ in the pool), we should introduce a timeout so that connections that have
+ been idle for N seconds get closed.
 
 
 2. libcurl - multi interface
@@ -364,6 +395,12 @@
  'maketgz' or another suitable script could update the .TH sections of the man
  pages at release time to use the current date and curl/libcurl version
  number.
+
+3.2 Provide cmake config-file
+
+ A config-file package is a set of files provided by us to allow applications
+ to write cmake scripts to find and use libcurl easier. See
+ https://github.com/curl/curl/issues/885
 
 4. FTP
 
@@ -715,6 +752,9 @@ that doesn't exist on the server, just like --ftp-create-dirs.
  then just make sure that happens. It should of course not make more than one
  connection to the same remote host. This would require the client to use the
  multi interface. https://curl.haxx.se/bug/feature.cgi?id=1558595
+
+ Using the multi interface would also allow properly using parallel transfers
+ with HTTP/2 and supporting HTTP/2 server push from the command line.
 
 17.5 provide formpost headers
 

@@ -23,7 +23,7 @@
 #include "curl_setup.h"
 
 #if defined(USE_GSKIT) || defined(USE_NSS) || defined(USE_GNUTLS) || \
-    defined(USE_CYASSL)
+    defined(USE_CYASSL) || defined(USE_SCHANNEL)
 
 #include <curl/curl.h>
 #include "urldata.h"
@@ -784,7 +784,7 @@ static const char * dumpAlgo(curl_asn1Element * param,
   return OID2str(oid.beg, oid.end, TRUE);
 }
 
-static void do_pubkey_field(struct SessionHandle * data, int certnum,
+static void do_pubkey_field(struct Curl_easy * data, int certnum,
                             const char * label, curl_asn1Element * elem)
 {
   const char * output;
@@ -801,7 +801,7 @@ static void do_pubkey_field(struct SessionHandle * data, int certnum,
   }
 }
 
-static void do_pubkey(struct SessionHandle * data, int certnum,
+static void do_pubkey(struct Curl_easy * data, int certnum,
                       const char * algo, curl_asn1Element * param,
                       curl_asn1Element * pubkey)
 {
@@ -871,7 +871,7 @@ CURLcode Curl_extract_certinfo(struct connectdata * conn,
                                const char * end)
 {
   curl_X509certificate cert;
-  struct SessionHandle * data = conn->data;
+  struct Curl_easy * data = conn->data;
   curl_asn1Element param;
   const char * ccp;
   char * cp1;
@@ -1025,7 +1025,7 @@ CURLcode Curl_extract_certinfo(struct connectdata * conn,
   return CURLE_OK;
 }
 
-#endif /* USE_GSKIT or USE_NSS or USE_GNUTLS or USE_CYASSL */
+#endif /* USE_GSKIT or USE_NSS or USE_GNUTLS or USE_CYASSL or USE_SCHANNEL */
 
 #if defined(USE_GSKIT)
 
@@ -1056,7 +1056,7 @@ static const char * checkOID(const char * beg, const char * end,
 CURLcode Curl_verifyhost(struct connectdata * conn,
                          const char * beg, const char * end)
 {
-  struct SessionHandle * data = conn->data;
+  struct Curl_easy * data = conn->data;
   curl_X509certificate cert;
   curl_asn1Element dn;
   curl_asn1Element elem;

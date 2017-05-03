@@ -134,10 +134,9 @@ cyassl_connect_step1(struct connectdata *conn,
                      int sockindex)
 {
   char error_buffer[CYASSL_MAX_ERROR_SZ];
-  struct SessionHandle *data = conn->data;
+  struct Curl_easy *data = conn->data;
   struct ssl_connect_data* conssl = &conn->ssl[sockindex];
   SSL_METHOD* req_method = NULL;
-  void* ssl_sessionid = NULL;
   curl_socket_t sockfd = conn->sock[sockindex];
 #ifdef HAVE_SNI
   bool sni = FALSE;
@@ -378,15 +377,23 @@ cyassl_connect_step1(struct connectdata *conn,
 #endif /* HAVE_ALPN */
 
   /* Check if there's a cached ID we can/should use here! */
-  if(!Curl_ssl_getsessionid(conn, &ssl_sessionid, NULL)) {
-    /* we got a session id, use it! */
-    if(!SSL_set_session(conssl->handle, ssl_sessionid)) {
-      failf(data, "SSL: SSL_set_session failed: %s",
-            ERR_error_string(SSL_get_error(conssl->handle, 0), error_buffer));
-      return CURLE_SSL_CONNECT_ERROR;
+  if(conn->ssl_config.sessionid) {
+    void *ssl_sessionid = NULL;
+
+    Curl_ssl_sessionid_lock(conn);
+    if(!Curl_ssl_getsessionid(conn, &ssl_sessionid, NULL)) {
+      /* we got a session id, use it! */
+      if(!SSL_set_session(conssl->handle, ssl_sessionid)) {
+        Curl_ssl_sessionid_unlock(conn);
+        failf(data, "SSL: SSL_set_session failed: %s",
+              ERR_error_string(SSL_get_error(conssl->handle, 0),
+              error_buffer));
+        return CURLE_SSL_CONNECT_ERROR;
+      }
+      /* Informational message */
+      infof (data, "SSL re-using session ID\n");
     }
-    /* Informational message */
-    infof (data, "SSL re-using session ID\n");
+    Curl_ssl_sessionid_unlock(conn);
   }
 
   /* pass the raw socket into the SSL layer */
@@ -405,7 +412,7 @@ cyassl_connect_step2(struct connectdata *conn,
                      int sockindex)
 {
   int ret = -1;
-  struct SessionHandle *data = conn->data;
+  struct Curl_easy *data = conn->data;
   struct ssl_connect_data* conssl = &conn->ssl[sockindex];
 
   conn->recv[sockindex] = cyassl_recv;
@@ -571,32 +578,38 @@ cyassl_connect_step3(struct connectdata *conn,
                      int sockindex)
 {
   CURLcode result = CURLE_OK;
-  void *old_ssl_sessionid=NULL;
-  struct SessionHandle *data = conn->data;
+  struct Curl_easy *data = conn->data;
   struct ssl_connect_data *connssl = &conn->ssl[sockindex];
-  bool incache;
-  SSL_SESSION *our_ssl_sessionid;
 
   DEBUGASSERT(ssl_connect_3 == connssl->connecting_state);
 
-  our_ssl_sessionid = SSL_get_session(connssl->handle);
+  if(conn->ssl_config.sessionid) {
+    bool incache;
+    SSL_SESSION *our_ssl_sessionid;
+    void *old_ssl_sessionid = NULL;
 
-  incache = !(Curl_ssl_getsessionid(conn, &old_ssl_sessionid, NULL));
-  if(incache) {
-    if(old_ssl_sessionid != our_ssl_sessionid) {
-      infof(data, "old SSL session ID is stale, removing\n");
-      Curl_ssl_delsessionid(conn, old_ssl_sessionid);
-      incache = FALSE;
-    }
-  }
+    our_ssl_sessionid = SSL_get_session(connssl->handle);
 
-  if(!incache) {
-    result = Curl_ssl_addsessionid(conn, our_ssl_sessionid,
-                                   0 /* unknown size */);
-    if(result) {
-      failf(data, "failed to store ssl session");
-      return result;
+    Curl_ssl_sessionid_lock(conn);
+    incache = !(Curl_ssl_getsessionid(conn, &old_ssl_sessionid, NULL));
+    if(incache) {
+      if(old_ssl_sessionid != our_ssl_sessionid) {
+        infof(data, "old SSL session ID is stale, removing\n");
+        Curl_ssl_delsessionid(conn, old_ssl_sessionid);
+        incache = FALSE;
+      }
     }
+
+    if(!incache) {
+      result = Curl_ssl_addsessionid(conn, our_ssl_sessionid,
+                                     0 /* unknown size */);
+      if(result) {
+        Curl_ssl_sessionid_unlock(conn);
+        failf(data, "failed to store ssl session");
+        return result;
+      }
+    }
+    Curl_ssl_sessionid_unlock(conn);
   }
 
   connssl->connecting_state = ssl_connect_done;
@@ -741,7 +754,7 @@ cyassl_connect_common(struct connectdata *conn,
                       bool *done)
 {
   CURLcode result;
-  struct SessionHandle *data = conn->data;
+  struct Curl_easy *data = conn->data;
   struct ssl_connect_data *connssl = &conn->ssl[sockindex];
   curl_socket_t sockfd = conn->sock[sockindex];
   long timeout_ms;
@@ -872,7 +885,7 @@ Curl_cyassl_connect(struct connectdata *conn,
   return CURLE_OK;
 }
 
-int Curl_cyassl_random(struct SessionHandle *data,
+int Curl_cyassl_random(struct Curl_easy *data,
                        unsigned char *entropy,
                        size_t length)
 {

@@ -57,7 +57,7 @@ p.roffit {
 <p class="level0">Pass a pointer to a 'struct curl_certinfo *' and you'll get it set to point to struct that holds a number of linked lists with info about the certificate chain, assuming you had <a Class="emphasis" href="./CURLOPT_CERTINFO.html">CURLOPT_CERTINFO</a> enabled when the request was made. The struct reports how many certs it found and then you can extract info for each of those certs by following the linked lists. The info chain is provided in a series of data in the format "name:content" where the content is for the specific named data. See also the certinfo.c example. <a name="PROTOCOLS"></a><h2 class="nroffsh">PROTOCOLS</h2>
 <p class="level0">All TLS-based <a name="EXAMPLE"></a><h2 class="nroffsh">EXAMPLE</h2>
 <p class="level0">TODO <a name="AVAILABILITY"></a><h2 class="nroffsh">AVAILABILITY</h2>
-<p class="level0">This option is only working in libcurl built with OpenSSL, NSS or GSKit support. 
+<p class="level0">This option is only working in libcurl built with OpenSSL, NSS, schannel or GSKit support. schannel support added in 7.50.0 
 <p class="level0">Added in 7.19.1 <a name="RETURN"></a><h2 class="nroffsh">RETURN VALUE</h2>
 <p class="level0">Returns CURLE_OK if the option is supported, and CURLE_UNKNOWN_OPTION if not. <a name="SEE"></a><h2 class="nroffsh">SEE ALSO</h2>
 <p class="level0"><span Class="manpage">curl_easy_getinfo (3)</span>, <span Class="manpage">curl_easy_setopt (3)</span><p class="roffit">

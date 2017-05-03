@@ -22,6 +22,8 @@ problems may have been fixed or changed somewhat since this was written!
  1.8 DNS timing is wrong for HTTP redirects
  1.9 HTTP/2 frames while in the connection pool kill reuse
  1.10 Strips trailing dot from host name
+ 1.11 transfer-encoding: chunked in HTTP/2
+ 1.12 CURLOPT_SEEKFUNCTION not called with CURLFORM_STREAM
 
  2. TLS
  2.1 Hangs with PolarSSL
@@ -33,6 +35,7 @@ problems may have been fixed or changed somewhat since this was written!
  3.1 IMAP SEARCH ALL truncated response
  3.2 No disconnect command
  3.3 SMTP to multiple recipients
+ 3.4 POP3 expects "CRLF.CRLF" eob for some single-line responses
 
  4. Command line
  4.1 -J with %-encoded file nameas
@@ -73,6 +76,7 @@ problems may have been fixed or changed somewhat since this was written!
  10.2 SOCKS don't support timeouts
  10.3 FTPS over SOCKS
  10.4 active FTP over a SOCKS
+ 10.5 SOCKS proxy not working via IPv6
 
  11. Internals
  11.1 Curl leaks .onion hostnames in DNS
@@ -192,6 +196,25 @@ problems may have been fixed or changed somewhat since this was written!
 
  See https://github.com/curl/curl/issues/716 for the discussion.
 
+1.11 transfer-encoding: chunked in HTTP/2
+
+ For HTTP/1, when -H transfer-encoding:chunked option is given, curl encodes
+ the request using chunked encoding. But when HTTP/2 is being used, the
+ command wrongly sends a request with both content-length and
+ transfer-encoding: chunked headers being set (and the request body is not
+ chunked-encoded). See https://github.com/curl/curl/issues/662
+
+1.12 CURLOPT_SEEKFUNCTION not called with CURLFORM_STREAM
+
+ I'm using libcurl to POST form data using a FILE* with the CURLFORM_STREAM
+ option of curl_formadd(). I've noticed that if the connection drops at just
+ the right time, the POST is reattempted without the data from the file. It
+ seems like the file stream position isn't getting reset to the beginning of
+ the file. I found the CURLOPT_SEEKFUNCTION option and set that with a
+ function that performs an fseek() on the FILE*. However, setting that didn't
+ seem to fix the issue or even get called. See
+ https://github.com/curl/curl/issues/768
+
 
 2. TLS
 
@@ -242,6 +265,12 @@ problems may have been fixed or changed somewhat since this was written!
  command). Ordinary mail programs would proceed and still send to the ones
  that can receive data. This is subject for change in the future.
  https://curl.haxx.se/bug/view.cgi?id=1116
+
+3.4 POP3 expects "CRLF.CRLF" eob for some single-line responses
+
+ You have to tell libcurl not to expect a body, when dealing with one line
+ response commands. Please see the POP3 examples and test cases which show
+ this for the NOOP and DELE commands. https://curl.haxx.se/bug/?i=740
 
 
 4. Command line
@@ -464,6 +493,12 @@ problems may have been fixed or changed somewhat since this was written!
 
  libcurl doesn't support active FTP over a SOCKS proxy
 
+10.5 SOCKS proxy not working via IPv6
+
+ `curl --proxy "socks://hostname-with-AAAA-record" example.com`
+
+ curl: (7) Can't complete SOCKS4 connection to 1.2.3.4:109. (91),
+ request rejected or failed.
 
 11. Internals
 

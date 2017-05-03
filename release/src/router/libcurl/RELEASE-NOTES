@@ -1,30 +1,26 @@
-Curl and libcurl 7.49.1
+Curl and libcurl 7.50.1
 
- Public curl releases:         155
+ Public curl releases:         157
  Command line options:         185
  curl_easy_setopt() options:   224
  Public functions in libcurl:  61
- Contributors:                 1404
+ Contributors:                 1418
 
 This release includes the following bugfixes:
 
- o Windows: prevent DLL hijacking, CVE-2016-4802 [11]
- o dist: include manpage-scan.pl, nroff-scan.pl and CHECKSRC.md [1]
- o schannel: fix compile break with MSVC XP toolset [2]
- o curlbuild.h.dist: check __LP64__ as well to fix MIPS build [3]
- o dist: include curl_multi_socket_all.3 [4]
- o http2: use HTTP/2 in the HTTP/1.1-alike response
- o openssl: ERR_remove_thread_state() is deprecated in latest 1.1.0
- o CURLOPT_CONNECT_TO.3: user must not free the list prematurely [5]
- o libcurl.m4: Avoid obsolete warning [6]
- o winbuild/Makefile.vc: Fix check on SSL, MBEDTLS, WINSSL exclusivity [7]
- o curl_multibyte: fix compiler error
- o openssl: cleanup must free compression methods (memory leak) [8]
- o mbedtls: fix includes so snprintf() works [9]
- o checksrc.pl: Added variants of strcat() & strncat() to banned function list
- o contributors.sh: better grep pattern and show GitHub username [10]
- o ssh: fix build for libssh2 before 1.2.6 [12]
- o curl_share_setopt.3: Add min ver needed for ssl session lock [13]
+ o TLS: switch off SSL session id when client cert is used [7]
+ o TLS: only reuse connections with the same client cert [8]
+ o curl_multi_cleanup: clear connection pointer for easy handles [9]
+ o include the CURLINFO_HTTP_VERSION(3) man page into the release tarball
+ o include the http2-server.pl script in the release tarball
+ o test558: fix test by stripping file paths from FD lines
+ o spnego: Corrected miss-placed * in Curl_auth_spnego_cleanup() declaration
+ o tests: Fix for http/2 feature [1]
+ o cmake: Fix for schannel support [2]
+ o curl.h: make public types void * again [3]
+ o win32: fix a potential memory leak in Curl_load_library [4]
+ o travis: fix OSX build by re-installing libtool [5]
+ o mbedtls: Fix debug function name [6]
 
 This release includes the following known bugs:
 
@@ -33,25 +29,22 @@ This release includes the following known bugs:
 This release would not have looked like this without help, code, reports and
 advice from friends like these:
 
-  Alexander Traud, Daniel Stenberg, Gisle Vanem, Jan Ehrhardt,
-  jveazey on github, Marcel Raad, Michael Kaufmann, Michael Wallner,
-  Moti Avrahami, Paul Howarth, Ray Satiro, Steve Holme, Tomas Jakobsson,
-  (13 contributors)
+  Alain Danteny, Bru Rom, Dan Fandrich, Daniel Stenberg, Eric Rescorla,
+  Fernando Muñoz, Kamil Dudka, Marcelo Echeverria, Martin Vejnár,
+  Patrick Monnerat, Paul Howarth, Peter Frühberger, Ray Satiro, Sergei Nikulov,
+  Steve Holme, Thomas Glanzmann, Viktor Szakáts, Yonggang Luo,
+  (18 contributors)
 
         Thanks! (and sorry if I forgot to mention someone)
 
 References to bug reports and discussions on issues:
 
- [1] = https://curl.haxx.se/mail/lib-2016-05/0113.html
- [2] = https://curl.haxx.se/bug/?i=812
- [3] = https://curl.haxx.se/bug/?i=813
- [4] = https://curl.haxx.se/bug/?i=816
- [5] = https://curl.haxx.se/bug/?i=819
- [6] = https://curl.haxx.se/bug/?i=821
- [7] = https://curl.haxx.se/bug/?i=818
- [8] = https://curl.haxx.se/bug/?i=817
- [9] = https://curl.haxx.se/mail/lib-2016-05/0196.html
- [10] = https://curl.haxx.se/bug/?i=824
- [11] = https://curl.haxx.se/docs/adv_20160527.html
- [12] = https://curl.haxx.se/bug/?i=831
- [13] = https://github.com/curl/curl/issues/826
+ [1] = https://curl.haxx.se/mail/lib-2016-07/0070.html
+ [2] = https://curl.haxx.se/bug/?i=917
+ [3] = https://curl.haxx.se/bug/?i=926
+ [4] = https://curl.haxx.se/bug/?i=938
+ [5] = https://curl.haxx.se/bug/?i=939
+ [6] = https://curl.haxx.se/mail/lib-2016-08/0001.html
+ [7] = https://curl.haxx.se/docs/adv_20160803A.html
+ [8] = https://curl.haxx.se/docs/adv_20160803B.html
+ [9] = https://curl.haxx.se/docs/adv_20160803C.html

@@ -75,7 +75,7 @@ p.roffit {
 <p class="level0">If you specify URL without protocol:// prefix, curl will attempt to guess what protocol you might want. It will then default to HTTP but try other protocols based on often-used host name prefixes. For example, for host names starting with "ftp." curl will assume you want to speak FTP. 
 <p class="level0">curl will do its best to use what you pass to it as a URL. It is not trying to validate it as a syntactically correct URL by any means but is instead <span Class="bold">very</span> liberal with what it accepts. 
 <p class="level0">curl will attempt to re-use connections for multiple file transfers, so that getting many files from the same server will not do multiple connects / handshakes. This improves speed. Of course this is only done on files specified on a single command line and cannot be used between separate curl invokes. <a name="PROGRESS"></a><h2 class="nroffsh">PROGRESS METER</h2>
-<p class="level0">curl normally displays a progress meter during operations, indicating the amount of transferred data, transfer speeds and estimated time left, etc. 
+<p class="level0">curl normally displays a progress meter during operations, indicating the amount of transferred data, transfer speeds and estimated time left, etc. The progress meter displays number of bytes and the speeds are in bytes per second. The suffixes (k, M, G, T, P) are 1024 based. For example 1k is 1024 bytes. 1M is 1048576 bytes. 
 <p class="level0">curl displays this data to the terminal by default, so if you invoke curl to do an operation and it is about to write data to the terminal, it <span Class="emphasis">disables</span> the progress meter as otherwise it would mess up the output mixing progress meter and response data. 
 <p class="level0">If you want a progress meter for HTTP POST or PUT requests, you need to redirect the response output to a file, using shell redirect (&gt;), -o [file] or similar. 
 <p class="level0">It is not the same case for FTP upload as that operation does not spit out any response data to the terminal. 
@@ -816,6 +816,7 @@ referer = "http://nowhereatall.example.com/"
 <p class="level2"><span Class="bold">ftp_entry_path</span> The initial path curl ended up in when logging on to the remote FTP server. (Added in 7.15.4) 
 <p class="level2"><span Class="bold">http_code</span> The numerical response code that was found in the last retrieved HTTP(S) or FTP(s) transfer. In 7.18.2 the alias <span Class="bold">response_code</span> was added to show the same info. 
 <p class="level2"><span Class="bold">http_connect</span> The numerical code that was found in the last response (from a proxy) to a curl CONNECT request. (Added in 7.12.4) 
+<p class="level2"><span Class="bold">http_version</span> The http version that was effectively used. (Added in 7.50.0) 
 <p class="level2"><span Class="bold">local_ip</span> The IP address of the local end of the most recently done connection - can be either IPv4 or IPv6 (Added in 7.29.0) 
 <p class="level2"><span Class="bold">local_port</span> The local port number of the most recently done connection (Added in 7.29.0) 
 <p class="level2"><span Class="bold">num_connects</span> Number of new connects made in the recent transfer. (Added in 7.12.3) 

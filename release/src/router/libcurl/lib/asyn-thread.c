@@ -279,6 +279,9 @@ static unsigned int CURL_STDCALL getaddrinfo_thread (void *arg)
     if(tsd->sock_error == 0)
       tsd->sock_error = RESOLVER_ENOMEM;
   }
+  else {
+    Curl_addrinfo_set_port(tsd->res, tsd->port);
+  }
 
   Curl_mutex_acquire(tsd->mtx);
   if(tsd->done) {
@@ -494,7 +497,7 @@ CURLcode Curl_resolver_wait_resolv(struct connectdata *conn,
 CURLcode Curl_resolver_is_resolved(struct connectdata *conn,
                                    struct Curl_dns_entry **entry)
 {
-  struct SessionHandle *data = conn->data;
+  struct Curl_easy *data = conn->data;
   struct thread_data   *td = (struct thread_data*) conn->async.os_specific;
   int done = 0;
 
@@ -602,6 +605,7 @@ Curl_addrinfo *Curl_resolver_getaddrinfo(struct connectdata *conn,
 
   *waitp = 0; /* default to synchronous response */
 
+#ifndef USE_RESOLVE_ON_IPS
   /* First check if this is an IPv4 address string */
   if(Curl_inet_pton(AF_INET, hostname, &in) > 0)
     /* This is a dotted IP address 123.123.123.123-style */
@@ -609,10 +613,13 @@ Curl_addrinfo *Curl_resolver_getaddrinfo(struct connectdata *conn,
 
 #ifdef CURLRES_IPV6
   /* check if this is an IPv6 address string */
-  if(Curl_inet_pton (AF_INET6, hostname, &in6) > 0)
+  if(Curl_inet_pton(AF_INET6, hostname, &in6) > 0)
     /* This is an IPv6 address literal */
     return Curl_ip2addr(AF_INET6, &in6, hostname, port);
+#endif /* CURLRES_IPV6 */
+#endif /* !USE_RESOLVE_ON_IPS */
 
+#ifdef CURLRES_IPV6
   /*
    * Check if a limited name resolve has been requested.
    */
@@ -631,7 +638,6 @@ Curl_addrinfo *Curl_resolver_getaddrinfo(struct connectdata *conn,
   if((pf != PF_INET) && !Curl_ipv6works())
     /* The stack seems to be a non-IPv6 one */
     pf = PF_INET;
-
 #endif /* CURLRES_IPV6 */
 
   memset(&hints, 0, sizeof(hints));
@@ -656,12 +662,16 @@ Curl_addrinfo *Curl_resolver_getaddrinfo(struct connectdata *conn,
           hostname, port, Curl_strerror(conn, SOCKERRNO));
     return NULL;
   }
+  else {
+    Curl_addrinfo_set_port(res, port);
+  }
+
   return res;
 }
 
 #endif /* !HAVE_GETADDRINFO */
 
-CURLcode Curl_set_dns_servers(struct SessionHandle *data,
+CURLcode Curl_set_dns_servers(struct Curl_easy *data,
                               char *servers)
 {
   (void)data;
@@ -670,7 +680,7 @@ CURLcode Curl_set_dns_servers(struct SessionHandle *data,
 
 }
 
-CURLcode Curl_set_dns_interface(struct SessionHandle *data,
+CURLcode Curl_set_dns_interface(struct Curl_easy *data,
                                 const char *interf)
 {
   (void)data;
@@ -678,7 +688,7 @@ CURLcode Curl_set_dns_interface(struct SessionHandle *data,
   return CURLE_NOT_BUILT_IN;
 }
 
-CURLcode Curl_set_dns_local_ip4(struct SessionHandle *data,
+CURLcode Curl_set_dns_local_ip4(struct Curl_easy *data,
                                 const char *local_ip4)
 {
   (void)data;
@@ -686,7 +696,7 @@ CURLcode Curl_set_dns_local_ip4(struct SessionHandle *data,
   return CURLE_NOT_BUILT_IN;
 }
 
-CURLcode Curl_set_dns_local_ip6(struct SessionHandle *data,
+CURLcode Curl_set_dns_local_ip6(struct Curl_easy *data,
                                 const char *local_ip6)
 {
   (void)data;
