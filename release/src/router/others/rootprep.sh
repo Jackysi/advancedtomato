@@ -34,3 +34,7 @@ ln -sf /www/ext/proxy.pac www/wpad.dat
 mkdir -p -m 0755 nas
 mkdir -p -m 0755 bkp
 mkdir -p -m 0777 tftpboot
+
+# Tor GeoIP DB in /tmp
+ln -sf /tmp/tor usr/share/tor
+
