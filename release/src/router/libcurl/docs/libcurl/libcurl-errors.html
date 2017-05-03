@@ -72,7 +72,7 @@ p.roffit {
 <p class="level0"><a name="CURLECOULDNTCONNECT"></a><span class="nroffip">CURLE_COULDNT_CONNECT (7)</span> 
 <p class="level1">Failed to connect() to host or proxy. 
 <p class="level0"><a name="CURLEFTPWEIRDSERVERREPLY"></a><span class="nroffip">CURLE_FTP_WEIRD_SERVER_REPLY (8)</span> 
-<p class="level1">After connecting to a FTP server, libcurl expects to get a certain reply back. This error code implies that it got a strange or bad reply. The given remote server is probably not an OK FTP server. 
+<p class="level1">The server sent data libcurl couldn't parse. This error code is used for more than just FTP and is aliased as <span Class="emphasis">CURLE_WEIRD_SERVER_REPLY</span> since 7.51.0. 
 <p class="level0"><a name="CURLEREMOTEACCESSDENIED"></a><span class="nroffip">CURLE_REMOTE_ACCESS_DENIED (9)</span> 
 <p class="level1">We were denied access to the resource given in the URL.  For FTP, this occurs while trying to change to the remote directory. 
 <p class="level0"><a name="CURLEFTPACCEPTFAILED"></a><span class="nroffip">CURLE_FTP_ACCEPT_FAILED (10)</span> 

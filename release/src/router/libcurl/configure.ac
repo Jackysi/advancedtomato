@@ -891,17 +891,30 @@ else
     OPT_ZLIB=""
   fi
 
-  if test -z "$OPT_ZLIB" ; then
-    dnl check for the lib first without setting any new path, since many
-    dnl people have it in the default path
+  CURL_CHECK_PKGCONFIG(zlib)
 
-    AC_CHECK_LIB(z, inflateEnd,
+  if test "$PKGCONFIG" != "no" ; then
+    LIBS="`$PKGCONFIG --libs-only-l zlib` $LIBS"
+    LDFLAGS="`$PKGCONFIG --libs-only-L zlib` $LDFLAGS"
+    CPPFLAGS="`$PKGCONFIG --cflags-only-I zlib` $CPPFLAGS"
+    OPT_ZLIB=""
+    HAVE_LIBZ="1"
+  fi
+
+  if test -z "$OPT_ZLIB" ; then
+
+    if test -z "$HAVE_LIBZ"; then
+
+      dnl Check for the lib without setting any new path, since many
+      dnl people have it in the default path
+
+      AC_CHECK_LIB(z, inflateEnd,
                    dnl libz found, set the variable
                    [HAVE_LIBZ="1"
                     LIBS="-lz $LIBS"],
                    dnl if no lib found, try /usr/local
                    [OPT_ZLIB="/usr/local"])
-
+    fi
   fi
 
   dnl Add a nonempty path to the compiler flags
@@ -3697,8 +3710,8 @@ fi
 
 if test "x$CURL_DISABLE_CRYPTO_AUTH" != "x1"; then
   if test "x$OPENSSL_ENABLED" = "x1" -o "x$USE_WINDOWS_SSPI" = "x1" \
-      -o "x$GNUTLS_ENABLED" = "x1" -o "x$NSS_ENABLED" = "x1" \
-      -o "x$DARWINSSL_ENABLED" = "x1"; then
+      -o "x$GNUTLS_ENABLED" = "x1" -o "x$MBEDTLS_ENABLED" = "x1" \
+      -o "x$NSS_ENABLED" = "x1" -o "x$DARWINSSL_ENABLED" = "x1"; then
     SUPPORT_FEATURES="$SUPPORT_FEATURES NTLM"
 
     if test "x$CURL_DISABLE_HTTP" != "x1" -a \
@@ -3770,8 +3783,8 @@ fi
 if test "x$CURL_DISABLE_SMB" != "x1" \
     -a "x$CURL_DISABLE_CRYPTO_AUTH" != "x1" \
     -a \( "x$OPENSSL_ENABLED" = "x1" -o "x$USE_WINDOWS_SSPI" = "x1" \
-      -o "x$GNUTLS_ENABLED" = "x1" -o "x$NSS_ENABLED" = "x1" \
-      -o "x$DARWINSSL_ENABLED" = "x1" \); then
+      -o "x$GNUTLS_ENABLED" = "x1" -o "x$MBEDTLS_ENABLED" = "x1" \
+      -o "x$NSS_ENABLED" = "x1" -o "x$DARWINSSL_ENABLED" = "x1" \); then
   SUPPORT_PROTOCOLS="$SUPPORT_PROTOCOLS SMB"
   if test "x$SSL_ENABLED" = "x1"; then
     SUPPORT_PROTOCOLS="$SUPPORT_PROTOCOLS SMBS"

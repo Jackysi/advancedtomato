@@ -48,12 +48,14 @@ problems may have been fixed or changed somewhat since this was written!
  5.3 libidn and old iconv
  5.4 AIX shared build with c-ares fails
  5.5 can't handle Unicode arguments in Windows
+ 5.6 cmake support gaps
+ 5.7 Visual Studio project gaps
 
  6. Authentication
  6.1 NTLM authentication and unicode
  6.2 MIT Kerberos for Windows build
  6.3 NTLM in system context uses wrong name
- 6.4 Negotiate needs a fake user name
+ 6.4 Negotiate and Kerberos V5 need a fake user name
 
  7. FTP
  7.1 FTP without or slow 220 response
@@ -63,6 +65,7 @@ problems may have been fixed or changed somewhat since this was written!
  7.5 ASCII FTP
  7.6 FTP with NULs in URL parts
  7.7 FTP and empty path parts in the URL
+ 7.8 Premature transfer end but healthy control channel
 
  8. TELNET
  8.1 TELNET and time limtiations don't work
@@ -76,7 +79,6 @@ problems may have been fixed or changed somewhat since this was written!
  10.2 SOCKS don't support timeouts
  10.3 FTPS over SOCKS
  10.4 active FTP over a SOCKS
- 10.5 SOCKS proxy not working via IPv6
 
  11. Internals
  11.1 Curl leaks .onion hostnames in DNS
@@ -341,6 +343,30 @@ problems may have been fixed or changed somewhat since this was written!
   https://curl.haxx.se/bug/?i=345
   https://curl.haxx.se/bug/?i=731
 
+5.6 cmake support gaps
+
+ The cmake build setup lacks several features that the autoconf build
+ offers. This includes:
+
+  - symbol hiding when the shared library is built
+  - use of correct soname for the shared library build
+  - support for several TLS backends are missing
+  - the unit tests cause link failures in regular non-static builds
+  - no nghttp2 check
+
+5.7 Visual Studio project gaps
+
+ The Visual Studio projects lack some features that the autoconf and nmake
+ builds offer, such as the following:
+
+  - support for zlib and nghttp2
+  - use of static runtime libraries
+  - add the test suite components
+
+ In addition to this the following could be implemented:
+
+  - support for other development IDEs
+  - add PATH environment variables for third-party DLLs
 
 6. Authentication
 
@@ -367,13 +393,17 @@ problems may have been fixed or changed somewhat since this was written!
  "system context" will make it use wrong(?) user name - at least when compared
  to what winhttp does. See https://curl.haxx.se/bug/view.cgi?id=535
 
-6.4 Negotiate needs a fake user name
+6.4 Negotiate and Kerberos V5 need a fake user name
 
- To get HTTP Negotiate (SPNEGO) authentication to work fine, you need to
- provide a (fake) user name (this concerns both curl and the lib) because the
- code wrongly only considers authentication if there's a user name provided.
- https://curl.haxx.se/bug/view.cgi?id=440 How?
- https://curl.haxx.se/mail/lib-2004-08/0182.html
+ In order to get Negotiate (SPNEGO) authentication to work in HTTP or Kerberos
+ V5 in the e-mail protocols, you need to  provide a (fake) user name (this
+ concerns both curl and the lib) because the code wrongly only considers
+ authentication if there's a user name provided by setting
+ conn->bits.user_passwd in url.c  https://curl.haxx.se/bug/view.cgi?id=440 How?
+ https://curl.haxx.se/mail/lib-2004-08/0182.html A possible solution is to
+ either modify this variable to be set or introduce a variable such as
+ new conn->bits.want_authentication which is set when any of the authentication
+ options are set.
 
 
 7. FTP
@@ -442,6 +472,17 @@ problems may have been fixed or changed somewhat since this was written!
  the user wants to reach the root dir (this exception SHALL remain even when
  this bug is fixed).
 
+7.8 Premature transfer end but healthy control channel
+
+ When 'multi_done' is called before the transfer has been completed the normal
+ way, it is considered a "premature" transfer end. In this situation, libcurl
+ closes the connection assuming it doesn't know the state of the connection so
+ it can't be reused for subsequent requests.
+
+ With FTP however, this isn't necessarily true but there are a bunch of
+ situations (listed in the ftp_done code) where it *could* keep the connection
+ alive even in this situation - but the current code doesn't. Fixing this would
+ allow libcurl to reuse FTP connections better.
 
 8. TELNET
 
@@ -493,12 +534,6 @@ problems may have been fixed or changed somewhat since this was written!
 
  libcurl doesn't support active FTP over a SOCKS proxy
 
-10.5 SOCKS proxy not working via IPv6
-
- `curl --proxy "socks://hostname-with-AAAA-record" example.com`
-
- curl: (7) Can't complete SOCKS4 connection to 1.2.3.4:109. (91),
- request rejected or failed.
 
 11. Internals
 

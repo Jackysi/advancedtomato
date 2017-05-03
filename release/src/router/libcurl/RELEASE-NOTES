@@ -1,26 +1,24 @@
-Curl and libcurl 7.50.1
+Curl and libcurl 7.50.3
 
- Public curl releases:         157
+ Public curl releases:         159
  Command line options:         185
  curl_easy_setopt() options:   224
  Public functions in libcurl:  61
- Contributors:                 1418
+ Contributors:                 1445
 
 This release includes the following bugfixes:
 
- o TLS: switch off SSL session id when client cert is used [7]
- o TLS: only reuse connections with the same client cert [8]
- o curl_multi_cleanup: clear connection pointer for easy handles [9]
- o include the CURLINFO_HTTP_VERSION(3) man page into the release tarball
- o include the http2-server.pl script in the release tarball
- o test558: fix test by stripping file paths from FD lines
- o spnego: Corrected miss-placed * in Curl_auth_spnego_cleanup() declaration
- o tests: Fix for http/2 feature [1]
- o cmake: Fix for schannel support [2]
- o curl.h: make public types void * again [3]
- o win32: fix a potential memory leak in Curl_load_library [4]
- o travis: fix OSX build by re-installing libtool [5]
- o mbedtls: Fix debug function name [6]
+ o CVE-2016-7167: escape and unescape integer overflows [8]
+ o mk-ca-bundle.pl: use SHA256 instead of SHA1
+ o checksrc: detect strtok() use
+ o errors: new alias CURLE_WEIRD_SERVER_REPLY [1]
+ o http2: support > 64bit sized uploads [2]
+ o openssl: fix bad memory free (regression) [3]
+ o CMake: hide private library symbols [4]
+ o http: refuse to pass on response body with NO_NODY was set [5]
+ o cmake: fix curl-config --static-libs [6]
+ o mbedtls: switch off NTLM in build if md4 isn't available [7]
+ o curl: --create-dirs on windows groks both forward and backward slashes [9]
 
 This release includes the following known bugs:
 
@@ -29,22 +27,20 @@ This release includes the following known bugs:
 This release would not have looked like this without help, code, reports and
 advice from friends like these:
 
-  Alain Danteny, Bru Rom, Dan Fandrich, Daniel Stenberg, Eric Rescorla,
-  Fernando Muñoz, Kamil Dudka, Marcelo Echeverria, Martin Vejnár,
-  Patrick Monnerat, Paul Howarth, Peter Frühberger, Ray Satiro, Sergei Nikulov,
-  Steve Holme, Thomas Glanzmann, Viktor Szakáts, Yonggang Luo,
-  (18 contributors)
+  Daniel Stenberg, Harold Stuart, Jakub Zakrzewski, Peter Wu, Randy Armstrong,
+  Ray Satiro, Ryan Scott, Tony Kelman, Viktor Szakáts,
+  (9 contributors)
 
         Thanks! (and sorry if I forgot to mention someone)
 
 References to bug reports and discussions on issues:
 
- [1] = https://curl.haxx.se/mail/lib-2016-07/0070.html
- [2] = https://curl.haxx.se/bug/?i=917
- [3] = https://curl.haxx.se/bug/?i=926
- [4] = https://curl.haxx.se/bug/?i=938
- [5] = https://curl.haxx.se/bug/?i=939
- [6] = https://curl.haxx.se/mail/lib-2016-08/0001.html
- [7] = https://curl.haxx.se/docs/adv_20160803A.html
- [8] = https://curl.haxx.se/docs/adv_20160803B.html
- [9] = https://curl.haxx.se/docs/adv_20160803C.html
+ [1] = https://curl.haxx.se/bug/?i=975
+ [2] = https://curl.haxx.se/bug/?i=996
+ [3] = https://curl.haxx.se/bug/?i=1005
+ [4] = https://curl.haxx.se/bug/?i=981
+ [5] = https://curl.haxx.se/bug/?i=973
+ [6] = https://curl.haxx.se/bug/?i=841
+ [7] = https://curl.haxx.se/bug/?i=1004
+ [8] = https://curl.haxx.se/docs/adv_20160914.html
+ [9] = https://curl.haxx.se/bug/?i=1007

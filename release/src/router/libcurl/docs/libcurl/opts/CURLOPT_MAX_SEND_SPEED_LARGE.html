@@ -59,7 +59,7 @@ CURLcode curl_easy_setopt(CURL *handle, CURLOPT_MAX_SEND_SPEED_LARGE,
 &nbsp;                         curl_off_t maxspeed);
 </pre>
 <a name="DESCRIPTION"></a><h2 class="nroffsh">DESCRIPTION</h2>
-<p class="level0">Pass a curl_off_t as parameter with the <span Class="emphasis">maxspeed</span>.  If an upload exceeds this speed (counted in bytes per second) on cumulative average during the transfer, the transfer will pause to keep the average rate less than or equal to the parameter value.  Defaults to unlimited speed. 
+<p class="level0">Pass a curl_off_t as parameter with the <span Class="emphasis">maxspeed</span>.  If an upload exceeds this speed (counted in bytes per second) the transfer will pause to keep the speed less than or equal to the parameter value.  Defaults to unlimited speed. 
 <p class="level0">This option doesn't affect transfer speeds done with FILE:// URLs. <a name="DEFAULT"></a><h2 class="nroffsh">DEFAULT</h2>
 <p class="level0">0, disabled <a name="PROTOCOLS"></a><h2 class="nroffsh">PROTOCOLS</h2>
 <p class="level0">All except file:// <a name="EXAMPLE"></a><h2 class="nroffsh">EXAMPLE</h2>

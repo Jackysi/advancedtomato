@@ -57,7 +57,8 @@ p.roffit {
 <p class="level0">Pass a char * to a zero terminated string naming a file holding one or more certificates to verify the peer with. 
 <p class="level0">If <a Class="emphasis" href="./CURLOPT_SSL_VERIFYPEER.html">CURLOPT_SSL_VERIFYPEER</a> is zero and you avoid verifying the server's certificate, <a Class="emphasis" href="./CURLOPT_CAINFO.html">CURLOPT_CAINFO</a> need not even indicate an accessible file. 
 <p class="level0">This option is by default set to the system path where libcurl's cacert bundle is assumed to be stored, as established at build time. 
-<p class="level0">If curl is built against the NSS SSL library, the NSS PEM PKCS&#35;11 module (libnsspem.so) needs to be available for this option to work properly. <a name="DEFAULT"></a><h2 class="nroffsh">DEFAULT</h2>
+<p class="level0">If curl is built against the NSS SSL library, the NSS PEM PKCS&#35;11 module (libnsspem.so) needs to be available for this option to work properly. 
+<p class="level0">(iOS and macOS only) If curl is built against Secure Transport, then this option is supported for backward compatibility with other SSL engines, but it should not be set. If the option is not set, then curl will use the certificates in the system and user Keychain to verify the peer, which is the preferred method of verifying the peer's certificate chain. <a name="DEFAULT"></a><h2 class="nroffsh">DEFAULT</h2>
 <p class="level0">Built-in system specific <a name="PROTOCOLS"></a><h2 class="nroffsh">PROTOCOLS</h2>
 <p class="level0">All TLS based protocols: HTTPS, FTPS, IMAPS, POP3S, SMTPS etc. <a name="EXAMPLE"></a><h2 class="nroffsh">EXAMPLE</h2>
 <p class="level0">TODO <a name="AVAILABILITY"></a><h2 class="nroffsh">AVAILABILITY</h2>
