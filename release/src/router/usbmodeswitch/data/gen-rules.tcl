@@ -11,7 +11,7 @@
 
 
 # Default version string
-set version "20160803"
+set version "20170120"
 
 # Devices excluded from Huawei catch-all rule
 set x_huaweiList {12d1:1573 12d1:15c1}
@@ -20,7 +20,7 @@ if {[lindex $argv 0] == "--set-version" && [regexp {\d\d\d\d\d\d\d\d} [lindex $a
 	set version [lindex $argv 1]
 }
 
-set template {ATTR{idVendor}=="+##+", ATTR{idProduct}=="#++#", RUN+="usb_modeswitch '%b/%k'"}
+set template {ATTR{idVendor}=="+##+", ATTR{idProduct}=="#++#", RUN+="usb_modeswitch '/%k'"}
 
 if {![file isdirectory usb_modeswitch.d]} {
 	puts "No \"usb_modeswitch.d\" subfolder found"
@@ -40,7 +40,8 @@ set wc [open "40-usb_modeswitch.rules" w]
 puts -nonewline $wc {# Part of usb-modeswitch-data, version }
 puts $wc $version
 puts $wc {#
-# Works with usb_modeswitch versions >= 2.4.0 (extension of StandardEject)
+# Works with usb_modeswitch versions >= 2.4.0. Slash before %k parameter
+# is for compatibility only. Versions >= 2.5.0 don't need it.
 #
 ACTION!="add|change", GOTO="modeswitch_rules_end"
 
@@ -51,7 +52,7 @@ KERNEL=="ttyUSB*", ATTRS{bNumConfigurations}=="*", PROGRAM="usb_modeswitch --sym
 SUBSYSTEM!="usb", ACTION!="add",, GOTO="modeswitch_rules_end"
 
 # Generic entry for most Huawei devices, excluding Android phones
-ATTRS{idVendor}=="12d1", ATTRS{manufacturer}!="Android", ATTR{bInterfaceNumber}=="00", ATTR{bInterfaceClass}=="08", RUN+="usb_modeswitch '%b/%k'"}
+ATTRS{idVendor}=="12d1", ATTRS{manufacturer}!="Android", ATTR{bInterfaceNumber}=="00", ATTR{bInterfaceClass}=="08", RUN+="usb_modeswitch '/%k'"}
 
 set vendorList ""
 set dvid ""

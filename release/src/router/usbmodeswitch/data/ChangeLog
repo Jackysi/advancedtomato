@@ -1,3 +1,12 @@
+20170120:
+    Added devices: [03f0:032a] HP LaserJet Professional P1102w, [03f0:9d1d]
+    HP lt4120, [0586:2030] ZyXel WAH1004/WAH3004, [148f:2878] RaLink
+    MT7601U, [19d2:0033] ZTE MF636DB, [19d2:0090] ZTE MU330, [2001:00a7]
+    D-Link DWM-157 C1, [2001:a809] D-Link DWM-157 A1, [2001:ab00] D-Link
+    DWM-222, [22de:6802] WeTelecom WM-D200A
+    Corrected/amended configs: [1004:6190] LG AD600, [19d2:1595] ZTE MF710
+    (Vietnam), [22de:6803] WeTelecom WM-D300
+    (collected and compiled by Lars Melin)
 20160803:
     Added devices: [03f0:521d] HP hs3110, [03f0:531d] HP hs3120,
     [03f0:541d] HP hs3114, [03f0:581d] HP hs4112, [03f0:631d] HP lt4225,
