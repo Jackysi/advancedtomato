@@ -83,7 +83,11 @@ Annother form of usage is a fallback if the device ID is yet unknown. For
 Huawei devices, the switching method is uniform and not likely to change,
 so it is possible to provide a generic configuration.
 
-Example files: see "12d1:#android" and "12d1:#linux"
+Example file names: "12d1:#android" and "12d1:#linux"
+
+Note that these files have to be created explicitely on demand. Their default
+inclusion has led to unwanted switching attempts with unrelated devices like
+phones.
 
 
 Parameters used only in config files:
@@ -136,4 +140,4 @@ Or find it as the file COPYING in this folder.
 
 
 
-Last revised: 2016-08-03, Josua Dietze
+Last revised: 2017-02-05, Josua Dietze

@@ -1,4 +1,4 @@
-# Part of usb-modeswitch-data, version 20170120
+# Part of usb-modeswitch-data, version 20170205
 #
 # Works with usb_modeswitch versions >= 2.4.0. Slash before %k parameter
 # is for compatibility only. Versions >= 2.5.0 don't need it.

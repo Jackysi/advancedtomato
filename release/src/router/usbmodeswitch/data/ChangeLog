@@ -1,3 +1,7 @@
+20170205:
+    Bugfix release: removed all catch-all fallback config files as they can
+    affect unrelated devices - fixes
+    https://bugzilla.redhat.com/show_bug.cgi?id=1374913
 20170120:
     Added devices: [03f0:032a] HP LaserJet Professional P1102w, [03f0:9d1d]
     HP lt4120, [0586:2030] ZyXel WAH1004/WAH3004, [148f:2878] RaLink
