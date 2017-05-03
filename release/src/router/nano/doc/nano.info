@@ -726,6 +726,10 @@ The supported settings in a nanorc file are:
 'set nohelp'
      Don't display the help lists at the bottom of the screen.
 
+'set nopauses'
+     Don't pause between warnings at startup.  This means that only the
+     last one will be visible (when there are multiple ones).
+
 'set nonewlines'
      Don't add newlines to the ends of files.
 
@@ -1376,7 +1380,7 @@ File: nano.info,  Node: Pico Compatibility,  Next: Building and Configure Option
 ********************
 
 'nano' attempts to emulate Pico as closely as possible, but there are
-certain differences between the editors:
+some differences between the editors:
 
 'Interactive Replace'
      Instead of allowing you to replace either just one occurrence of a
@@ -1389,13 +1393,31 @@ certain differences between the editors:
 'Search and Replace History'
      When the option '-H' or '--historylog' is given (or set in the
      .nanorc file), text entered as search or replace strings is stored.
-     These strings can be accessed with the up/down arrow keys.  A
-     retrieved string can subsequently be edited.
+     These strings can be accessed with the up/down arrow keys, or you
+     can type the first few characters and then use Tab to cycle through
+     the matching strings.  A retrieved string can subsequently be
+     edited.
 
-'Writing, Appending, or Prepending Selected Text to Files'
-     Text selected using the marking key (^^) can be written out,
-     appended, or prepended to a new or existing file using the WriteOut
-     key (^O).
+'Position History'
+     When the option '-P' or '--positionlog' is given (or set in the
+     .nanorc file), 'nano' will store the position of the cursor when
+     you close a file, and will place the cursor in that position again
+     when you later reopen the file.
+
+'Writing Selected Text to Files'
+     When using the Write-Out key (^O), text that has been selected
+     using the marking key (^^) can not just be written out to a new (or
+     existing) file, it can also be appended or prepended to an existing
+     file.
+
+'Reading Text from a Command'
+     When using the Read-File key (^R), 'nano' can not just read a file,
+     it can also read the output of a command to be run (^X).
+
+'File Browser'
+     In the file browser, 'nano' does not implement the Add, Copy,
+     Rename, and Delete commands that Pico provides.  In 'nano' the
+     browser is just a file browser, not a file manager.
 
 'Toggles'
      Many options which alter the functionality of the program can be
@@ -1566,11 +1588,11 @@ Node: Built-in Help17117
 Node: Feature Toggles17508
 Node: Nanorc Files19716
 Node: Settings21148
-Ref: Whitespace28823
-Node: Syntax Highlighting29363
-Node: Rebinding Keys34073
-Node: The File Browser44061
-Node: Pico Compatibility44883
-Node: Building and Configure Options46854
+Ref: Whitespace28973
+Node: Syntax Highlighting29513
+Node: Rebinding Keys34223
+Node: The File Browser44211
+Node: Pico Compatibility45033
+Node: Building and Configure Options47795
 
 End Tag Table

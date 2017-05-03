@@ -1,3 +1,143 @@
+Changes between v2.7.5 and v2.8.0:
+----------------------------------
+
+Benno Schulenberg (56):
+      bindings: accept "q" and "x" to exit from help viewer and file browser
+      bindings: group the three search-again shortcuts together
+      bump version numbers and add a news item for the 2.8.0 release
+      docs: mention some more differences with Pico in the Info document
+      files: drop the pointless "[from ./]" from the insert-file prompt
+      files: on second thought... keep the "[from ./]"
+      input: count a manually entered unicode as one character
+      moving: don't try to redraw lines that have gone outside the viewport
+      moving: /do/ redraw the prior line when the viewport hasn't changed
+      moving: the current chunk cannot be beyond the last chunk of a line
+      oops -- that's what you get when you don't test things before pushing
+      painting: don't try to start highlighting before column zero
+      screen: don't push the longer-line indicator ($) to the next row
+      spelling: keep the cursor at end-of-line if it was there
+      startup: add option 'nopauses' to disable pausing after a warning
+      tweaks: add a warning for a condition that should never occur
+      tweaks: avoid a few needless reallocations
+      tweaks: chuck some debugging stuff and some useless asserts
+      tweaks: condense some declarations by reshuffling
+      tweaks: correct some formatting irregularities in the FAQ
+      tweaks: don't loop over an initializer
+      tweaks: don't optimize for the wrong case
+      tweaks: don't turn the mark off before it's needed
+      tweaks: ehm... the warning is more important for the softwrap case
+      tweaks: elide an intermediate variable
+      tweaks: elide a small intermediate buffer
+      tweaks: elide a variable
+      tweaks: elide two variables, and condense some statements
+      tweaks: factor out a bit of common code
+      tweaks: fix compilation with --enable-tiny --enable-help
+      tweaks: frob a couple of comments
+      tweaks: frob some parentheses and other things, to be more consistent
+      tweaks: gettextize a forgotten error message
+      tweaks: make WhereIsNext available in browser in tiny version
+      tweaks: mark a message for translation
+      tweaks: optimize determining the number of columns that a text spans
+      tweaks: reduce the scope of five variables, and frob some comments
+      tweaks: remove a disabled warning, and adjust a translator hint
+      tweaks: rename and shorten a small helper function
+      tweaks: rename a variable and invert its logic
+      tweaks: rename a variable, drop a false assert, and reshuffle a bit
+      tweaks: rename three variables, to better distinguish bytes from columns
+      tweaks: rename two variables, to be more distinctive
+      tweaks: reshuffle some lines and adjust some comments
+      tweaks: reshuffle some more lines and improve four comments
+      tweaks: reshuffle some statements, to avoid double assignments
+      tweaks: reshuffle the bindings to group things more logically
+      tweaks: reshuffle three statements, and shorten a comment
+      tweaks: reshuffle two declarations for a more consistent order
+      tweaks: shorten a bit of logic
+      tweaks: simplify and correct a computation
+      tweaks: suggest a separate color scheme for root
+      tweaks: trim a displayable string in a more efficient manner
+      tweaks: use two extra variables to make it clearer what is being done
+      usage: don't mention +LINE,COLUMN as an option, because it isn't
+      wrapping: add the correct char length when skipping consecutive blanks
+
+David Lawrence Ramsey (52):
+      configure: don't check for the existence of iswspace() anymore
+      display: don't compensate for chunks before firstcolumn
+      display: don't draw more chunks than the screen can hold
+      display: limit an optimization to non-softwrap mode
+      display: make PageUp/PageDown use the correct beginning of the viewport
+      docs: update README.GIT for gnulib-related changes
+      files: revamp the insertion of a file, to be more like pasting text
+      moving: determine the correct leftedge when paging up/down too
+      replacing: fix spotlight() to highlight words properly in softwrap mode
+      softwrap: account for firstcolumn in reset_cursor()
+      softwrap: account for firstcolumn when checking for offscreen current
+      softwrap: account for firstcolumn when scrolling up a line
+      softwrap: account for softwrap in get_page_start()
+      softwrap: account for softwrapped chunks when adding text
+      softwrap: account for softwrap when checking whether current is offscreen
+      softwrap: add two chunk-iterator functions
+      softwrap: adjust firstcolumn when the window width changes
+      softwrap: count softwrapped chunks properly in do_gotolinecolumn()
+      softwrap: count softwrapped chunks properly in do_uncut_text()
+      softwrap: count softwrapped chunks properly in read_file()
+      softwrap: improve End's behavior with softwrapped chunks
+      softwrap: improve Home's behavior with softwrapped lines
+      softwrap: improve Left and Right's behavior with softwrapped chunks
+      softwrap: improve PageUp and PageDown's behavior with softwrapped chunks
+      softwrap: improve Up and Down's behavior with softwrapped chunks
+      softwrap: iterate through softwrapped chunks better in do_mouse()
+      softwrap: iterate through softwrapped chunks in adjust_viewport()
+      softwrap: iterate through softwrapped chunks in edit_scroll()
+      softwrap: move the updating of a softwrapped line to a new function
+      softwrap: prepare for a more flexible viewport
+      softwrap: remove and replace workarounds for firstcolumn
+      softwrap: save and restore firstcolumn when copying text
+      softwrap: save and restore firstcolumn when internally spell-fixing text
+      softwrap: save and restore firstcolumn when replacing text
+      softwrap: save firstcolumn when justifying, restore it when unjustifying
+      speller: fix replacing marked text in the alternate spell checker
+      syntax: nanorc: color also the option "linenumbers" as being valid
+      tweaks: add a parameter to do_home() and do_end()
+      tweaks: fix a comment typo
+      tweaks: mention nano's ability to read from standard input in usage()
+      tweaks: move comments outside of if blocks in break_line()
+      tweaks: prepare for improvements to do_home() and do_end()
+      tweaks: remove cluttering #ifdefs from break_line()
+      tweaks: rename need_horizontal_scroll() to line_needs_update()
+      tweaks: slightly optimize an allocation in display_string()
+      tweaks: stop converting text once we overshoot span columns
+      undo: fix undoing/redoing insertions, since they no longer do partitioning
+      usage: mention the -g/--showcursor option
+      weeding: remove ensure_line_is_visible()
+      weeding: remove maxlines and related code
+      weeding: remove partitioning and related stuff from do_insertfile()
+      weeding: remove partitioning and related stuff from do_justify()
+
+Hans-Bernhard Broeker (1):
+      tweaks: make sure calls to <ctype.h> functions/macros use "unsigned char"
+
+Mike Frysinger (19):
+      add an explicit test for set_escdelay()
+      add support for gnulib
+      assume getopt_long support is always available
+      assume regex.h support is always available
+      configure: require autoconf-2.69/automake-1.14
+      configure: require gettext-0.18.3, and drop our bundled m4 files
+      drop the getdelim/getline fallback functions
+      drop the glib fallback for snprintf/vsnprintf
+      drop the isblank/iswblank fallback functions
+      drop the wchar.h/wctype.h/stdarg.h checks
+      drop various str fallback functions
+      fix build on systems without pwd.h
+      handle builds on systems without termios.h
+      handle deficient signal systems
+      pull in the glob module from gnulib
+      pull in the lstat module from gnulib
+      pull in the nl_langinfo & wcwidth modules from gnulib
+      pull in the sys_wait module from gnulib
+      tweaks: disable gnulib's workaround for the globbing of broken symlinks
+
+
 Changes between v2.7.4 and v2.7.5:
 ----------------------------------
 

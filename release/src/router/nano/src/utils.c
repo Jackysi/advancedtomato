@@ -25,7 +25,9 @@
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
+#ifdef HAVE_PWD_H
 #include <pwd.h>
+#endif
 #include <ctype.h>
 #include <errno.h>
 
@@ -36,6 +38,7 @@ void get_homedir(void)
     if (homedir == NULL) {
 	const char *homenv = getenv("HOME");
 
+#ifdef HAVE_PWD_H
 	/* When HOME isn't set, or when we're root, get the home directory
 	 * from the password file instead. */
 	if (homenv == NULL || geteuid() == 0) {
@@ -44,6 +47,7 @@ void get_homedir(void)
 	    if (userage != NULL)
 		homenv = userage->pw_dir;
 	}
+#endif
 
 	/* Only set homedir if some home directory could be determined,
 	 * otherwise keep homedir NULL. */
@@ -170,94 +174,6 @@ void sunder(char *str)
     }
 }
 
-/* These functions, ngetline() (originally getline()) and ngetdelim()
- * (originally getdelim()), were adapted from GNU mailutils 0.5
- * (mailbox/getline.c).  Here is the notice from that file, after
- * converting to the GPL via LGPL clause 3, and with the Free Software
- * Foundation's address and the copyright years updated:
- *
- * GNU Mailutils -- a suite of utilities for electronic mail
- * Copyright (C) 1999, 2000, 2001, 2002, 2004, 2005, 2006, 2007
- * Free Software Foundation, Inc.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 3 of the
- * License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301, USA. */
-
-#ifndef DISABLE_NANORC
-
-#ifndef HAVE_GETDELIM
-/* This function is equivalent to getdelim(). */
-ssize_t ngetdelim(char **lineptr, size_t *n, int delim, FILE *stream)
-{
-    size_t indx = 0;
-    int c;
-
-    /* Sanity checks. */
-    if (lineptr == NULL || n == NULL || stream == NULL ||
-	fileno(stream) == -1) {
-	errno = EINVAL;
-	return -1;
-    }
-
-    /* Allocate the line the first time. */
-    if (*lineptr == NULL) {
-	*n = MAX_BUF_SIZE;
-	*lineptr = charalloc(*n);
-    }
-
-    while ((c = getc(stream)) != EOF) {
-	/* Check if more memory is needed. */
-	if (indx >= *n) {
-	    *n += MAX_BUF_SIZE;
-	    *lineptr = charealloc(*lineptr, *n);
-	}
-
-	/* Put the result in the line. */
-	(*lineptr)[indx++] = (char)c;
-
-	/* Bail out. */
-	if (c == delim)
-	    break;
-    }
-
-    /* Make room for the null character. */
-    if (indx >= *n) {
-	*n += MAX_BUF_SIZE;
-	*lineptr = charealloc(*lineptr, *n);
-    }
-
-    /* Null-terminate the buffer. */
-    null_at(lineptr, indx++);
-    *n = indx;
-
-    /* The last line may not have the delimiter.  We have to return what
-     * we got, and the error will be seen on the next iteration. */
-    return (c == EOF && (indx - 1) == 0) ? -1 : indx - 1;
-}
-#endif
-
-#ifndef HAVE_GETLINE
-/* This function is equivalent to getline(). */
-ssize_t ngetline(char **lineptr, size_t *n, FILE *stream)
-{
-    return getdelim(lineptr, n, '\n', stream);
-}
-#endif
-#endif /* !DISABLE_NANORC */
-
-#ifdef HAVE_REGEX_H
 /* Fix the regex if we're on platforms which require an adjustment
  * from GNU-style to BSD-style word boundaries. */
 const char *fixbounds(const char *r)
@@ -293,7 +209,6 @@ const char *fixbounds(const char *r)
 
     return r;
 }
-#endif /* HAVE_REGEX_H */
 
 #ifndef DISABLE_SPELLER
 /* Is the word starting at the given position in buf and of the given length
@@ -323,7 +238,6 @@ bool is_separate_word(size_t position, size_t length, const char *buf)
 const char *strstrwrapper(const char *haystack, const char *needle,
 	const char *start)
 {
-#ifdef HAVE_REGEX_H
     if (ISSET(USE_REGEXP)) {
 	if (ISSET(BACKWARDS_SEARCH)) {
 	    size_t last_find, ceiling, far_end;
@@ -376,7 +290,6 @@ const char *strstrwrapper(const char *haystack, const char *needle,
 	else
 	    return haystack + regmatches[0].rm_so;
     }
-#endif /* HAVE_REGEX_H */
     if (ISSET(CASE_SENSITIVE)) {
 	if (ISSET(BACKWARDS_SEARCH))
 	    return revstrstr(haystack, needle, start);
@@ -454,13 +367,14 @@ char *free_and_assign(char *dest, char *src)
     return src;
 }
 
-/* nano scrolls horizontally within a line in chunks.  Return the column
- * number of the first character displayed in the edit window when the
+/* When not in softwrap mode, nano scrolls horizontally within a line in
+ * chunks (a bit smaller than the chunks used in softwrapping).  Return the
+ * column number of the first character displayed in the edit window when the
  * cursor is at the given column.  Note that (0 <= column -
  * get_page_start(column) < COLS). */
 size_t get_page_start(size_t column)
 {
-    if (column == 0 || column < editwincols - 1)
+    if (column < editwincols - 1 || ISSET(SOFTWRAP) || column == 0)
 	return 0;
     else if (editwincols > 8)
 	return column - 7 - (column - 7) % (editwincols - 8);
@@ -520,11 +434,15 @@ size_t strnlenpt(const char *text, size_t maxlen)
     return width;
 }
 
-/* A strlen() with tabs and multicolumn characters factored in:
- * how many columns wide is text? */
+/* Return the number of columns that the given text occupies. */
 size_t strlenpt(const char *text)
 {
-    return strnlenpt(text, (size_t)-1);
+    size_t span = 0;
+
+    while (*text != '\0')
+	text += parse_mbchar(text, NULL, &span);
+
+    return span;
 }
 
 /* Append a new magicline to filebot. */

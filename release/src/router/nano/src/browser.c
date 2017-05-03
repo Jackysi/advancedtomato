@@ -297,7 +297,7 @@ char *do_browser(char *path)
 	    /* If we are moving up one level, remember where we came from, so
 	     * this directory can be highlighted and easily reentered. */
 	    if (strcmp(tail(filelist[selected]), "..") == 0)
-		present_name = striponedir(filelist[selected]);
+		present_name = strip_last_component(filelist[selected]);
 
 	    /* Try opening and reading the selected directory. */
 	    path = mallocstrcpy(path, filelist[selected]);
@@ -353,7 +353,7 @@ char *do_browse_from(const char *inpath)
      * at all.  If so, we'll just pass the current directory to
      * do_browser(). */
     if (stat(path, &st) == -1 || !S_ISDIR(st.st_mode)) {
-	path = free_and_assign(path, striponedir(path));
+	path = free_and_assign(path, strip_last_component(path));
 
 	if (stat(path, &st) == -1 || !S_ISDIR(st.st_mode)) {
 	    char * currentdir = charalloc(PATH_MAX + 1);
@@ -467,6 +467,10 @@ functionptrtype parse_browser_input(int *kbinput)
 		return do_help_void;
 	    case 'E':
 	    case 'e':
+	    case 'Q':
+	    case 'q':
+	    case 'X':
+	    case 'x':
 		return do_exit;
 	    case 'G':
 	    case 'g':
@@ -587,7 +591,7 @@ void browser_refresh(void)
 	/* Make sure info takes up no more than infomaxlen columns. */
 	infolen = strlenpt(info);
 	if (infolen > infomaxlen) {
-	    null_at(&info, actual_x(info, infomaxlen));
+	    info[actual_x(info, infomaxlen)] = '\0';
 	    infolen = infomaxlen;
 	}
 
@@ -781,21 +785,17 @@ void do_last_file(void)
     selected = filelist_len - 1;
 }
 
-/* Strip one directory from the end of path, and return the stripped
- * path.  The returned string is dynamically allocated, and should be
- * freed. */
-char *striponedir(const char *path)
+/* Strip one element from the end of path, and return the stripped path.
+ * The returned string is dynamically allocated, and should be freed. */
+char *strip_last_component(const char *path)
 {
-    char *retval, *tmp;
+    char *copy = mallocstrcpy(NULL, path);
+    char *last_slash = strrchr(copy, '/');
 
-    retval = mallocstrcpy(NULL, path);
+    if (last_slash != NULL)
+	*last_slash = '\0';
 
-    tmp = strrchr(retval, '/');
-
-    if (tmp != NULL)
-	null_at(&retval, tmp - retval);
-
-    return retval;
+    return copy;
 }
 
 #endif /* !DISABLE_BROWSER */

@@ -6,8 +6,8 @@
 
 @smallbook
 @set EDITION 0.4
-@set VERSION 2.7.5
-@set UPDATED February 2017
+@set VERSION 2.8.0
+@set UPDATED March 2017
 
 @dircategory Editors
 @direntry
@@ -21,7 +21,7 @@
 @titlepage
 @title GNU @code{nano}
 @subtitle a small and friendly text editor.
-@subtitle version 2.7.5
+@subtitle version 2.8.0
 
 @author Chris Allegretta
 @page
@@ -743,6 +743,10 @@ Don't convert files from DOS/Mac format.
 @item set nohelp
 Don't display the help lists at the bottom of the screen.
 
+@item set nopauses
+Don't pause between warnings at startup.  This means that only
+the last one will be visible (when there are multiple ones).
+
 @item set nonewlines
 Don't add newlines to the ends of files.
 
@@ -1391,7 +1395,7 @@ browser exits.
 @chapter Pico Compatibility
 
 @code{nano} attempts to emulate Pico as closely as possible, but there
-are certain differences between the editors:
+are some differences between the editors:
 
 @table @code
 
@@ -1405,12 +1409,29 @@ ask any more), or Cancel (stop with replacing).
 @item Search and Replace History
 When the option @code{-H} or @code{--historylog} is given (or set in
 the .nanorc file), text entered as search or replace strings is stored.
-These strings can be accessed with the up/down arrow keys.  A retrieved
-string can subsequently be edited.
+These strings can be accessed with the up/down arrow keys, or you can
+type the first few characters and then use Tab to cycle through the
+matching strings.  A retrieved string can subsequently be edited.
 
-@item Writing, Appending, or Prepending Selected Text to Files
-Text selected using the marking key (^^) can be written out, appended,
-or prepended to a new or existing file using the WriteOut key (^O).
+@item Position History
+When the option @code{-P} or @code{--positionlog} is given (or set in
+the .nanorc file), @code{nano} will store the position of the cursor
+when you close a file, and will place the cursor in that position
+again when you later reopen the file.
+
+@item Writing Selected Text to Files
+When using the Write-Out key (^O), text that has been selected using the
+marking key (^^) can not just be written out to a new (or existing) file,
+it can also be appended or prepended to an existing file.
+
+@item Reading Text from a Command
+When using the Read-File key (^R), @code{nano} can not just read a file,
+it can also read the output of a command to be run (^X).
+
+@item File Browser
+In the file browser, @code{nano} does not implement the Add, Copy,
+Rename, and Delete commands that Pico provides.  In @code{nano} the
+browser is just a file browser, not a file manager.
 
 @item Toggles
 Many options which alter the functionality of the program can be
