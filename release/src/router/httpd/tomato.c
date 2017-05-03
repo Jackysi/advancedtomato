@@ -270,7 +270,7 @@ const struct mime_handler mime_handlers[] = {
 	{ "update.cgi",		mime_javascript,			0,	wi_generic,			wo_update,		1 },
 	{ "tomato.cgi",		NULL,						0,	wi_generic,		    wo_tomato,		1 },
 
-	{ "debug.js",		mime_javascript,			5,	wi_generic_noid,	wo_blank,		1 },	// while debugging
+	{ "debug.js",		mime_javascript,			12,	wi_generic_noid,	wo_blank,		1 },	// while debugging
 	{ "cfe/*.bin",		mime_binary,				0,	wi_generic,			wo_cfe,			1 },
 	{ "nvram/*.txt",	mime_binary,				0,	wi_generic,			wo_nvram,		1 },
 	{ "ipt/*.txt",		mime_binary,				0,	wi_generic,			wo_iptables,	1 },
@@ -297,18 +297,18 @@ const struct mime_handler mime_handlers[] = {
 //	{ "spin.gif",		NULL,						0,	wi_generic_noid,	wo_spin,		1 },
 
 	{ "**.asp",			NULL,						0,	wi_generic_noid,	wo_asp,			1 },
-	{ "**.css",			"text/css",					2,	wi_generic_noid,	do_file,		1 },
-	{ "**.htm|**.html",		mime_html,		  		  	2,	wi_generic_noid,	do_file,		1 },
-	{ "**.gif",			"image/gif",				5,	wi_generic_noid,	do_file,		1 },
-	{ "**.jpg",			"image/jpeg",				5,	wi_generic_noid,	do_file,		1 },
-	{ "**.png",			"image/png",				5,	wi_generic_noid,	do_file,		1 },
-	{ "**.js",			mime_javascript,			2,	wi_generic_noid,	do_file,		1 },
+	{ "**.css",			"text/css",					12,	wi_generic_noid,	do_file,		1 },
+	{ "**.htm|**.html",	mime_html,		  		  	2,	wi_generic_noid,	do_file,		1 },
+	{ "**.gif",			"image/gif",				12,	wi_generic_noid,	do_file,		1 },
+	{ "**.jpg",			"image/jpeg",				12,	wi_generic_noid,	do_file,		1 },
+	{ "**.png",			"image/png",				12,	wi_generic_noid,	do_file,		1 },
+	{ "**.js",			mime_javascript,			12,	wi_generic_noid,	do_file,		1 },
 	{ "**.jsx",			mime_javascript,			0,	wi_generic,			wo_asp,			1 },
-	{ "**.svg",			"image/svg+xml",			2,	wi_generic_noid,	do_file,		1 },
+	{ "**.svg",			"image/svg+xml",			12,	wi_generic_noid,	do_file,		1 },
 	{ "**.txt",			mime_plain,					2,	wi_generic_noid,	do_file,		1 },
 	{ "**.bin",			mime_binary,				0,	wi_generic_noid,	do_file,		1 },
 	{ "**.bino",		mime_octetstream,			0,	wi_generic_noid,	do_file,		1 },
-	{ "favicon.ico",	NULL,						5,	wi_generic_noid,	wo_favicon,		1 },
+	{ "favicon.ico",	NULL,						24,	wi_generic_noid,	wo_favicon,		1 },
 // !!TB - CGI Support, enable downloading archives
 	{ "**/cgi-bin/**|**.sh",	NULL,					0,	wi_cgi_bin,		wo_cgi_bin,			1 },
 	{ "**.tar|**.gz",		mime_binary,				0,	wi_generic_noid,	do_file,		1 },
