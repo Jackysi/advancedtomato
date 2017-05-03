@@ -1,22 +1,22 @@
 /**************************************************************************
- *   search.c                                                             *
+ *   search.c  --  This file is part of GNU nano.                         *
  *                                                                        *
  *   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,  *
  *   2008, 2009, 2010, 2011, 2013, 2014 Free Software Foundation, Inc.    *
- *   This program is free software; you can redistribute it and/or modify *
- *   it under the terms of the GNU General Public License as published by *
- *   the Free Software Foundation; either version 3, or (at your option)  *
- *   any later version.                                                   *
+ *   Copyright (C) 2015, 2016 Benno Schulenberg                           *
  *                                                                        *
- *   This program is distributed in the hope that it will be useful, but  *
- *   WITHOUT ANY WARRANTY; without even the implied warranty of           *
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU    *
- *   General Public License for more details.                             *
+ *   GNU nano is free software: you can redistribute it and/or modify     *
+ *   it under the terms of the GNU General Public License as published    *
+ *   by the Free Software Foundation, either version 3 of the License,    *
+ *   or (at your option) any later version.                               *
+ *                                                                        *
+ *   GNU nano is distributed in the hope that it will be useful,          *
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty          *
+ *   of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.              *
+ *   See the GNU General Public License for more details.                 *
  *                                                                        *
  *   You should have received a copy of the GNU General Public License    *
- *   along with this program; if not, write to the Free Software          *
- *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA            *
- *   02110-1301, USA.                                                     *
+ *   along with this program.  If not, see http://www.gnu.org/licenses/.  *
  *                                                                        *
  **************************************************************************/
 
@@ -155,32 +155,32 @@ int search_init(bool replacing, bool use_answer)
     /* This is now one simple call.  It just does a lot. */
     i = do_prompt(FALSE,
 #ifndef DISABLE_TABCOMP
-	TRUE,
+		TRUE,
 #endif
-	replacing ? MREPLACE : MWHEREIS, backupstring,
+		replacing ? MREPLACE : MWHEREIS, backupstring,
 #ifndef DISABLE_HISTORIES
-	&search_history,
+		&search_history,
 #endif
-	/* TRANSLATORS: This is the main search prompt. */
-	edit_refresh, "%s%s%s%s%s%s", _("Search"),
+		/* TRANSLATORS: This is the main search prompt. */
+		edit_refresh, "%s%s%s%s%s%s", _("Search"),
 #ifndef NANO_TINY
-	/* TRANSLATORS: The next three strings are modifiers of the search prompt. */
-	ISSET(CASE_SENSITIVE) ? _(" [Case Sensitive]") :
+		/* TRANSLATORS: The next three modify the search prompt. */
+		ISSET(CASE_SENSITIVE) ? _(" [Case Sensitive]") :
 #endif
-	"",
+		"",
 #ifdef HAVE_REGEX_H
-	ISSET(USE_REGEXP) ? _(" [Regexp]") :
+		ISSET(USE_REGEXP) ? _(" [Regexp]") :
 #endif
-	"",
+		"",
 #ifndef NANO_TINY
-	ISSET(BACKWARDS_SEARCH) ? _(" [Backwards]") :
+		ISSET(BACKWARDS_SEARCH) ? _(" [Backwards]") :
 #endif
-	"", replacing ?
+		"", replacing ?
 #ifndef NANO_TINY
-	/* TRANSLATORS: The next two strings are modifiers of the search prompt. */
-	openfile->mark_set ? _(" (to replace) in selection") :
+		/* TRANSLATORS: The next two modify the search prompt. */
+		openfile->mark_set ? _(" (to replace) in selection") :
 #endif
-	_(" (to replace)") : "", buf);
+		_(" (to replace)") : "", buf);
 
     /* Release buf now that we don't need it anymore. */
     free(buf);
@@ -494,6 +494,9 @@ void go_looking(void)
     filestruct *was_current = openfile->current;
     size_t was_current_x = openfile->current_x;
     int didfind;
+#ifdef DEBUG
+    clock_t start = clock();
+#endif
 
     came_full_circle = FALSE;
 
@@ -508,6 +511,10 @@ void go_looking(void)
     if (didfind == 1 && openfile->current == was_current &&
 		openfile->current_x == was_current_x)
 	statusbar(_("This is the only occurrence"));
+
+#ifdef DEBUG
+    statusline(HUSH, "Took: %.2f", (double)(clock() - start) / CLOCKS_PER_SEC);
+#endif
 
     edit_redraw(was_current);
     search_replace_abort();
@@ -600,14 +607,12 @@ char *replace_line(const char *needle)
     return copy;
 }
 
-/* Step through each replace word and prompt user before replacing.
- * Parameters real_current and real_current_x are needed in order to
+/* Step through each occurrence of the search string and prompt the user
+ * before replacing it.  We seek for needle, and replace it with answer.
+ * The parameters real_current and real_current_x are needed in order to
  * allow the cursor position to be updated when a word before the cursor
- * is replaced by a shorter word.
- *
- * needle is the string to seek.  We replace it with answer.  Return -1
- * if needle isn't found, else the number of replacements performed.  If
- * canceled isn't NULL, set it to TRUE if we canceled. */
+ * is replaced by a shorter word.  Return -1 if needle isn't found, -2 if
+ * the seeking is aborted, else the number of replacements performed. */
 ssize_t do_replace_loop(
 #ifndef DISABLE_SPELLER
 	bool whole_word_only,
@@ -626,8 +631,8 @@ ssize_t do_replace_loop(
 	/* TRUE if (mark_begin, mark_begin_x) is the top of the mark,
 	 * FALSE if (current, current_x) is. */
 
+    /* If the mark is on, frame the region, and turn the mark off. */
     if (old_mark_set) {
-	/* If the mark is on, frame the region, and turn the mark off. */
 	mark_order((const filestruct **)&top, &top_x,
 			(const filestruct **)&bot, &bot_x, &right_side_up);
 	openfile->mark_set = FALSE;
@@ -745,15 +750,13 @@ ssize_t do_replace_loop(
 	    }
 
 #ifdef HAVE_REGEX_H
-	    /* Don't find the same zero-length match again. */
-	    if (match_len == 0)
+	    /* Don't find the same zero-length or BOL match again. */
+	    if (match_len == 0 || (*needle == '^' && ISSET(USE_REGEXP)))
 		match_len++;
 #endif
-
 	    /* Set the cursor at the last character of the replacement
-	     * text, so searching will resume after the replacement
-	     * text.  Note that current_x might be set to (size_t)-1
-	     * here. */
+	     * text, so that searching will continue /after/ it.  Note
+	     * that current_x might be set to (size_t)-1 here. */
 #ifndef NANO_TINY
 	    if (!ISSET(BACKWARDS_SEARCH))
 #endif
@@ -831,14 +834,14 @@ void do_replace(void)
 
     i = do_prompt(FALSE,
 #ifndef DISABLE_TABCOMP
-	TRUE,
+		TRUE,
 #endif
-	MREPLACEWITH, NULL,
+		MREPLACEWITH, NULL,
 #ifndef DISABLE_HISTORIES
-	&replace_history,
+		&replace_history,
 #endif
-	/* TRANSLATORS: This is a prompt. */
-	edit_refresh, _("Replace with"));
+		/* TRANSLATORS: This is a prompt. */
+		edit_refresh, _("Replace with"));
 
 #ifndef DISABLE_HISTORIES
     /* If the replace string is not "", add it to the replace history list. */

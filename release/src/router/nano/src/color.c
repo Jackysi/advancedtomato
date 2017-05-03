@@ -1,22 +1,22 @@
 /**************************************************************************
- *   color.c                                                              *
+ *   color.c  --  This file is part of GNU nano.                          *
  *                                                                        *
  *   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,  *
  *   2010, 2011, 2013, 2014, 2015 Free Software Foundation, Inc.          *
- *   This program is free software; you can redistribute it and/or modify *
- *   it under the terms of the GNU General Public License as published by *
- *   the Free Software Foundation; either version 3, or (at your option)  *
- *   any later version.                                                   *
+ *   Copyright (C) 2014, 2015, 2016 Benno Schulenberg                     *
  *                                                                        *
- *   This program is distributed in the hope that it will be useful, but  *
- *   WITHOUT ANY WARRANTY; without even the implied warranty of           *
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU    *
- *   General Public License for more details.                             *
+ *   GNU nano is free software: you can redistribute it and/or modify     *
+ *   it under the terms of the GNU General Public License as published    *
+ *   by the Free Software Foundation, either version 3 of the License,    *
+ *   or (at your option) any later version.                               *
+ *                                                                        *
+ *   GNU nano is distributed in the hope that it will be useful,          *
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty          *
+ *   of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.              *
+ *   See the GNU General Public License for more details.                 *
  *                                                                        *
  *   You should have received a copy of the GNU General Public License    *
- *   along with this program; if not, write to the Free Software          *
- *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA            *
- *   02110-1301, USA.                                                     *
+ *   along with this program.  If not, see http://www.gnu.org/licenses/.  *
  *                                                                        *
  **************************************************************************/
 
@@ -38,7 +38,7 @@
  * for the colors in each syntax. */
 void set_colorpairs(void)
 {
-    const syntaxtype *this_syntax = syntaxes;
+    const syntaxtype *sint;
     bool using_defaults = FALSE;
     short foreground, background;
     size_t i;
@@ -62,15 +62,14 @@ void set_colorpairs(void)
 	    if (background == -1 && !using_defaults)
 		background = COLOR_BLACK;
 	    init_pair(i + 1, foreground, background);
-	    interface_color_pair[i].bright = bright;
-	    interface_color_pair[i].pairnum = COLOR_PAIR(i + 1);
+	    interface_color_pair[i] =
+			COLOR_PAIR(i + 1) | (bright ? A_BOLD : A_NORMAL);
 	}
 	else {
-	    interface_color_pair[i].bright = FALSE;
 	    if (i != FUNCTION_TAG)
-		interface_color_pair[i].pairnum = hilite_attribute;
+		interface_color_pair[i] = hilite_attribute;
 	    else
-		interface_color_pair[i].pairnum = A_NORMAL;
+		interface_color_pair[i] = A_NORMAL;
 	}
 
 	free(specified_color_combo[i]);
@@ -79,25 +78,25 @@ void set_colorpairs(void)
 
     /* For each syntax, go through its list of colors and assign each
      * its pair number, giving identical color pairs the same number. */
-    for (; this_syntax != NULL; this_syntax = this_syntax->next) {
-	colortype *this_color = this_syntax->color;
-	int clr_pair = NUMBER_OF_ELEMENTS + 1;
+    for (sint = syntaxes; sint != NULL; sint = sint->next) {
+	colortype *ink;
+	int new_number = NUMBER_OF_ELEMENTS + 1;
 
-	for (; this_color != NULL; this_color = this_color->next) {
-	    const colortype *beforenow = this_syntax->color;
+	for (ink = sint->color; ink != NULL; ink = ink->next) {
+	    const colortype *beforenow = sint->color;
 
-	    while (beforenow != this_color &&
-			(beforenow->fg != this_color->fg ||
-			beforenow->bg != this_color->bg ||
-			beforenow->bright != this_color->bright))
+	    while (beforenow != ink && (beforenow->fg != ink->fg ||
+					beforenow->bg != ink->bg ||
+					beforenow->bright != ink->bright))
 		beforenow = beforenow->next;
 
-	    if (beforenow != this_color)
-		this_color->pairnum = beforenow->pairnum;
-	    else {
-		this_color->pairnum = clr_pair;
-		clr_pair++;
-	    }
+	    if (beforenow != ink)
+		ink->pairnum = beforenow->pairnum;
+	    else
+		ink->pairnum = new_number++;
+
+	    ink->attributes = COLOR_PAIR(ink->pairnum) |
+				(ink->bright ? A_BOLD : A_NORMAL);
 	}
     }
 }
@@ -105,7 +104,7 @@ void set_colorpairs(void)
 /* Initialize the color information. */
 void color_init(void)
 {
-    colortype *tmpcolor = openfile->colorstrings;
+    const colortype *ink;
     bool using_defaults = FALSE;
     short foreground, background;
 
@@ -121,9 +120,9 @@ void color_init(void)
 #endif
 
     /* For each coloring expression, initialize the color pair. */
-    for (; tmpcolor != NULL; tmpcolor = tmpcolor->next) {
-	foreground = tmpcolor->fg;
-	background = tmpcolor->bg;
+    for (ink = openfile->colorstrings; ink != NULL; ink = ink->next) {
+	foreground = ink->fg;
+	background = ink->bg;
 
 	if (foreground == -1 && !using_defaults)
 	    foreground = COLOR_WHITE;
@@ -131,7 +130,7 @@ void color_init(void)
 	if (background == -1 && !using_defaults)
 	    background = COLOR_BLACK;
 
-	init_pair(tmpcolor->pairnum, foreground, background);
+	init_pair(ink->pairnum, foreground, background);
 #ifdef DEBUG
 	fprintf(stderr, "init_pair(): fg = %hd, bg = %hd\n", foreground, background);
 #endif
@@ -340,42 +339,47 @@ void reset_multis_for_id(filestruct *fileptr, int index)
  * useful when we don't know how much screen state has changed. */
 void reset_multis(filestruct *fileptr, bool force)
 {
-    int nobegin, noend;
+    const colortype *ink;
+    int nobegin = 0, noend = 0;
     regmatch_t startmatch, endmatch;
-    const colortype *tmpcolor = openfile->colorstrings;
 
     /* If there is no syntax or no multiline regex, there is nothing to do. */
     if (openfile->syntax == NULL || openfile->syntax->nmultis == 0)
 	return;
 
-    for (; tmpcolor != NULL; tmpcolor = tmpcolor->next) {
+    for (ink = openfile->colorstrings; ink != NULL; ink = ink->next) {
 	/* If it's not a multi-line regex, amscray. */
-	if (tmpcolor->end == NULL)
+	if (ink->end == NULL)
 	    continue;
 
 	alloc_multidata_if_needed(fileptr);
 
 	if (force == FALSE) {
 	    /* Check whether the multidata still matches the current situation. */
-	    nobegin = regexec(tmpcolor->start, fileptr->data, 1, &startmatch, 0);
-	    noend = regexec(tmpcolor->end, fileptr->data, 1, &endmatch, 0);
-	    if ((fileptr->multidata[tmpcolor->id] == CWHOLELINE ||
-			fileptr->multidata[tmpcolor->id] == CNONE) &&
+	    nobegin = regexec(ink->start, fileptr->data, 1, &startmatch, 0);
+	    noend = regexec(ink->end, fileptr->data, 1, &endmatch, 0);
+	    if ((fileptr->multidata[ink->id] == CWHOLELINE ||
+			fileptr->multidata[ink->id] == CNONE) &&
 			nobegin && noend)
 		continue;
-	    else if (fileptr->multidata[tmpcolor->id] == CSTARTENDHERE &&
+	    else if (fileptr->multidata[ink->id] == CSTARTENDHERE &&
 			!nobegin && !noend && startmatch.rm_so < endmatch.rm_so)
 		continue;
-	    else if (fileptr->multidata[tmpcolor->id] == CBEGINBEFORE &&
+	    else if (fileptr->multidata[ink->id] == CBEGINBEFORE &&
 			nobegin && !noend)
 		continue;
-	    else if (fileptr->multidata[tmpcolor->id] == CENDAFTER &&
+	    else if (fileptr->multidata[ink->id] == CENDAFTER &&
 			!nobegin && noend)
 		continue;
 	}
 
 	/* If we got here, things have changed. */
-	reset_multis_for_id(fileptr, tmpcolor->id);
+	reset_multis_for_id(fileptr, ink->id);
+
+	/* If start and end are the same, push the resets further. */
+	if (force == FALSE && !nobegin && !noend &&
+				startmatch.rm_so == endmatch.rm_so)
+	    reset_multis_for_id(fileptr, ink->id);
     }
 }
 
@@ -392,23 +396,11 @@ void alloc_multidata_if_needed(filestruct *fileptr)
     }
 }
 
-/* Poll the keyboard every second to see if the user starts typing. */
-bool key_was_pressed(void)
-{
-    static time_t last_time = 0;
-
-    if (time(NULL) != last_time) {
-	last_time = time(NULL);
-	return (wgetch(edit) != ERR);
-    } else
-	return FALSE;
-}
-
 /* Precalculate the multi-line start and end regex info so we can
  * speed up rendering (with any hope at all...). */
 void precalc_multicolorinfo(void)
 {
-    const colortype *tmpcolor = openfile->colorstrings;
+    const colortype *ink;
     regmatch_t startmatch, endmatch;
     filestruct *fileptr, *endptr;
 
@@ -418,32 +410,24 @@ void precalc_multicolorinfo(void)
 #ifdef DEBUG
     fprintf(stderr, "Entering precalculation of multiline color info\n");
 #endif
-    /* Let us get keypresses to see if the user is trying to start
-     * editing.  Later we may want to throw up a statusbar message
-     * before starting this if it takes too long to do this routine.
-     * For now silently abort if they hit a key. */
-    nodelay(edit, TRUE);
 
-    for (; tmpcolor != NULL; tmpcolor = tmpcolor->next) {
+    for (ink = openfile->colorstrings; ink != NULL; ink = ink->next) {
 	/* If this is not a multi-line regex, skip it. */
-	if (tmpcolor->end == NULL)
+	if (ink->end == NULL)
 	    continue;
 #ifdef DEBUG
-	fprintf(stderr, "Starting work on color id %d\n", tmpcolor->id);
+	fprintf(stderr, "Starting work on color id %d\n", ink->id);
 #endif
 
 	for (fileptr = openfile->fileage; fileptr != NULL; fileptr = fileptr->next) {
 	    int startx = 0, nostart = 0;
-
-	    if (key_was_pressed())
-		goto precalc_cleanup;
 #ifdef DEBUG
 	    fprintf(stderr, "working on lineno %ld... ", (long)fileptr->lineno);
 #endif
 	    alloc_multidata_if_needed(fileptr);
 
-	    while ((nostart = regexec(tmpcolor->start, &fileptr->data[startx],
-			1, &startmatch, (startx == 0) ? 0 : REG_NOTBOL)) == 0) {
+	    while ((nostart = regexec(ink->start, &fileptr->data[startx], 1,
+			&startmatch, (startx == 0) ? 0 : REG_NOTBOL)) == 0) {
 		/* Look for an end, and start marking how many lines are
 		 * encompassed, which should speed up rendering later. */
 		startx += startmatch.rm_eo;
@@ -451,14 +435,14 @@ void precalc_multicolorinfo(void)
 		fprintf(stderr, "start found at pos %lu... ", (unsigned long)startx);
 #endif
 		/* Look first on this line for an end. */
-		if (regexec(tmpcolor->end, &fileptr->data[startx], 1,
+		if (regexec(ink->end, &fileptr->data[startx], 1,
 			&endmatch, (startx == 0) ? 0 : REG_NOTBOL) == 0) {
 		    startx += endmatch.rm_eo;
 		    /* Step ahead when both start and end are mere anchors. */
 		    if (startmatch.rm_so == startmatch.rm_eo &&
 				endmatch.rm_so == endmatch.rm_eo)
 			startx += 1;
-		    fileptr->multidata[tmpcolor->id] = CSTARTENDHERE;
+		    fileptr->multidata[ink->id] = CSTARTENDHERE;
 #ifdef DEBUG
 		    fprintf(stderr, "end found on this line\n");
 #endif
@@ -470,11 +454,7 @@ void precalc_multicolorinfo(void)
 #ifdef DEBUG
 		    fprintf(stderr, "\nadvancing to line %ld to find end... ", (long)endptr->lineno);
 #endif
-		    /* Check for interrupting keyboard input again. */
-		    if (key_was_pressed())
-			goto precalc_cleanup;
-
-		    if (regexec(tmpcolor->end, endptr->data, 1, &endmatch, 0) == 0)
+		    if (regexec(ink->end, endptr->data, 1, &endmatch, 0) == 0)
 			break;
 		}
 
@@ -489,20 +469,20 @@ void precalc_multicolorinfo(void)
 #endif
 		/* We found it, we found it, la la la la la.  Mark all
 		 * the lines in between and the end properly. */
-		fileptr->multidata[tmpcolor->id] = CENDAFTER;
+		fileptr->multidata[ink->id] = CENDAFTER;
 #ifdef DEBUG
 		fprintf(stderr, "marking line %ld as CENDAFTER\n", (long)fileptr->lineno);
 #endif
 		for (fileptr = fileptr->next; fileptr != endptr; fileptr = fileptr->next) {
 		    alloc_multidata_if_needed(fileptr);
-		    fileptr->multidata[tmpcolor->id] = CWHOLELINE;
+		    fileptr->multidata[ink->id] = CWHOLELINE;
 #ifdef DEBUG
 		    fprintf(stderr, "marking intermediary line %ld as CWHOLELINE\n", (long)fileptr->lineno);
 #endif
 		}
 
 		alloc_multidata_if_needed(endptr);
-		fileptr->multidata[tmpcolor->id] = CBEGINBEFORE;
+		fileptr->multidata[ink->id] = CBEGINBEFORE;
 #ifdef DEBUG
 		fprintf(stderr, "marking line %ld as CBEGINBEFORE\n", (long)fileptr->lineno);
 #endif
@@ -517,13 +497,11 @@ void precalc_multicolorinfo(void)
 #ifdef DEBUG
 		fprintf(stderr, "no match\n");
 #endif
-		fileptr->multidata[tmpcolor->id] = CNONE;
+		fileptr->multidata[ink->id] = CNONE;
 		continue;
 	    }
 	}
     }
-precalc_cleanup:
-    nodelay(edit, FALSE);
 }
 
 #endif /* !DISABLE_COLOR */

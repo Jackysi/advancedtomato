@@ -1,4 +1,4 @@
-## Sample initialization file for nano.
+## Sample initialization file for GNU nano.
 ##
 ## Please note that you must have configured nano with --enable-nanorc
 ## for this file to be read!  Also note that this file should not be in
@@ -178,9 +178,14 @@
 ## The default otherwise:
 # set whitespace ">."
 
-## Detect word boundaries more accurately by treating punctuation
+## Detect word boundaries differently by treating punctuation
 ## characters as parts of words.
 # set wordbounds
+
+## The characters (besides alphanumeric ones) that should be considered
+## as parts of words.  This option does not have a default value.  When
+## set, it overrides option 'set wordbounds'.
+# set wordchars "<_>."
 
 
 ## Paint the interface elements of nano.

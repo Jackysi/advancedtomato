@@ -192,7 +192,6 @@ ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
 EGREP = @EGREP@
 EXEEXT = @EXEEXT@
-GIT = @GIT@
 GLIB_CFLAGS = @GLIB_CFLAGS@
 GLIB_GENMARSHAL = @GLIB_GENMARSHAL@
 GLIB_LIBS = @GLIB_LIBS@
@@ -239,7 +238,6 @@ PKG_CONFIG = @PKG_CONFIG@
 PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
 PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
 POSUB = @POSUB@
-REVISION = @REVISION@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 STRIP = @STRIP@
@@ -298,6 +296,8 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 AM_CPPFLAGS = -DLOCALEDIR=\"$(localedir)\" -DSYSCONFDIR=\"$(sysconfdir)\"
+@BUILDING_FROM_GIT_FALSE@SOMETHING = "NOTHING \"from tarball\""
+@BUILDING_FROM_GIT_TRUE@SOMETHING = "REVISION \"$(shell git describe --tags 2>/dev/null)\""
 nano_SOURCES = browser.c \
 		chars.c \
 		color.c \
@@ -641,6 +641,16 @@ uninstall-am: uninstall-binPROGRAMS
 
 .PRECIOUS: Makefile
 
+
+nano.o: revision.h
+winio.o: revision.h
+
+revision.h: update_revision
+	@[ -f $@ ] || touch $@
+	@echo "#define $(SOMETHING)" | cmp -s $@ - || \
+	echo "#define $(SOMETHING)" > $@
+
+.PHONY: update_revision
 
 install-exec-hook:
 	cd $(DESTDIR)$(bindir) && rm -f rnano && $(LN_S) nano rnano

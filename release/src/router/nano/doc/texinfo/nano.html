@@ -59,7 +59,7 @@ Next: <a href="#Introduction" accesskey="n" rel="next">Introduction</a>, Up: <a 
 </div>
 <a name="SEC_Top"></a>
 
-<p>This manual documents <code>nano</code>, a small and friendly text editor.
+<p>This manual documents GNU <code>nano</code>, a small and friendly text editor.
 </p>
 <table class="menu" border="0" cellspacing="0">
 <tr><td align="left" valign="top">&bull; <a href="#Introduction" accesskey="1">Introduction</a>:</td><td>&nbsp;&nbsp;</td><td align="left" valign="top">
@@ -94,7 +94,7 @@ Next: <a href="#Invoking" accesskey="n" rel="next">Invoking</a>, Previous: <a hr
 <a name="Introduction-1"></a>
 <h2 class="chapter">1 Introduction</h2>
 
-<p><code>nano</code> is a small and friendly text editor.  Besides basic text
+<p>GNU <code>nano</code> is a small and friendly text editor.  Besides basic text
 editing, <code>nano</code> offers many extra features, such as an interactive
 search-and-replace, undo/redo, syntax coloring, smooth scrolling,
 auto-indentation, go-to-line-and-column-number, feature toggles,
@@ -283,8 +283,15 @@ keystroke instead of 25.  Note that option <samp>-c</samp>
 </dd>
 <dt><samp>-W</samp></dt>
 <dt><samp>--wordbounds</samp></dt>
-<dd><p>Detect word boundaries more accurately by treating punctuation
+<dd><p>Detect word boundaries differently by treating punctuation
 characters as parts of words.
+</p>
+</dd>
+<dt><samp>-X &quot;<var>characters</var>&quot;</samp></dt>
+<dt><samp>--wordchars=&quot;<var>characters</var>&quot;</samp></dt>
+<dd><p>Specify which other characters (besides the normal alphanumeric ones)
+should be considered as parts of words.  This overrides option
+<samp>-W</samp> (<samp>--wordbounds</samp>).
 </p>
 </dd>
 <dt><samp>-Y <var>name</var></samp></dt>
@@ -1050,8 +1057,14 @@ for a UTF-8 locale is <tt>&quot;Â»Â·&quot;</tt>, and for other locales <tt>&
 </p>
 </dd>
 <dt><code>set wordbounds</code></dt>
-<dd><p>Detect word boundaries more accurately by treating punctuation
+<dd><p>Detect word boundaries differently by treating punctuation
 characters as part of a word.
+</p>
+</dd>
+<dt><code>set wordchars &quot;<var>string</var>&quot;</code></dt>
+<dd><p>Specify which other characters (besides the normal alphanumeric ones)
+should be considered as parts of words.  This overrides the option
+<code>wordbounds</code>.
 </p>
 </dd>
 </dl>
@@ -1372,6 +1385,15 @@ style specified in the active syntax.
 </dd>
 <dt><code>endpara</code></dt>
 <dd><p>Moves the cursor to the end of the current paragraph.
+</p>
+</dd>
+<dt><code>prevblock</code></dt>
+<dd><p>Moves the cursor to the beginning of the current or preceding block of text.
+(Blocks are separated by one or more blank lines.)
+</p>
+</dd>
+<dt><code>nextblock</code></dt>
+<dd><p>Moves the cursor to the beginning of the next block of text.
 </p>
 </dd>
 <dt><code>prevpage</code></dt>
@@ -1861,7 +1883,7 @@ chances are you only want this feature when you&rsquo;re working on the nano sou
 </dd>
 <dt><code>--disable-nls</code></dt>
 <dd><p>Disables Native Language support.  This will disable the use of any
-available <code>nano</code> translations.
+available GNU <code>nano</code> translations.
 </p>
 </dd>
 <dt><code>--disable-wrapping-as-root</code></dt>

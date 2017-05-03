@@ -1,5 +1,5 @@
 <!-- Creator     : groff version 1.22.3 -->
-<!-- CreationDate: Mon Jun 27 11:54:10 2016 -->
+<!-- CreationDate: Thu Sep  1 12:41:48 2016 -->
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">
 <html>
@@ -90,6 +90,11 @@ mark its start with <b>^6</b>, move the cursor to its end
 <b>^K</b> to cut it, or <b>M-6</b> to copy it to the
 cutbuffer. One can also save the marked text to a file with
 <b>^O</b>, or spell check it with <b>^T</b>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Since
+nano-2.7.0, text can also be selected by holding Shift and
+moving the cursor with the arrow keys. Holding down the Alt
+key too will increase the stride.</p>
 
 <p style="margin-left:11%; margin-top: 1em">The two lines
 at the bottom of the screen show the most important
@@ -264,9 +269,18 @@ and exit.</p>
 <p style="margin-left:11%;"><b>&minus;W</b>,
 <b>&minus;&minus;wordbounds</b></p>
 
-<p style="margin-left:22%;">Detect word boundaries more
-accurately by treating punctuation characters as part of a
+<p style="margin-left:22%;">Detect word boundaries
+differently by treating punctuation characters as part of a
 word.</p>
+
+<p style="margin-left:11%;"><b>&minus;X
+&quot;</b><i>characters</i><b>&quot;</b>,
+<b>&minus;&minus;wordchars=&quot;</b><i>characters</i><b>&quot;</b></p>
+
+<p style="margin-left:22%;">Specify which other characters
+(besides the normal alphanumeric ones) should be considered
+as part of a word. This overrides option <b>&minus;W</b>
+(<b>&minus;&minus;wordbounds</b>).</p>
 
 
 <p style="margin-left:11%;"><b>&minus;Y&nbsp;</b><i>name</i>,

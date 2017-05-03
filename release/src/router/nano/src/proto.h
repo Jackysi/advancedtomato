@@ -1,22 +1,21 @@
 /**************************************************************************
- *   proto.h                                                              *
+ *   proto.h  --  This file is part of GNU nano.                          *
  *                                                                        *
  *   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,  *
  *   2008, 2009, 2010, 2011, 2013, 2014 Free Software Foundation, Inc.    *
- *   This program is free software; you can redistribute it and/or modify *
- *   it under the terms of the GNU General Public License as published by *
- *   the Free Software Foundation; either version 3, or (at your option)  *
- *   any later version.                                                   *
  *                                                                        *
- *   This program is distributed in the hope that it will be useful, but  *
- *   WITHOUT ANY WARRANTY; without even the implied warranty of           *
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU    *
- *   General Public License for more details.                             *
+ *   GNU nano is free software: you can redistribute it and/or modify     *
+ *   it under the terms of the GNU General Public License as published    *
+ *   by the Free Software Foundation, either version 3 of the License,    *
+ *   or (at your option) any later version.                               *
+ *                                                                        *
+ *   GNU nano is distributed in the hope that it will be useful,          *
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty          *
+ *   of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.              *
+ *   See the GNU General Public License for more details.                 *
  *                                                                        *
  *   You should have received a copy of the GNU General Public License    *
- *   along with this program; if not, write to the Free Software          *
- *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA            *
- *   02110-1301, USA.                                                     *
+ *   along with this program.  If not, see http://www.gnu.org/licenses/.  *
  *                                                                        *
  **************************************************************************/
 
@@ -30,8 +29,13 @@
 extern volatile sig_atomic_t sigwinch_counter;
 #endif
 
+#if defined(__linux__) && !defined(NANO_TINY)
+extern bool console;
+#endif
+
 extern bool meta_key;
-extern bool func_key;
+extern bool shift_held;
+
 extern bool focusing;
 
 extern message_type lastmessage;
@@ -39,6 +43,16 @@ extern message_type lastmessage;
 #ifndef NANO_TINY
 extern int controlleft;
 extern int controlright;
+extern int controlup;
+extern int controldown;
+extern int shiftcontrolleft;
+extern int shiftcontrolright;
+extern int shiftcontrolup;
+extern int shiftcontroldown;
+extern int shiftaltleft;
+extern int shiftaltright;
+extern int shiftaltup;
+extern int shiftaltdown;
 #endif
 
 #ifndef DISABLE_WRAPJUSTIFY
@@ -91,7 +105,10 @@ extern size_t quotelen;
 #endif
 #endif /* !DISABLE_JUSTIFY */
 
+extern char *word_chars;
+
 extern bool nodelay_mode;
+
 extern char *answer;
 
 extern ssize_t tabsize;
@@ -142,7 +159,7 @@ extern int hilite_attribute;
 #ifndef DISABLE_COLOR
 extern char* specified_color_combo[NUMBER_OF_ELEMENTS];
 #endif
-extern color_pair interface_color_pair[NUMBER_OF_ELEMENTS];
+extern int interface_color_pair[NUMBER_OF_ELEMENTS];
 
 extern char *homedir;
 
@@ -179,22 +196,17 @@ bool nisblank(int c);
 bool niswblank(wchar_t wc);
 #endif
 bool is_byte(int c);
+bool is_alpha_mbchar(const char *c);
 bool is_alnum_mbchar(const char *c);
 bool is_blank_mbchar(const char *c);
 bool is_ascii_cntrl_char(int c);
 bool is_cntrl_char(int c);
-#ifdef ENABLE_UTF8
-bool is_cntrl_wchar(wchar_t wc);
-#endif
 bool is_cntrl_mbchar(const char *c);
 bool is_punct_mbchar(const char *c);
 bool is_word_mbchar(const char *c, bool allow_punct);
-char control_rep(char c);
-#ifdef ENABLE_UTF8
-wchar_t control_wrep(wchar_t wc);
-#endif
-char *control_mbrep(const char *c, char *crep, int *crep_len);
-char *mbrep(const char *c, char *crep, int *crep_len);
+char control_rep(const signed char c);
+char control_mbrep(const char *c);
+int length_of_char(const char *c, int *width);
 int mbwidth(const char *c);
 int mb_cur_max(void);
 char *make_mbchar(long chr, int *chr_mb_len);
@@ -320,11 +332,11 @@ int delete_lockfile(const char *lockfilename);
 int write_lockfile(const char *lockfilename, const char *origfilename, bool modified);
 #endif
 int copy_file(FILE *inn, FILE *out);
-bool write_file(const char *name, FILE *f_open, bool tmp, append_type
-	append, bool nonamechange);
+bool write_file(const char *name, FILE *f_open, bool tmp,
+	kind_of_writing_type method, bool nonamechange);
 #ifndef NANO_TINY
 bool write_marked_file(const char *name, FILE *f_open, bool tmp,
-	append_type append);
+	kind_of_writing_type method);
 #endif
 int do_writeout(bool exiting);
 void do_writeout_void(void);
@@ -363,8 +375,7 @@ size_t length_of_list(int menu);
 const sc *first_sc_for(int menu, void (*func)(void));
 int sc_seq_or(void (*func)(void), int defaultval);
 functionptrtype func_from_key(int *kbinput);
-key_type strtokeytype(const char *str);
-void assign_keyinfo(sc *s);
+void assign_keyinfo(sc *s, const char *keystring);
 void print_sclist(void);
 void shortcut_init(void);
 #ifndef DISABLE_COLOR
@@ -400,6 +411,8 @@ void do_para_end(bool allow_update);
 void do_para_end_void(void);
 #endif
 #ifndef NANO_TINY
+void do_prev_block(void);
+void do_next_block(void);
 void do_prev_word(bool allow_punct, bool allow_update);
 void do_prev_word_void(void);
 bool do_next_word(bool allow_punct, bool allow_update);
@@ -407,26 +420,12 @@ void do_next_word_void(void);
 #endif
 void do_home(void);
 void do_end(void);
-void do_up(
-#ifndef NANO_TINY
-	bool scroll_only
-#else
-	void
-#endif
-	);
+void do_up(bool scroll_only);
 void do_up_void(void);
-#ifndef NANO_TINY
-void do_scroll_up(void);
-#endif
-void do_down(
-#ifndef NANO_TINY
-	bool scroll_only
-#else
-	void
-#endif
-	);
+void do_down(bool scroll_only);
 void do_down_void(void);
 #ifndef NANO_TINY
+void do_scroll_up(void);
 void do_scroll_down(void);
 #endif
 void do_left(void);
@@ -457,11 +456,7 @@ void say_there_is_no_help(void);
 #endif
 void finish(void);
 void die(const char *msg, ...);
-void die_save_file(const char *die_filename
-#ifndef NANO_TINY
-	, struct stat *die_stat
-#endif
-	);
+void die_save_file(const char *die_filename, struct stat *die_stat);
 void window_init(void);
 #ifndef DISABLE_MOUSE
 void disable_mouse_support(void);
@@ -475,8 +470,6 @@ void print_opt_full(const char *shortflag
 	, const char *desc);
 void usage(void);
 void version(void);
-int more_space(void);
-int no_help(void);
 void no_current_file_name_warning(void);
 void do_exit(void);
 void close_and_go(void);
@@ -515,7 +508,7 @@ int do_statusbar_input(bool *ran_func, bool *finished,
 int do_statusbar_mouse(void);
 #endif
 void do_statusbar_output(int *the_input, size_t input_len,
-	bool filtering, bool *got_enter);
+	bool filtering, bool *got_newline);
 void do_statusbar_home(void);
 void do_statusbar_end(void);
 void do_statusbar_left(void);
@@ -527,22 +520,12 @@ void do_statusbar_cut_text(void);
 void do_statusbar_prev_word(void);
 void do_statusbar_next_word(void);
 #endif
-void do_statusbar_verbatim_input(bool *got_enter);
+void do_statusbar_verbatim_input(bool *got_newline);
 size_t statusbar_xplustabs(void);
 size_t get_statusbar_page_start(size_t start_col, size_t column);
 void reinit_statusbar_x(void);
 void reset_statusbar_cursor(void);
 void update_the_statusbar(void);
-void update_bar_if_needed(void);
-functionptrtype get_prompt_string(int *value, bool allow_tabs,
-#ifndef DISABLE_TABCOMP
-	bool allow_files, bool *listed,
-#endif
-	const char *curranswer,
-#ifndef DISABLE_HISTORIES
-	filestruct **history_list,
-#endif
-	void (*refresh_func)(void));
 int do_prompt(bool allow_tabs,
 #ifndef DISABLE_TABCOMP
 	bool allow_files,
@@ -650,6 +633,7 @@ void do_tab(void);
 void do_indent(ssize_t cols);
 void do_indent_void(void);
 void do_unindent(void);
+bool white_string(const char *s);
 void do_undo(void);
 void do_redo(void);
 #endif
@@ -734,7 +718,7 @@ void *nmalloc(size_t howmuch);
 void *nrealloc(void *ptr, size_t howmuch);
 char *mallocstrncpy(char *dest, const char *src, size_t n);
 char *mallocstrcpy(char *dest, const char *src);
-char *mallocstrassn(char *dest, char *src);
+char *free_and_assign(char *dest, char *src);
 size_t get_page_start(size_t column);
 size_t xplustabs(void);
 size_t actual_x(const char *s, size_t column);
@@ -764,7 +748,7 @@ void dump_filestruct_reverse(void);
 void get_key_buffer(WINDOW *win);
 size_t get_key_buffer_len(void);
 void unget_input(int *input, size_t input_len);
-void unget_kbinput(int kbinput, bool metakey, bool funckey);
+void unget_kbinput(int kbinput, bool metakey);
 int *get_input(WINDOW *win, size_t input_len);
 int get_kbinput(WINDOW *win);
 int parse_kbinput(WINDOW *win);
@@ -773,25 +757,24 @@ int parse_escape_sequence(WINDOW *win, int kbinput);
 int get_byte_kbinput(int kbinput);
 #ifdef ENABLE_UTF8
 long add_unicode_digit(int kbinput, long factor, long *uni);
-long get_unicode_kbinput(int kbinput);
+long get_unicode_kbinput(WINDOW *win, int kbinput);
 #endif
 int get_control_kbinput(int kbinput);
 void unparse_kbinput(char *output, size_t output_len);
 int *get_verbatim_kbinput(WINDOW *win, size_t *kbinput_len);
-int *parse_verbatim_kbinput(WINDOW *win, size_t *kbinput_len);
+int *parse_verbatim_kbinput(WINDOW *win, size_t *count);
 #ifndef DISABLE_MOUSE
 int get_mouseinput(int *mouse_x, int *mouse_y, bool allow_shortcuts);
 #endif
 const sc *get_shortcut(int *kbinput);
 void blank_line(WINDOW *win, int y, int x, int n);
 void blank_titlebar(void);
-void blank_topbar(void);
 void blank_edit(void);
 void blank_statusbar(void);
 void blank_bottombars(void);
 void check_statusblank(void);
-char *display_string(const char *buf, size_t start_col, size_t len, bool
-	dollars);
+char *display_string(const char *buf, size_t start_col, size_t span,
+	bool dollars);
 void titlebar(const char *path);
 extern void set_modified(void);
 void statusbar(const char *msg);
@@ -802,7 +785,7 @@ void reset_cursor(void);
 void edit_draw(filestruct *fileptr, const char *converted, int
 	line, size_t start);
 int update_line(filestruct *fileptr, size_t index);
-bool need_screen_update(size_t pww_save);
+bool need_horizontal_scroll(const size_t old_column, const size_t new_column);
 void edit_scroll(scroll_dir direction, ssize_t nlines);
 void edit_redraw(filestruct *old_current);
 void edit_refresh(void);

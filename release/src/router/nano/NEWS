@@ -1,3 +1,33 @@
+2016.09.01 - GNU nano 2.7.0 "Suni" adds a new feature: allowing text to be
+		selected by holding Shift together with the cursor keys.
+		Besides that, nano now works also when run in very tiny
+		terminals (down to one line, one column), and improves
+		the handling of the prompt in cramped spaces.  Not much,
+		but it's time to get it out there.
+
+
+2016.08.10 - nano 2.6.3 "Marika" makes the Ctrl+Arrow keys work also on
+		a Linux virtual console, takes as verbatim only the very
+		first keystroke after M-V, removes any lock files that it
+		holds when dying, doesn't abort when a word contains digits
+		(when using the default speller), fixes a small sorting bug
+		in the file browser, makes searching case-insensitively in
+		a UTF-8 locale a little faster, and doesn't enter invalid
+		bytes when holding down both Alt keys.  Santé!
+
+2016.07.28 - nano 2.6.2 "Le vent nous portera" adds two new features: the
+		keystrokes Ctrl+Up and Ctrl+Down for jumping between blocks
+		of text, and the option 'wordchars' for specifying which
+		characters (beside alphanumeric ones) should be considered
+		word-forming.  Further, it provides feedback during Unicode
+		input (M-V followed by a six-digit hexadecimal number which
+		must start with 0 or 10), avoids a crash when resizing the
+		window during Verbatim input, doesn't drop a keystroke after
+		having been suspended, and replaces the	beginning-of-line
+		anchor (^) just once per line.  There are also several tiny
+		improvements in screen rendering and key handling.  Come get
+		your hair tousled!
+
 2016.06.27 - nano 2.6.1 "Stampede" is chiefly a translation update, but also
 		adds one little feature (the ability to use negative numbers
 		with Go To Line: -1 meaning the first line from the bottom),
@@ -22,7 +52,7 @@
 2016.02.25 - GNU nano 2.5.3 "Alphys" is released.  This release
 		contains fixes for bugs like: stray cursor positioning
 		errors, many many memory leaks including file reading,
-		using the file browser, searching for multi-byte characters,
+		using the file browser, searching for multibyte characters,
 		history completion, and many other places.
 			New features include the ability to trim whitespace
 		from the ends of lines when justifying text, see nanorc(5)
@@ -148,7 +178,7 @@
 
 2014.06.02 - GNU nano 2.3.4 won't leave you high, won't leave you dry.  This
 		release contains only a small number of fixes, but in
-		particular allows nano to compile on non-UTF8 curses
+		particular allows nano to compile on non-UTF-8 curses
 		implementations (i.e. libncursesw).  Other small fixes to
 		the undo implementation and the default syntax config are
 		also included.  As always, Share and Enjoy!
@@ -184,7 +214,7 @@
 		release includes some fixes for the new libmagic code, as
 		well as a fix for improper character counts when using
 		auto-indent.  Also included are new syntax highlighting
-		definitions for RPM spec and lua files.  Thanks for
+		definitions for RPM spec and Lua files.  Thanks for
 		using nano and keep circulating the tapes.
 
 2011.02.26 - GNU nano 2.3.0 "Septic surprise" is released.  This first
@@ -464,7 +494,7 @@
 		thanks for sticking with us!
 
 
-2007.12.20- GNU nano 2.0.7 keeps its balance.  This release fixes
+2007.12.20 - GNU nano 2.0.7 keeps its balance.  This release fixes
 		several bugs, among others: a segfault and several
 		cursor positioning problems when uncutting text or
 		inserting files into the current buffer; a problem where
@@ -486,12 +516,12 @@
 		under the GNU GPL version 3 or later and the GNU FDL
 		version 1.2 or later.  Have fun.
 
-2007.04.26- GNU nano 2.0.6 "that was quick" is released.  This release
+2007.04.26 - GNU nano 2.0.6 "that was quick" is released.  This release
 		fixes a potential segfault after justifying text marked
 		from the bottom up.  It also adds one more minor
 		documentation update.  Enjoy.
 
-2007.04.22- GNU nano 2.0.5 braces for impact.  Among other things, this
+2007.04.22 - GNU nano 2.0.5 braces for impact.  Among other things, this
 		release fixes various problems (including a segfault)
 		when trying to open or save a file in a directory
 		beginning with "~" that isn't a home directory; fixes a
@@ -599,7 +629,7 @@
 		properly at all times; lines of text containing tabs are
 		now wrapped at the right place; double-column characters
 		are now properly displayed when past the right edge of
-		the screen; invalid multi-line color regexes are now
+		the screen; invalid multiline color regexes are now
 		ignored; and so on.  Enjoy.
 
 2006.03.30 - GNU nano 1.3.11 awakens from its fever dream.  This release
@@ -937,7 +967,7 @@
 		0.11.2 of gettext, building with automake 1.6, some new
 		code for displaying control characters, browser
 		improvements, a new backup file option (-B, --backup), a
-		new option to ignore rc files (-I,--ignorercfiles),
+		new option to ignore rc files (-I, --ignorercfiles),
 		compatibility with -pedantic, handling null characters
 		before EOF, a slightly sportier nanorc.sample and more.
 			Fixes are included for justification,
@@ -1166,7 +1196,7 @@
 		nasty segfault when trying to insert one's home
 		directory (~), some checks for the NumLock key making
 		the keypad go awry, window size sanity checks, many
-		autoconf fixes, and support for the KDE konsole keypad
+		autoconf fixes, and support for the KDE Konsole keypad
 		layout.  Have fun.
 
 2001.01.07 - Nano 0.9.25 is the "Just one more feature I swear!"

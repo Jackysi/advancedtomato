@@ -260,9 +260,6 @@
 /* Define as the return type of signal handlers (`int' or `void'). */
 #undef RETSIGTYPE
 
-/* "Setting REVISION in config.h." */
-#undef REVISION
-
 /* Define to 1 if you have the ANSI C header files. */
 #undef STDC_HEADERS
 

@@ -1,23 +1,22 @@
 /**************************************************************************
- *   browser.c                                                            *
+ *   browser.c  --  This file is part of GNU nano.                        *
  *                                                                        *
  *   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,  *
  *   2010, 2011, 2013, 2014, 2015 Free Software Foundation, Inc.          *
+ *   Copyright (C) 2015, 2016 Benno Schulenberg                           *
  *                                                                        *
- *   This program is free software; you can redistribute it and/or modify *
- *   it under the terms of the GNU General Public License as published by *
- *   the Free Software Foundation; either version 3, or (at your option)  *
- *   any later version.                                                   *
+ *   GNU nano is free software: you can redistribute it and/or modify     *
+ *   it under the terms of the GNU General Public License as published    *
+ *   by the Free Software Foundation, either version 3 of the License,    *
+ *   or (at your option) any later version.                               *
  *                                                                        *
- *   This program is distributed in the hope that it will be useful, but  *
- *   WITHOUT ANY WARRANTY; without even the implied warranty of           *
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU    *
- *   General Public License for more details.                             *
+ *   GNU nano is distributed in the hope that it will be useful,          *
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty          *
+ *   of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.              *
+ *   See the GNU General Public License for more details.                 *
  *                                                                        *
  *   You should have received a copy of the GNU General Public License    *
- *   along with this program; if not, write to the Free Software          *
- *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA            *
- *   02110-1301, USA.                                                     *
+ *   along with this program.  If not, see http://www.gnu.org/licenses/.  *
  *                                                                        *
  **************************************************************************/
 
@@ -46,7 +45,7 @@ static size_t selected = 0;
  * start browsing from. */
 char *do_browser(char *path)
 {
-    char *retval = NULL, *newpath = NULL;
+    char *retval = NULL;
     int kbinput;
     char *present_name = NULL;
 	/* The name of the currently selected file, or of the directory we
@@ -55,29 +54,19 @@ char *do_browser(char *path)
 	/* The number of the selected file before the current selected file. */
     functionptrtype func;
 	/* The function of the key the user typed in. */
-    DIR *dir = opendir(path);
-
-    /* If we can't open the given directory, forget it. */
-    if (dir == NULL) {
-	beep();
-	free(path);
-	return NULL;
-    }
+    DIR *dir;
+	/* The directory whose contents we are showing. */
 
     /* Don't show a cursor in the file list. */
     curs_set(0);
     blank_statusbar();
-    bottombars(MBROWSER);
 
   read_directory_contents:
 	/* We come here when we refresh or select a new directory. */
 
-    /* Start with no key pressed. */
-    kbinput = ERR;
+    path = free_and_assign(path, get_full_path(path));
 
-    path = mallocstrassn(path, get_full_path(newpath ? newpath : path));
-
-    if (path != NULL && newpath != NULL)
+    if (path != NULL)
 	dir = opendir(path);
 
     if (path == NULL || dir == NULL) {
@@ -115,49 +104,25 @@ char *do_browser(char *path)
 
     old_selected = (size_t)-1;
 
-    free(newpath);
-    newpath = NULL;
     present_path = mallocstrcpy(present_path, path);
 
     titlebar(path);
 
     while (TRUE) {
-	struct stat st;
-	int i;
-
 	/* Make sure that the cursor is off. */
 	curs_set(0);
 	lastmessage = HUSH;
 
 	bottombars(MBROWSER);
 
-#ifndef NANO_TINY
-	if (kbinput == KEY_WINCH) {
-	    /* Remember the selected file, to be able to reselect it. */
-	    present_name = strdup(filelist[selected]);
-
-	    /* Reopen the current directory. */
-	    dir = opendir(path);
-	    if (dir != NULL)
-		goto read_directory_contents;
-
-	    statusline(ALERT, _("Error reading %s: %s"), path, strerror(errno));
-	    kbinput = ERR;
-	}
-#endif
-	/* Display (or redisplay) the file list if we don't have a key yet,
-	 * or the list has changed, or the selected file has changed. */
-	if (kbinput == ERR || old_selected != selected)
+	/* Display (or redisplay) the file list if the list itself or
+	 * the selected file has changed. */
+	if (old_selected != selected)
 	    browser_refresh();
 
 	old_selected = selected;
 
 	kbinput = get_kbinput(edit);
-
-#ifndef NANO_TINY
-	if (kbinput == KEY_WINCH)
-	    continue;
-#endif
 
 #ifndef DISABLE_MOUSE
 	if (kbinput == KEY_MOUSE) {
@@ -183,7 +148,7 @@ char *do_browser(char *path)
 		/* If we selected the same filename as last time, fake a
 		 * press of the Enter key so that the file is read in. */
 		if (old_selected == selected)
-		    unget_kbinput(sc_seq_or(do_enter, 0), FALSE, FALSE);
+		    unget_kbinput(sc_seq_or(do_enter, 0), FALSE);
 	    }
 
 	    continue;
@@ -194,15 +159,15 @@ char *do_browser(char *path)
 
 	if (func == total_refresh) {
 	    total_redraw();
-	    /* Simulate a window resize to force a directory reread. */
 #ifndef NANO_TINY
+	    /* Simulate a window resize to force a directory reread. */
 	    kbinput = KEY_WINCH;
 #endif
 	} else if (func == do_help_void) {
 #ifndef DISABLE_HELP
 	    do_help_void();
-	    /* The window dimensions might have changed, so act as if. */
 #ifndef NANO_TINY
+	    /* The window dimensions might have changed, so act as if. */
 	    kbinput = KEY_WINCH;
 #endif
 #else
@@ -214,6 +179,26 @@ char *do_browser(char *path)
 	} else if (func == do_research) {
 	    /* Search for another filename. */
 	    do_fileresearch();
+	} else if (func == do_left) {
+	    if (selected > 0)
+		selected--;
+	} else if (func == do_right) {
+	    if (selected < filelist_len - 1)
+		selected++;
+#ifndef NANO_TINY
+	} else if (func == do_prev_word_void) {
+	    selected -= (selected % width);
+	} else if (func == do_next_word_void) {
+	    selected += width - 1 - (selected % width);
+	    if (selected >= filelist_len)
+		selected = filelist_len - 1;
+#endif
+	} else if (func == do_up_void) {
+	    if (selected >= width)
+		selected -= width;
+	} else if (func == do_down_void) {
+	    if (selected + width <= filelist_len - 1)
+		selected += width;
 	} else if (func == do_page_up) {
 	    if (selected < width)
 		selected = 0;
@@ -235,7 +220,7 @@ char *do_browser(char *path)
 	    selected = filelist_len - 1;
 	} else if (func == goto_dir_void) {
 	    /* Ask for the directory to go to. */
-	    i = do_prompt(TRUE,
+	    int i = do_prompt(TRUE,
 #ifndef DISABLE_TABCOMP
 			FALSE,
 #endif
@@ -245,6 +230,7 @@ char *do_browser(char *path)
 #endif
 			/* TRANSLATORS: This is a prompt. */
 			browser_refresh, _("Go To Directory"));
+
 	    /* If the directory begins with a newline (i.e. an
 	     * encoded null), treat it as though it's blank. */
 	    if (i < 0 || *answer == '\n') {
@@ -256,55 +242,41 @@ char *do_browser(char *path)
 	    sunder(answer);
 	    align(&answer);
 
-	    newpath = real_dir_from_tilde(answer);
+	    path = free_and_assign(path, real_dir_from_tilde(answer));
 
-	    if (newpath[0] != '/') {
-		newpath = charealloc(newpath, strlen(path) +
-				strlen(answer) + 1);
-		sprintf(newpath, "%s%s", path, answer);
+	    /* If the given path is relative, join it with the current path. */
+	    if (*path != '/') {
+		path = charealloc(path, strlen(present_path) +
+						strlen(answer) + 1);
+		sprintf(path, "%s%s", present_path, answer);
 	    }
 
 #ifndef DISABLE_OPERATINGDIR
-	    if (check_operating_dir(newpath, FALSE)) {
+	    if (check_operating_dir(path, FALSE)) {
 		/* TRANSLATORS: This refers to the confining effect of the
 		 * option --operatingdir, not of --restricted. */
 		statusline(ALERT, _("Can't go outside of %s"),
 				full_operating_dir);
-		free(newpath);
-		newpath = NULL;
+		path = mallocstrcpy(path, present_path);
 		continue;
 	    }
 #endif
+	    /* Snip any trailing slashes, so the name can be compared. */
+	    while (strlen(path) > 1 && path[strlen(path) - 1] == '/')
+		path[strlen(path) - 1] = '\0';
+
 	    /* In case the specified directory cannot be entered, select it
 	     * (if it is in the current list) so it will be highlighted. */
 	    for (i = 0; i < filelist_len; i++)
-		if (strcmp(filelist[i], newpath) == 0)
+		if (strcmp(filelist[i], path) == 0)
 		    selected = i;
 
 	    /* Try opening and reading the specified directory. */
 	    goto read_directory_contents;
-	} else if (func == do_up_void) {
-	    if (selected >= width)
-		selected -= width;
-	} else if (func == do_down_void) {
-	    if (selected + width <= filelist_len - 1)
-		selected += width;
-#ifndef NANO_TINY
-	} else if (func == do_prev_word_void) {
-	    selected -= (selected % width);
-	} else if (func == do_next_word_void) {
-	    selected += width - 1 - (selected % width);
-	    if (selected >= filelist_len)
-		selected = filelist_len - 1;
-#endif
-	} else if (func == do_left) {
-	    if (selected > 0)
-		selected--;
-	} else if (func == do_right) {
-	    if (selected < filelist_len - 1)
-		selected++;
 	} else if (func == do_enter) {
-	    /* We can't move up from "/". */
+	    struct stat st;
+
+	    /* It isn't possible to move up from the root directory. */
 	    if (strcmp(filelist[selected], "/..") == 0) {
 		statusline(ALERT, _("Can't move up a directory"));
 		continue;
@@ -320,16 +292,15 @@ char *do_browser(char *path)
 		continue;
 	    }
 #endif
-
+	    /* If for some reason the file is inaccessible, complain. */
 	    if (stat(filelist[selected], &st) == -1) {
-		/* We can't open this file for some reason.  Complain. */
 		statusline(ALERT, _("Error reading %s: %s"),
 				filelist[selected], strerror(errno));
 		continue;
 	    }
 
+	    /* If it isn't a directory, a file was selected -- we're done. */
 	    if (!S_ISDIR(st.st_mode)) {
-		/* We've successfully opened a file, so we're done. */
 		retval = mallocstrcpy(NULL, filelist[selected]);
 		break;
 	    }
@@ -340,13 +311,27 @@ char *do_browser(char *path)
 		present_name = striponedir(filelist[selected]);
 
 	    /* Try opening and reading the selected directory. */
-	    newpath = strdup(filelist[selected]);
+	    path = mallocstrcpy(path, filelist[selected]);
 	    goto read_directory_contents;
 	} else if (func == do_exit) {
 	    /* Exit from the file browser. */
 	    break;
+#ifndef NANO_TINY
+	} else if (kbinput == KEY_WINCH) {
+	    ;
+#endif
 	} else
 	    unbound_key(kbinput);
+
+#ifndef NANO_TINY
+	/* If the window resized, refresh the file list. */
+	if (kbinput == KEY_WINCH) {
+	    /* Remember the selected file, to be able to reselect it. */
+	    present_name = mallocstrcpy(NULL, filelist[selected]);
+	    /* Reread the contents of the current directory. */
+	    goto read_directory_contents;
+	}
+#endif
     }
 
     titlebar(NULL);
@@ -381,7 +366,7 @@ char *do_browse_from(const char *inpath)
      * at all.  If so, we'll just pass the current directory to
      * do_browser(). */
     if (stat(path, &st) == -1 || !S_ISDIR(st.st_mode)) {
-	path = mallocstrassn(path, striponedir(path));
+	path = free_and_assign(path, striponedir(path));
 
 	if (stat(path, &st) == -1 || !S_ISDIR(st.st_mode)) {
 	    char * currentdir = charalloc(PATH_MAX + 1);
@@ -695,13 +680,13 @@ int filesearch_init(void)
     /* This is now one simple call.  It just does a lot. */
     input = do_prompt(FALSE,
 #ifndef DISABLE_TABCOMP
-	TRUE,
+		TRUE,
 #endif
-	MWHEREISFILE, NULL,
+		MWHEREISFILE, NULL,
 #ifndef DISABLE_HISTORIES
-	&search_history,
+		&search_history,
 #endif
-	browser_refresh, "%s%s", _("Search"), buf);
+		browser_refresh, "%s%s", _("Search"), buf);
 
     /* Release buf now that we don't need it anymore. */
     free(buf);

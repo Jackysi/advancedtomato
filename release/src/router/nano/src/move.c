@@ -1,22 +1,22 @@
 /**************************************************************************
- *   move.c                                                               *
+ *   move.c  --  This file is part of GNU nano.                           *
  *                                                                        *
  *   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,  *
  *   2008, 2009, 2010, 2011, 2013, 2014 Free Software Foundation, Inc.    *
- *   This program is free software; you can redistribute it and/or modify *
- *   it under the terms of the GNU General Public License as published by *
- *   the Free Software Foundation; either version 3, or (at your option)  *
- *   any later version.                                                   *
+ *   Copyright (C) 2014, 2015, 2016 Benno Schulenberg                     *
  *                                                                        *
- *   This program is distributed in the hope that it will be useful, but  *
- *   WITHOUT ANY WARRANTY; without even the implied warranty of           *
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU    *
- *   General Public License for more details.                             *
+ *   GNU nano is free software: you can redistribute it and/or modify     *
+ *   it under the terms of the GNU General Public License as published    *
+ *   by the Free Software Foundation, either version 3 of the License,    *
+ *   or (at your option) any later version.                               *
+ *                                                                        *
+ *   GNU nano is distributed in the hope that it will be useful,          *
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty          *
+ *   of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.              *
+ *   See the GNU General Public License for more details.                 *
  *                                                                        *
  *   You should have received a copy of the GNU General Public License    *
- *   along with this program; if not, write to the Free Software          *
- *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA            *
- *   02110-1301, USA.                                                     *
+ *   along with this program.  If not, see http://www.gnu.org/licenses/.  *
  *                                                                        *
  **************************************************************************/
 
@@ -50,15 +50,15 @@ void do_last_line(void)
 /* Move up one page. */
 void do_page_up(void)
 {
-    int i, skipped = 0;
+    int i, mustmove, skipped = 0;
 
     /* If the cursor is less than a page away from the top of the file,
      * put it at the beginning of the first line. */
     if (openfile->current->lineno == 1 || (
 #ifndef NANO_TINY
-	!ISSET(SOFTWRAP) &&
+		!ISSET(SOFTWRAP) &&
 #endif
-	openfile->current->lineno <= editwinrows - 2)) {
+		openfile->current->lineno <= editwinrows - 2)) {
 	do_first_line();
 	return;
     }
@@ -66,16 +66,16 @@ void do_page_up(void)
     /* If we're not in smooth scrolling mode, put the cursor at the
      * beginning of the top line of the edit window, as Pico does. */
 #ifndef NANO_TINY
-    if (!ISSET(SMOOTH_SCROLL)) {
+    if (!ISSET(SMOOTH_SCROLL))
 #endif
+    {
 	openfile->current = openfile->edittop;
 	openfile->placewewant = openfile->current_y = 0;
-#ifndef NANO_TINY
     }
-#endif
 
-    for (i = editwinrows - 2; i - skipped > 0 && openfile->current !=
-	openfile->fileage; i--) {
+    mustmove = (editwinrows < 3) ? 1 : editwinrows - 2;
+
+    for (i = mustmove; i - skipped > 0 && openfile->current != openfile->fileage; i--) {
 	openfile->current = openfile->current->prev;
 #ifndef NANO_TINY
 	if (ISSET(SOFTWRAP) && openfile->current) {
@@ -93,7 +93,7 @@ void do_page_up(void)
 
 #ifdef DEBUG
     fprintf(stderr, "do_page_up: openfile->current->lineno = %lu, skipped = %d\n",
-	(unsigned long)openfile->current->lineno, skipped);
+			(unsigned long)openfile->current->lineno, skipped);
 #endif
 
     /* Scroll the edit window up a page. */
@@ -104,7 +104,7 @@ void do_page_up(void)
 /* Move down one page. */
 void do_page_down(void)
 {
-    int i;
+    int i, mustmove;
 
     /* If the cursor is less than a page away from the bottom of the file,
      * put it at the end of the last line. */
@@ -116,16 +116,16 @@ void do_page_down(void)
     /* If we're not in smooth scrolling mode, put the cursor at the
      * beginning of the top line of the edit window, as Pico does. */
 #ifndef NANO_TINY
-    if (!ISSET(SMOOTH_SCROLL)) {
+    if (!ISSET(SMOOTH_SCROLL))
 #endif
+    {
 	openfile->current = openfile->edittop;
 	openfile->placewewant = openfile->current_y = 0;
-#ifndef NANO_TINY
     }
-#endif
 
-    for (i = maxrows - 2; i > 0 && openfile->current !=
-	openfile->filebot; i--) {
+    mustmove = (maxrows < 3) ? 1 : maxrows - 2;
+
+    for (i = mustmove; i > 0 && openfile->current != openfile->filebot; i--) {
 	openfile->current = openfile->current->next;
 #ifdef DEBUG
 	fprintf(stderr, "do_page_down: moving to line %lu\n", (unsigned long)openfile->current->lineno);
@@ -210,6 +210,46 @@ void do_para_end_void(void)
 #endif /* !DISABLE_JUSTIFY */
 
 #ifndef NANO_TINY
+/* Move to the preceding block of text in the file. */
+void do_prev_block(void)
+{
+    filestruct *was_current = openfile->current;
+    bool is_text = FALSE, seen_text = FALSE;
+
+    /* Skip backward until first blank line after some nonblank line(s). */
+    while (openfile->current->prev != NULL && (!seen_text || is_text)) {
+	openfile->current = openfile->current->prev;
+	is_text = !white_string(openfile->current->data);
+	seen_text = seen_text || is_text;
+    }
+
+    /* Step forward one line again if this one is blank. */
+    if (openfile->current->next != NULL &&
+		white_string(openfile->current->data))
+	openfile->current = openfile->current->next;
+
+    openfile->current_x = 0;
+    edit_redraw(was_current);
+}
+
+/* Move to the next block of text in the file. */
+void do_next_block(void)
+{
+    filestruct *was_current = openfile->current;
+    bool is_white = white_string(openfile->current->data);
+    bool seen_white = is_white;
+
+    /* Skip forward until first nonblank line after some blank line(s). */
+    while (openfile->current->next != NULL && (!seen_white || is_white)) {
+	openfile->current = openfile->current->next;
+	is_white = white_string(openfile->current->data);
+	seen_white = seen_white || is_white;
+    }
+
+    openfile->current_x = 0;
+    edit_redraw(was_current);
+}
+
 /* Move to the previous word in the file.  If allow_punct is TRUE, treat
  * punctuation as part of a word.  If allow_update is TRUE, update the
  * screen afterwards. */
@@ -328,7 +368,7 @@ void do_next_word_void(void)
  * if we are. */
 void do_home(void)
 {
-    size_t pww_save = openfile->placewewant;
+    size_t was_column = xplustabs();
 
 #ifndef NANO_TINY
     if (ISSET(SMART_HOME)) {
@@ -345,32 +385,28 @@ void do_home(void)
 
     openfile->placewewant = xplustabs();
 
-    if (need_screen_update(pww_save))
+    if (need_horizontal_scroll(was_column, openfile->placewewant))
 	update_line(openfile->current, openfile->current_x);
 }
 
 /* Move to the end of the current line. */
 void do_end(void)
 {
-    size_t pww_save = openfile->placewewant;
+    size_t was_column = xplustabs();
 
     openfile->current_x = strlen(openfile->current->data);
     openfile->placewewant = xplustabs();
 
-    if (need_screen_update(pww_save))
+    if (need_horizontal_scroll(was_column, openfile->placewewant))
 	update_line(openfile->current, openfile->current_x);
 }
 
 /* If scroll_only is FALSE, move up one line.  If scroll_only is TRUE,
  * scroll up one line without scrolling the cursor. */
-void do_up(
-#ifndef NANO_TINY
-	bool scroll_only
-#else
-	void
-#endif
-	)
+void do_up(bool scroll_only)
 {
+    size_t was_column = xplustabs();
+
     /* If we're at the top of the file, or if scroll_only is TRUE and
      * the top of the file is onscreen, get out. */
     if (openfile->current == openfile->fileage
@@ -403,47 +439,32 @@ void do_up(
 #endif
 		editwinrows / 2 + 1);
 
-    /* If we're not on the first line of the edit window, and the target
-     * column is beyond the screen or the mark is on, redraw the prior
-     * and current lines. */
-    if (openfile->current_y > 0 && need_screen_update(0)) {
-	update_line(openfile->current->next, 0);
-	update_line(openfile->current, openfile->current_x);
+    /* If the lines weren't already redrawn, see if they need to be. */
+    if (openfile->current_y > 0) {
+	/* Redraw the prior line if it was horizontally scrolled. */
+	if (need_horizontal_scroll(was_column, 0))
+	    update_line(openfile->current->next, 0);
+	/* Redraw the current line if it needs to be horizontally scrolled. */
+	if (need_horizontal_scroll(0, xplustabs()))
+	    update_line(openfile->current, openfile->current_x);
     }
 }
 
 /* Move up one line. */
 void do_up_void(void)
 {
-    do_up(
-#ifndef NANO_TINY
-	FALSE
-#endif
-	);
+    do_up(FALSE);
 }
-
-#ifndef NANO_TINY
-/* Scroll up one line without scrolling the cursor. */
-void do_scroll_up(void)
-{
-    do_up(TRUE);
-}
-#endif
 
 /* If scroll_only is FALSE, move down one line.  If scroll_only is TRUE,
  * scroll down one line without scrolling the cursor. */
-void do_down(
-#ifndef NANO_TINY
-	bool scroll_only
-#else
-	void
-#endif
-	)
+void do_down(bool scroll_only)
 {
 #ifndef NANO_TINY
     int amount = 0, enough;
     filestruct *topline;
 #endif
+    size_t was_column = xplustabs();
 
     /* If we're at the bottom of the file, get out. */
     if (openfile->current == openfile->filebot)
@@ -503,26 +524,30 @@ void do_down(
 	}
     }
 
-    /* If we're not on the last line of the edit window, and the target
-     * column is beyond the screen or the mark is on, redraw the prior
-     * and current lines. */
-    if (openfile->current_y < editwinrows - 1 && need_screen_update(0)) {
-	update_line(openfile->current->prev, 0);
-	update_line(openfile->current, openfile->current_x);
+    /* If the lines weren't already redrawn, see if they need to be. */
+    if (openfile->current_y < editwinrows - 1) {
+	/* Redraw the prior line if it was horizontally scrolled. */
+	if (need_horizontal_scroll(was_column, 0))
+	    update_line(openfile->current->prev, 0);
+	/* Redraw the current line if it needs to be horizontally scrolled. */
+	if (need_horizontal_scroll(0, xplustabs()))
+	    update_line(openfile->current, openfile->current_x);
     }
 }
 
 /* Move down one line. */
 void do_down_void(void)
 {
-    do_down(
-#ifndef NANO_TINY
-	FALSE
-#endif
-	);
+    do_down(FALSE);
 }
 
 #ifndef NANO_TINY
+/* Scroll up one line without scrolling the cursor. */
+void do_scroll_up(void)
+{
+    do_up(TRUE);
+}
+
 /* Scroll down one line without scrolling the cursor. */
 void do_scroll_down(void)
 {
@@ -533,7 +558,7 @@ void do_scroll_down(void)
 /* Move left one character. */
 void do_left(void)
 {
-    size_t pww_save = openfile->placewewant;
+    size_t was_column = xplustabs();
 
     if (openfile->current_x > 0)
 	openfile->current_x = move_mbleft(openfile->current->data,
@@ -545,14 +570,14 @@ void do_left(void)
 
     openfile->placewewant = xplustabs();
 
-    if (need_screen_update(pww_save))
+    if (need_horizontal_scroll(was_column, openfile->placewewant))
 	update_line(openfile->current, openfile->current_x);
 }
 
 /* Move right one character. */
 void do_right(void)
 {
-    size_t pww_save = openfile->placewewant;
+    size_t was_column = xplustabs();
 
     assert(openfile->current_x <= strlen(openfile->current->data));
 
@@ -560,12 +585,16 @@ void do_right(void)
 	openfile->current_x = move_mbright(openfile->current->data,
 						openfile->current_x);
     else if (openfile->current != openfile->filebot) {
-	do_down_void();
 	openfile->current_x = 0;
+	openfile->placewewant = 0;
+	if (need_horizontal_scroll(was_column, 0))
+	    update_line(openfile->current, 0);
+	do_down_void();
+	return;
     }
 
     openfile->placewewant = xplustabs();
 
-    if (need_screen_update(pww_save))
+    if (need_horizontal_scroll(was_column, openfile->placewewant))
 	update_line(openfile->current, openfile->current_x);
 }

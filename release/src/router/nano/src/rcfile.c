@@ -1,22 +1,23 @@
 /**************************************************************************
- *   rcfile.c                                                             *
+ *   rcfile.c  --  This file is part of GNU nano.                         *
  *                                                                        *
  *   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,  *
  *   2010, 2011, 2013, 2014 Free Software Foundation, Inc.                *
- *   This program is free software; you can redistribute it and/or modify *
- *   it under the terms of the GNU General Public License as published by *
- *   the Free Software Foundation; either version 3, or (at your option)  *
- *   any later version.                                                   *
+ *   Copyright (C) 2014 Mike Frysinger                                    *
+ *   Copyright (C) 2014, 2015, 2016 Benno Schulenberg                     *
  *                                                                        *
- *   This program is distributed in the hope that it will be useful, but  *
- *   WITHOUT ANY WARRANTY; without even the implied warranty of           *
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU    *
- *   General Public License for more details.                             *
+ *   GNU nano is free software: you can redistribute it and/or modify     *
+ *   it under the terms of the GNU General Public License as published    *
+ *   by the Free Software Foundation, either version 3 of the License,    *
+ *   or (at your option) any later version.                               *
+ *                                                                        *
+ *   GNU nano is distributed in the hope that it will be useful,          *
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty          *
+ *   of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.              *
+ *   See the GNU General Public License for more details.                 *
  *                                                                        *
  *   You should have received a copy of the GNU General Public License    *
- *   along with this program; if not, write to the Free Software          *
- *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA            *
- *   02110-1301, USA.                                                     *
+ *   along with this program.  If not, see http://www.gnu.org/licenses/.  *
  *                                                                        *
  **************************************************************************/
 
@@ -102,6 +103,7 @@ static const rcoption rcopts[] = {
     {"unix", MAKE_IT_UNIX},
     {"whitespace", 0},
     {"wordbounds", WORD_BOUNDS},
+    {"wordchars", 0},
 #endif
 #ifndef DISABLE_COLOR
     {"titlecolor", 0},
@@ -469,20 +471,18 @@ void parse_binding(char *ptr, bool dobind)
 	    goto free_copy;
 	}
 
-	newsc->keystr = keycopy;
 	newsc->menus = menu;
-	newsc->type = strtokeytype(newsc->keystr);
-	assign_keyinfo(newsc);
+	assign_keyinfo(newsc, keycopy);
 
-	/* Do not allow rebinding the equivalent of the Escape key. */
-	if (newsc->type == META && newsc->seq == 91) {
+	/* Do not allow rebinding a frequent escape-sequence starter: Esc [. */
+	if (newsc->meta && newsc->keycode == 91) {
 	    rcfile_error(N_("Sorry, keystroke \"%s\" may not be rebound"), newsc->keystr);
 	    free(newsc);
 	    goto free_copy;
 	}
 #ifdef DEBUG
 	fprintf(stderr, "s->keystr = \"%s\"\n", newsc->keystr);
-	fprintf(stderr, "s->seq = \"%d\"\n", newsc->seq);
+	fprintf(stderr, "s->keycode = \"%d\"\n", newsc->keycode);
 #endif
     }
 
@@ -657,7 +657,7 @@ void parse_colors(char *ptr, int rex_flags)
     /* Now for the fun part.  Start adding regexes to individual strings
      * in the colorstrings array, woo! */
     while (ptr != NULL && *ptr != '\0') {
-	colortype *newcolor;
+	colortype *newcolor = NULL;
 	    /* The container for a color plus its regexes. */
 	bool goodstart;
 	    /* Whether the start expression was valid. */
@@ -1067,7 +1067,8 @@ void parse_rcfile(FILE *rcstream
 	}
 
 #ifdef DEBUG
-	fprintf(stderr, "parse_rcfile(): option name = \"%s\"\n", rcopts[i].name);
+	fprintf(stderr, "    Option name = \"%s\"\n", rcopts[i].name);
+	fprintf(stderr, "    Flag = %ld\n", rcopts[i].flag);
 #endif
 	/* First handle unsetting. */
 	if (set == -1) {
@@ -1098,7 +1099,7 @@ void parse_rcfile(FILE *rcstream
 
 	option = mallocstrcpy(NULL, option);
 #ifdef DEBUG
-	fprintf(stderr, "option argument = \"%s\"\n", option);
+	fprintf(stderr, "    Option argument = \"%s\"\n", option);
 #endif
 	/* Make sure the option argument is a valid multibyte string. */
 	if (!is_valid_mbstring(option)) {
@@ -1176,6 +1177,9 @@ void parse_rcfile(FILE *rcstream
 	if (strcasecmp(rcopts[i].name, "backupdir") == 0)
 	    backup_dir = option;
 	else
+	if (strcasecmp(rcopts[i].name, "wordchars") == 0)
+	    word_chars = option;
+	else
 #endif
 #ifndef DISABLE_SPELLER
 	if (strcasecmp(rcopts[i].name, "speller") == 0)
@@ -1191,10 +1195,6 @@ void parse_rcfile(FILE *rcstream
 		free(option);
 	} else
 	    assert(FALSE);
-
-#ifdef DEBUG
-	fprintf(stderr, "flag = %ld\n", rcopts[i].flag);
-#endif
     }
 
 #ifndef DISABLE_COLOR

@@ -1,5 +1,21 @@
 AM_CPPFLAGS = -DLOCALEDIR=\"$(localedir)\" -DSYSCONFDIR=\"$(sysconfdir)\"
 
+if BUILDING_FROM_GIT
+SOMETHING = "REVISION \"$(shell git describe --tags 2>/dev/null)\""
+else
+SOMETHING = "NOTHING \"from tarball\""
+endif
+
+nano.o: revision.h
+winio.o: revision.h
+
+revision.h: update_revision
+	@[ -f $@ ] || touch $@
+	@echo "#define $(SOMETHING)" | cmp -s $@ - || \
+	echo "#define $(SOMETHING)" > $@
+
+.PHONY: update_revision
+
 bin_PROGRAMS = 	nano
 nano_SOURCES =	browser.c \
 		chars.c \

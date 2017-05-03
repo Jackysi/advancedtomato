@@ -1,5 +1,5 @@
 <!-- Creator     : groff version 1.22.3 -->
-<!-- CreationDate: Mon Jun 27 11:54:11 2016 -->
+<!-- CreationDate: Thu Sep  1 12:41:50 2016 -->
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">
 <html>
@@ -38,7 +38,7 @@
 
 
 <p style="margin-left:11%; margin-top: 1em">nanorc &minus;
-nano&rsquo;s rcfile</p>
+GNU nano&rsquo;s rcfile</p>
 
 <h2>DESCRIPTION
 <a name="DESCRIPTION"></a>
@@ -406,9 +406,17 @@ single-column characters.</p>
 
 <p style="margin-left:11%;"><b>set wordbounds</b></p>
 
-<p style="margin-left:15%;">Detect word boundaries more
-accurately by treating punctuation characters as parts of
+<p style="margin-left:15%;">Detect word boundaries
+differently by treating punctuation characters as parts of
 words.</p>
+
+<p style="margin-left:11%;"><b>set wordchars</b>
+<i>string</i></p>
+
+<p style="margin-left:15%;">Specify which other characters
+(besides the normal alphanumeric ones) should be considered
+as parts of words. This overrides the option
+<b>wordbounds</b>.</p>
 
 <h2>SYNTAX HIGHLIGHTING
 <a name="SYNTAX HIGHLIGHTING"></a>
@@ -825,6 +833,17 @@ beginning of the current paragraph.</p>
 
 <p style="margin-left:18%;">Moves the cursor to the end of
 the current paragraph.</p>
+
+<p style="margin-left:15%;"><b>prevblock</b></p>
+
+<p style="margin-left:18%;">Moves the cursor to the
+beginning of the current or preceding block of text. (Blocks
+are separated by one or more blank lines.)</p>
+
+<p style="margin-left:15%;"><b>nextblock</b></p>
+
+<p style="margin-left:18%;">Moves the cursor to the
+beginning of the next block of text.</p>
 
 <p style="margin-left:15%;"><b>prevpage</b></p>
 

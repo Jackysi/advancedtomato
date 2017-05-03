@@ -1,22 +1,22 @@
 /**************************************************************************
- *   global.c                                                             *
+ *   global.c  --  This file is part of GNU nano.                          *
  *                                                                        *
  *   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,  *
  *   2008, 2009, 2010, 2011, 2013, 2014 Free Software Foundation, Inc.    *
- *   This program is free software; you can redistribute it and/or modify *
- *   it under the terms of the GNU General Public License as published by *
- *   the Free Software Foundation; either version 3, or (at your option)  *
- *   any later version.                                                   *
+ *   Copyright (C) 2014, 2015, 2016 Benno Schulenberg                     *
  *                                                                        *
- *   This program is distributed in the hope that it will be useful, but  *
- *   WITHOUT ANY WARRANTY; without even the implied warranty of           *
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU    *
- *   General Public License for more details.                             *
+ *   GNU nano is free software: you can redistribute it and/or modify     *
+ *   it under the terms of the GNU General Public License as published    *
+ *   by the Free Software Foundation, either version 3 of the License,    *
+ *   or (at your option) any later version.                               *
+ *                                                                        *
+ *   GNU nano is distributed in the hope that it will be useful,          *
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty          *
+ *   of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.              *
+ *   See the GNU General Public License for more details.                 *
  *                                                                        *
  *   You should have received a copy of the GNU General Public License    *
- *   along with this program; if not, write to the Free Software          *
- *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA            *
- *   02110-1301, USA.                                                     *
+ *   along with this program.  If not, see http://www.gnu.org/licenses/.  *
  *                                                                        *
  **************************************************************************/
 
@@ -33,10 +33,15 @@ volatile sig_atomic_t sigwinch_counter = 0;
 	/* Is incremented by the handler whenever a SIGWINCH occurs. */
 #endif
 
+#if defined(__linux__) && !defined(NANO_TINY)
+bool console;
+	/* Whether we're running on a Linux VC (TRUE) or under X (FALSE). */
+#endif
+
 bool meta_key;
 	/* Whether the current keystroke is a Meta key. */
-bool func_key;
-	/* Whether the current keystroke is an extended keypad value. */
+bool shift_held;
+	/* Whether Shift was being held together with a movement key. */
 bool focusing = TRUE;
 	/* Whether an update of the edit window should center the cursor. */
 
@@ -44,8 +49,9 @@ message_type lastmessage = HUSH;
 	/* Messages of type HUSH should not overwrite type MILD nor ALERT. */
 
 #ifndef NANO_TINY
-int controlleft = CONTROL_LEFT;
-int controlright = CONTROL_RIGHT;
+int controlleft, controlright, controlup, controldown;
+int shiftcontrolleft, shiftcontrolright, shiftcontrolup, shiftcontroldown;
+int shiftaltleft, shiftaltright, shiftaltup, shiftaltdown;
 #endif
 
 #ifndef DISABLE_WRAPJUSTIFY
@@ -123,6 +129,9 @@ size_t quotelen;
 	/* The length of the quoting string in bytes. */
 #endif
 #endif
+
+char *word_chars = NULL;
+	/* Nonalphanumeric characters that also form words. */
 
 bool nodelay_mode = FALSE;
 	/* Are we checking for a cancel wile doing something? */
@@ -212,7 +221,7 @@ int hilite_attribute = A_REVERSE;
 char* specified_color_combo[] = {};
 	/* The color combinations as specified in the rcfile. */
 #endif
-color_pair interface_color_pair[] = {};
+int interface_color_pair[] = {};
 	/* The processed color pairs for the interface elements. */
 
 char *homedir = NULL;
@@ -225,9 +234,9 @@ size_t length_of_list(int menu)
     size_t i = 0;
 
     for (f = allfuncs; f != NULL; f = f->next)
-	if ((f->menus & menu) != 0) {
+	if ((f->menus & menu) && first_sc_for(menu, f->scfunc) != NULL)
 	    i++;
-	}
+
     return i;
 }
 
@@ -334,12 +343,10 @@ void add_to_sclist(int menus, const char *scstring, void (*func)(void), int togg
     s->toggle = toggle;
     if (toggle)
 	s->ordinal = ++counter;
-    s->keystr = (char *) scstring;
-    s->type = strtokeytype(scstring);
-    assign_keyinfo(s);
+    assign_keyinfo(s, scstring);
 
 #ifdef DEBUG
-    fprintf(stderr, "Setting sequence to %d for shortcut \"%s\" in menus %x\n", s->seq, scstring, s->menus);
+    fprintf(stderr, "Setting keycode to %d for shortcut \"%s\" in menus %x\n", s->keycode, scstring, s->menus);
 #endif
 }
 
@@ -377,8 +384,8 @@ int sc_seq_or(void (*func)(void), int defaultval)
     const sc *s = first_sc_for(currmenu, func);
 
     if (s) {
-	meta_key = (s->type == META);
-	return s->seq;
+	meta_key = s->meta;
+	return s->keycode;
     }
     /* else */
     return defaultval;
@@ -395,71 +402,54 @@ functionptrtype func_from_key(int *kbinput)
 	return NULL;
 }
 
-/* Return the type of command key based on the given string. */
-key_type strtokeytype(const char *str)
+/* Set the string and its corresponding keycode for the given shortcut s. */
+void assign_keyinfo(sc *s, const char *keystring)
 {
-    if (str[0] == '^')
-	return CONTROL;
-    else if (str[0] == 'M')
-	return META;
-    else if (str[0] == 'F')
-	return FKEY;
-    else
-	return RAWINPUT;
-}
+    s->keystr = keystring;
+    s->meta = (keystring[0] == 'M');
 
-/* Assign the info to the shortcut struct.
- * Assumes keystr is already assigned, naturally. */
-void assign_keyinfo(sc *s)
-{
-    if (s->type == CONTROL) {
-	assert(strlen(s->keystr) > 1);
-	s->seq = s->keystr[1] - 64;
-    } else if (s->type == META) {
-	assert(strlen(s->keystr) > 2);
-	s->seq = tolower((int) s->keystr[2]);
-    } else if (s->type == FKEY) {
-	assert(strlen(s->keystr) > 1);
-	s->seq = KEY_F0 + atoi(&s->keystr[1]);
-    } else /* RAWINPUT */
-	s->seq = (int) s->keystr[0];
+    assert(strlen(keystring) > 1 && (!s->meta || strlen(keystring) > 2));
 
-    /* Override some keys which don't bind as easily as we'd like. */
-    if (s->type == CONTROL && (!strcasecmp(&s->keystr[1], "space")))
-	s->seq = 0;
-    else if (s->type == META && (!strcasecmp(&s->keystr[2], "space")))
-	s->seq = (int) ' ';
-    else if (s->type == RAWINPUT) {
-	if (!strcasecmp(s->keystr, "Up"))
-	    s->seq = KEY_UP;
-	else if (!strcasecmp(s->keystr, "Down"))
-	    s->seq = KEY_DOWN;
-	else if (!strcasecmp(s->keystr, "Left"))
-	    s->seq = KEY_LEFT;
-	else if (!strcasecmp(s->keystr, "Right"))
-	    s->seq = KEY_RIGHT;
-	else if (!strcasecmp(s->keystr, "Ins"))
-	    s->seq = KEY_IC;
-	else if (!strcasecmp(s->keystr, "Del"))
-	    s->seq = KEY_DC;
-	else if (!strcasecmp(s->keystr, "Bsp"))
-	    s->seq = KEY_BACKSPACE;
-	/* The Tab and Enter keys don't actually produce special codes
-	 * but the exact integer values of ^I and ^M.  Rebinding the
-	 * latter therefore also rebinds Tab and Enter. */
-	else if (!strcasecmp(s->keystr, "Tab"))
-	    s->seq = NANO_CONTROL_I;
-	else if (!strcasecmp(s->keystr, "Enter"))
-	    s->seq = KEY_ENTER;
-	else if (!strcasecmp(s->keystr, "PgUp"))
-	    s->seq = KEY_PPAGE;
-	else if (!strcasecmp(s->keystr, "PgDn"))
-	    s->seq = KEY_NPAGE;
-	else if (!strcasecmp(s->keystr, "Home"))
-	    s->seq = KEY_HOME;
-	else if (!strcasecmp(s->keystr, "End"))
-	    s->seq = KEY_END;
-    }
+    if (keystring[0] == '^') {
+	s->keycode = keystring[1] - 64;
+	if (strcasecmp(keystring, "^Space") == 0)
+	    s->keycode = 0;
+    } else if (s->meta) {
+	s->keycode = tolower((int)keystring[2]);
+	if (strcasecmp(keystring, "M-Space") == 0)
+	    s->keycode = (int)' ';
+    } else if (keystring[0] == 'F')
+	s->keycode = KEY_F0 + atoi(&keystring[1]);
+    /* Catch the strings that don't bind as easily as we'd like. */
+    else if (!strcasecmp(keystring, "Up"))
+	s->keycode = KEY_UP;
+    else if (!strcasecmp(keystring, "Down"))
+	s->keycode = KEY_DOWN;
+    else if (!strcasecmp(keystring, "Left"))
+	s->keycode = KEY_LEFT;
+    else if (!strcasecmp(keystring, "Right"))
+	s->keycode = KEY_RIGHT;
+    else if (!strcasecmp(keystring, "Ins"))
+	s->keycode = KEY_IC;
+    else if (!strcasecmp(keystring, "Del"))
+	s->keycode = KEY_DC;
+    else if (!strcasecmp(keystring, "Bsp"))
+	s->keycode = KEY_BACKSPACE;
+    /* The Tab and Enter keys don't actually produce special codes
+     * but the exact integer values of ^I and ^M.  Rebinding the
+     * latter therefore also rebinds Tab and Enter. */
+    else if (!strcasecmp(keystring, "Tab"))
+	s->keycode = TAB_CODE;
+    else if (!strcasecmp(keystring, "Enter"))
+	s->keycode = KEY_ENTER;
+    else if (!strcasecmp(keystring, "PgUp"))
+	s->keycode = KEY_PPAGE;
+    else if (!strcasecmp(keystring, "PgDn"))
+	s->keycode = KEY_NPAGE;
+    else if (!strcasecmp(keystring, "Home"))
+	s->keycode = KEY_HOME;
+    else if (!strcasecmp(keystring, "End"))
+	s->keycode = KEY_END;
 }
 
 #ifdef DEBUG
@@ -570,6 +560,10 @@ void shortcut_init(void)
     const char *nano_nextline_msg = N_("Go to next line");
     const char *nano_home_msg = N_("Go to beginning of current line");
     const char *nano_end_msg = N_("Go to end of current line");
+#ifndef NANO_TINY
+    const char *nano_prevblock_msg = N_("Go to previous block of text");
+    const char *nano_nextblock_msg = N_("Go to next block of text");
+#endif
 #ifndef DISABLE_JUSTIFY
     const char *nano_parabegin_msg =
 	N_("Go to beginning of paragraph; then of previous paragraph");
@@ -869,6 +863,13 @@ void shortcut_init(void)
     add_to_funcs(do_down_void, MMAIN|MBROWSER,
 	next_line_tag, IFSCHELP(nano_nextline_msg), BLANKAFTER, VIEW);
 
+#ifndef NANO_TINY
+    add_to_funcs(do_prev_block, MMAIN,
+	N_("Prev Block"), IFSCHELP(nano_prevblock_msg), TOGETHER, VIEW);
+    add_to_funcs(do_next_block, MMAIN,
+	N_("Next Block"), IFSCHELP(nano_nextblock_msg), TOGETHER, VIEW);
+#endif
+
 #ifndef DISABLE_JUSTIFY
     add_to_funcs(do_para_begin_void, MMAIN|MWHEREIS,
 	N_("Beg of Par"), IFSCHELP(nano_parabegin_msg), TOGETHER, VIEW);
@@ -1130,6 +1131,10 @@ void shortcut_init(void)
     add_to_sclist(MMAIN|MHELP|MBROWSER, "Up", do_up_void, 0);
     add_to_sclist(MMAIN|MHELP|MBROWSER, "^N", do_down_void, 0);
     add_to_sclist(MMAIN|MHELP|MBROWSER, "Down", do_down_void, 0);
+#ifndef NANO_TINY
+    add_to_sclist(MMAIN, "M-7", do_prev_block, 0);
+    add_to_sclist(MMAIN, "M-8", do_next_block, 0);
+#endif
 #ifndef DISABLE_JUSTIFY
     add_to_sclist(MMAIN, "M-(", do_para_begin_void, 0);
     add_to_sclist(MMAIN, "M-9", do_para_begin_void, 0);
@@ -1360,6 +1365,7 @@ sc *strtosc(const char *input)
     sc *s;
 
     s = (sc *)nmalloc(sizeof(sc));
+    s->toggle = 0;
 
 #ifndef DISABLE_HELP
     if (!strcasecmp(input, "help"))
@@ -1450,6 +1456,10 @@ sc *strtosc(const char *input)
 	s->scfunc = do_cut_prev_word;
     else if (!strcasecmp(input, "cutwordright"))
 	s->scfunc = do_cut_next_word;
+    else if (!strcasecmp(input, "prevblock"))
+	s->scfunc = do_prev_block;
+    else if (!strcasecmp(input, "nextblock"))
+	s->scfunc = do_next_block;
     else if (!strcasecmp(input, "findbracket"))
 	s->scfunc = do_find_bracket;
     else if (!strcasecmp(input, "wordcount"))
@@ -1669,6 +1679,7 @@ void thanks_for_all_the_fish(void)
     delwin(edit);
     delwin(bottomwin);
 
+    free(word_chars);
 #ifndef DISABLE_JUSTIFY
     free(quotestr);
 #ifdef HAVE_REGEX_H

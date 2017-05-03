@@ -11,7 +11,7 @@ File: nano.info,  Node: Top,  Next: Introduction,  Up: (dir)
 nano
 ****
 
-This manual documents 'nano', a small and friendly text editor.
+This manual documents GNU 'nano', a small and friendly text editor.
 
 * Menu:
 
@@ -32,8 +32,8 @@ File: nano.info,  Node: Introduction,  Next: Invoking,  Prev: Top,  Up: Top
 1 Introduction
 **************
 
-'nano' is a small and friendly text editor.  Besides basic text editing,
-'nano' offers many extra features, such as an interactive
+GNU 'nano' is a small and friendly text editor.  Besides basic text
+editing, 'nano' offers many extra features, such as an interactive
 search-and-replace, undo/redo, syntax coloring, smooth scrolling,
 auto-indentation, go-to-line-and-column-number, feature toggles, file
 locking, backup files, and internationalization support.
@@ -190,8 +190,14 @@ File: nano.info,  Node: Command-line Options,  Next: Editor Basics,  Prev: Invok
 
 '-W'
 '--wordbounds'
-     Detect word boundaries more accurately by treating punctuation
+     Detect word boundaries differently by treating punctuation
      characters as parts of words.
+
+'-X "CHARACTERS"'
+'--wordchars="CHARACTERS"'
+     Specify which other characters (besides the normal alphanumeric
+     ones) should be considered as parts of words.  This overrides
+     option '-W' ('--wordbounds').
 
 '-Y NAME'
 '--syntax=NAME'
@@ -815,8 +821,13 @@ The supported settings in a nanorc file are:
      for a UTF-8 locale is "»·", and for other locales ">.".
 
 'set wordbounds'
-     Detect word boundaries more accurately by treating punctuation
+     Detect word boundaries differently by treating punctuation
      characters as part of a word.
+
+'set wordchars "STRING"'
+     Specify which other characters (besides the normal alphanumeric
+     ones) should be considered as parts of words.  This overrides the
+     option 'wordbounds'.
 
 
 File: nano.info,  Node: Syntax Highlighting,  Next: Rebinding Keys,  Prev: Settings,  Up: Nanorc Files
@@ -1069,6 +1080,13 @@ file:
 
 'endpara'
      Moves the cursor to the end of the current paragraph.
+
+'prevblock'
+     Moves the cursor to the beginning of the current or preceding block
+     of text.  (Blocks are separated by one or more blank lines.)
+
+'nextblock'
+     Moves the cursor to the beginning of the next block of text.
 
 'prevpage'
      Goes up one screenful.
@@ -1463,7 +1481,7 @@ familiar with compiling programs with autoconf support:
 
 '--disable-nls'
      Disables Native Language support.  This will disable the use of any
-     available 'nano' translations.
+     available GNU 'nano' translations.
 
 '--disable-wrapping-as-root'
      Disable hard-wrapping of overlong lines by default when 'nano' is
@@ -1492,28 +1510,28 @@ familiar with compiling programs with autoconf support:
 
 Tag Table:
 Node: Top199
-Node: Introduction556
-Node: Invoking1306
-Node: Command-line Options2099
-Ref: Expert Mode9365
-Node: Editor Basics10327
-Node: Entering Text10610
-Node: Commands11349
-Node: The Cutbuffer12134
-Node: The Mark12812
-Node: Screen Layout13550
-Node: Search and Replace14719
-Node: Using the Mouse15417
-Node: Limitation16033
-Node: Built-in Help16436
-Node: Feature Toggles16827
-Node: Nanorc Files18942
-Node: Settings20374
-Ref: Whitespace27654
-Node: Syntax Highlighting28006
-Node: Rebinding Keys32716
-Node: The File Browser42113
-Node: Pico Compatibility42935
-Node: Building and Configure Options44906
+Node: Introduction560
+Node: Invoking1314
+Node: Command-line Options2107
+Ref: Expert Mode9586
+Node: Editor Basics10548
+Node: Entering Text10831
+Node: Commands11570
+Node: The Cutbuffer12355
+Node: The Mark13033
+Node: Screen Layout13771
+Node: Search and Replace14940
+Node: Using the Mouse15638
+Node: Limitation16254
+Node: Built-in Help16657
+Node: Feature Toggles17048
+Node: Nanorc Files19163
+Node: Settings20595
+Ref: Whitespace27875
+Node: Syntax Highlighting28415
+Node: Rebinding Keys33125
+Node: The File Browser42753
+Node: Pico Compatibility43575
+Node: Building and Configure Options45546
 
 End Tag Table
