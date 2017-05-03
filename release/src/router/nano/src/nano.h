@@ -288,6 +288,8 @@ typedef struct lintstruct {
 	/* Whole line engulfed by the regex, start < me, end > me. */
 #define CSTARTENDHERE	(1<<5)
 	/* Regex starts and ends within this line. */
+#define CWOULDBE	(1<<6)
+	/* An unpaired start match on or before this line. */
 #endif /* !DISABLE_COLOR */
 
 /* More structure types. */

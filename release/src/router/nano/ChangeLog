@@ -1,3 +1,97 @@
+Changes between v2.7.4 and v2.7.5:
+----------------------------------
+
+Benno Schulenberg (65):
+      bump version numbers and add a news item for the 2.7.5 release
+      files: leave out the confusing "[from ./]" when prompting for a command
+      general: stop the spell checker from crashing after the changes in search
+      justify: reduce the character count when trimming trailing spaces
+      painting: account for index maybe being zero after the preceding change
+      painting: advance only when both start /and/ end match are zero-length
+      painting: do not bluntly ignore zero-length start matches -- handle them
+      painting: do not let a match for 'end' overlap a match for 'start'
+      painting: don't look at the current multidata when coloring a line
+      painting: make use of the multidata of the preceding line
+      painting: mark an unpaired start match as CWOULDBE
+      painting: properly detect a change in start/end matches
+      painting: properly look for a new start match only after the end match
+      painting: stay within the line when skipping zero-length matches
+      painting: when skipping a zero-length match, skip a character, not a byte
+      rcfile: don't accept empty regexes for syntax coloring
+      replacing: compensate cursor position only for replacements /before/ it
+      replacing: detect when the whole region has already been covered
+      replacing: don't go outside of the selected region
+      replacing: ignore the first match when the user said no
+      replacing: start at the region's edge instead of one step before it
+      replacing: stop searching in a region when edge of buffer is reached
+      screen: don't compare a character index with a column position
+      screen: ehm... no, that was wrong: page_start /is/ a column position
+      search: begin from where we are, to be able to find the first \B
+      search: make the \b and \B anchors work correctly in both directions
+      spelling: correctly adjust the length of a single-line region
+      spelling: don't unnecessarily fiddle with the viewport
+      startup: report an error when the given line or column number is invalid
+      statusbar: display at most three consecutive alert messages
+      tweaks: adjust some comments, reshuffle a line, and use a while loop
+      tweaks: adjust two comments, to be more accurate
+      tweaks: adjust whitespace after preceding changes
+      tweaks: and rename another variable, to keep in style
+      tweaks: chuck some obscuring debugging stuff
+      tweaks: condense a comment, rename a variable, and use a while loop
+      tweaks: differentiate single-regex matches from paired-regex matches
+      tweaks: discard the now unused multidata-resetting routine
+      tweaks: elide a variable plus its corresponding dark logic
+      tweaks: fiddle with some wordings in the texinfo document
+      tweaks: free an option string also when it was invalid
+      tweaks: move a comment and rewrap a line
+      tweaks: normalize some paragraph formatting in the FAQ
+      tweaks: rearrange some code to separate softwrap and normal mode more
+      tweaks: rename a function, and drop an unneeded parameter
+      tweaks: rename a function, to show it refers to screen rows
+      tweaks: rename another variable, to be shorter
+      tweaks: rename a variable and condense an if
+      tweaks: rename a variable -- lines refers to buffer, rows to screen
+      tweaks: rename a variable, to be more general
+      tweaks: rename a variable, to be more general and match one elsewhere
+      tweaks: rename some variables, to better distinguish rows from lines
+      tweaks: rename some variables, to show they refer to screen rows
+      tweaks: rename two variables, and always pass a valid result back
+      tweaks: rename two variables, to avoid double negatives
+      tweaks: reshuffle an assignment and trim some comments
+      tweaks: reshuffle a test to a better place
+      tweaks: reshuffle three variables
+      tweaks: scrap a bunch of debugging lines -- they obscure the logic
+      tweaks: scrap some debugging stuff
+      tweaks: slightly speed up the change detection for multiline matches
+      tweaks: swap two blocks of code to reduce the number of #ifdefs
+      tweaks: update some copyright years
+      tweaks: use a cheaper way to detect an end-of-line
+      tweaks: use a subtraction instead of a counter
+
+David Lawrence Ramsey (16):
+      docs: mention the ability to read from stdin
+      screen: don't hide two-column characters at left edge in softwrap mode
+      tweaks: adjust and correct some comments
+      tweaks: always directly do a refresh when the margin changes
+      tweaks: do a comparison a bit differently in do_output() and do_deletion()
+      tweaks: fix compilation when configured with --enable-tiny
+      tweaks: improve comments and formatting in update_line()
+      tweaks: let update_line() return the correct value on error
+      tweaks: reduce duplicate code in new_magicline() and move_to_filestruct()
+      tweaks: rename a variable and adjust some types in edit_scroll()
+      tweaks: rename a variable in edit_redraw(), to make sense
+      tweaks: rename a variable in edit_scroll(), to make sense
+      tweaks: rename mouse_x & mouse_y to mouse_col & mouse_row in do_mouse()
+      tweaks: rename the functions for moving to and copying from a buffer
+      tweaks: rewrap two lines and fix two typos
+      tweaks: split the grafting code off from copy_from_buffer()
+
+Mike Frysinger (3):
+      syntax: c++: add override keyword
+      syntax: gentoo: flag mixed whitespace
+      syntax: gentoo: match .eblit files too
+
+
 Changes between v2.7.3 and v2.7.4:
 ----------------------------------
 

@@ -10,7 +10,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: nano 2.7.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2017-01-10 11:33+0100\n"
+"POT-Creation-Date: 2017-02-23 11:43+0100\n"
 "PO-Revision-Date: 2016-09-18 14:52+0200\n"
 "Last-Translator: Gabor Kelemen <kelemeng@gnome.hu>\n"
 "Language-Team: Hungarian <translation-team-hu@lists.sourceforge.net>\n"
@@ -32,9 +32,9 @@ msgstr "Nem lehet egy könyvtárral feljebb lépni"
 msgid "Go To Directory"
 msgstr "Könyvtárváltás"
 
-#: src/browser.c:230 src/browser.c:682 src/files.c:1107 src/files.c:2237
-#: src/nano.c:1083 src/search.c:185 src/search.c:282 src/search.c:816
-#: src/search.c:875 src/text.c:3178 src/text.c:3383
+#: src/browser.c:230 src/browser.c:682 src/files.c:1109 src/files.c:2239
+#: src/nano.c:1087 src/search.c:179 src/search.c:267 src/search.c:802
+#: src/search.c:861 src/text.c:3184 src/text.c:3389
 msgid "Cancelled"
 msgstr "Megszakítva"
 
@@ -49,9 +49,9 @@ msgstr "Nem léphet ki a következőből: %s"
 msgid "Can't move up a directory"
 msgstr "Nem lehet egy könyvtárral feljebb lépni"
 
-#: src/browser.c:286 src/files.c:996 src/files.c:1002 src/files.c:1749
-#: src/files.c:1874 src/files.c:1918 src/files.c:1938 src/files.c:2050
-#: src/files.c:2943 src/files.c:3176 src/rcfile.c:562 src/rcfile.c:1255
+#: src/browser.c:286 src/files.c:997 src/files.c:1003 src/files.c:1751
+#: src/files.c:1876 src/files.c:1920 src/files.c:1940 src/files.c:2052
+#: src/files.c:2945 src/files.c:3178 src/rcfile.c:562 src/rcfile.c:1263
 #, c-format
 msgid "Error reading %s: %s"
 msgstr "Hiba %s olvasásakor: %s"
@@ -77,19 +77,19 @@ msgid "(huge)"
 msgstr "(óriás)"
 
 #. TRANSLATORS: This is the main search prompt.
-#: src/browser.c:671 src/search.c:162
+#: src/browser.c:671 src/search.c:156
 msgid "Search"
 msgstr "Keresés"
 
-#: src/browser.c:713 src/search.c:360
+#: src/browser.c:713 src/search.c:344
 msgid "Search Wrapped"
 msgstr "A keresés körbeért"
 
-#: src/browser.c:723 src/search.c:488
+#: src/browser.c:723 src/search.c:472
 msgid "This is the only occurrence"
 msgstr "Ez az egyetlen előfordulás"
 
-#: src/browser.c:767 src/search.c:453
+#: src/browser.c:767 src/search.c:437
 msgid "No current search pattern"
 msgstr "Nincs keresési minta"
 
@@ -176,7 +176,7 @@ msgstr ""
 msgid "Can't insert file from outside of %s"
 msgstr "Nem szúrható be fájl a következőn kívülről: %s"
 
-#: src/files.c:457 src/files.c:986 src/rcfile.c:541
+#: src/files.c:457 src/files.c:987 src/rcfile.c:541
 #, c-format
 msgid "\"%s\" is a directory"
 msgstr "„%s” egy könyvtár"
@@ -199,186 +199,187 @@ msgstr "Átváltva erre: %s"
 msgid "New Buffer"
 msgstr "Új puffer"
 
-#: src/files.c:913
+#: src/files.c:914
 #, fuzzy, c-format
 msgid "File '%s' is unwritable"
 msgstr "A(z) „%s” könyvtár nem írható"
 
 #. TRANSLATORS: Keep the next four messages at most 78 characters.
-#: src/files.c:917
+#: src/files.c:918
 #, c-format
 msgid "Read %lu line (Converted from DOS and Mac format)"
 msgid_plural "Read %lu lines (Converted from DOS and Mac format)"
 msgstr[0] "%lu sor beolvasva (DOS és Mac formátumról átalakítva)"
 msgstr[1] "%lu sor beolvasva (DOS és Mac formátumról átalakítva)"
 
-#: src/files.c:922
+#: src/files.c:923
 #, c-format
 msgid "Read %lu line (Converted from Mac format)"
 msgid_plural "Read %lu lines (Converted from Mac format)"
 msgstr[0] "%lu sor beolvasva (Mac formátumról átalakítva)"
 msgstr[1] "%lu sor beolvasva (Mac formátumról átalakítva)"
 
-#: src/files.c:927
+#: src/files.c:928
 #, c-format
 msgid "Read %lu line (Converted from DOS format)"
 msgid_plural "Read %lu lines (Converted from DOS format)"
 msgstr[0] "%lu sor beolvasva (DOS formátumról átalakítva)"
 msgstr[1] "%lu sor beolvasva (DOS formátumról átalakítva)"
 
-#: src/files.c:933
+#: src/files.c:934
 #, c-format
 msgid "Read %lu line"
 msgid_plural "Read %lu lines"
 msgstr[0] "%lu sor beolvasva"
 msgstr[1] "%lu sor beolvasva"
 
-#: src/files.c:972
+#: src/files.c:973
 msgid "New File"
 msgstr "Új fájl"
 
-#: src/files.c:977
+#: src/files.c:978
 #, c-format
 msgid "File \"%s\" not found"
 msgstr "A(z) „%s” fájl nem található"
 
-#: src/files.c:987 src/rcfile.c:542
+#: src/files.c:988 src/rcfile.c:542
 #, c-format
 msgid "\"%s\" is a device file"
 msgstr "A(z) „%s” egy eszközfájl"
 
-#: src/files.c:1005
+#: src/files.c:1006
 msgid "Reading File"
 msgstr "Fájl beolvasása"
 
-#: src/files.c:1072
-#, c-format
-msgid "Command to execute in new buffer [from %s] "
+#. TRANSLATORS: The next four messages are prompts.
+#: src/files.c:1074
+#, fuzzy
+msgid "Command to execute in new buffer"
 msgstr "Az új pufferben futtatandó parancs [ebből: %s] "
 
-#: src/files.c:1075
-#, c-format
-msgid "Command to execute [from %s] "
+#: src/files.c:1077
+#, fuzzy
+msgid "Command to execute"
 msgstr "Futtatandó parancs [ebből: %s] "
 
-#: src/files.c:1081
+#: src/files.c:1083
 #, c-format
 msgid "File to insert into new buffer [from %s] "
 msgstr "Az új pufferbe szúrandó fájl [ebből: %s] "
 
-#: src/files.c:1084
+#: src/files.c:1086
 #, c-format
 msgid "File to insert [from %s] "
 msgstr "Beszúrandó fájl [ebből: %s] "
 
-#: src/files.c:1302
+#: src/files.c:1304
 msgid "Key invalid in non-multibuffer mode"
 msgstr "A billentyű illegális nem többpufferes módban"
 
-#: src/files.c:1588
+#: src/files.c:1590
 msgid "Failed to write backup file; continue saving? (Say N if unsure.) "
 msgstr ""
 "A biztonsági mentés fájl írása sikertelen, folytatja a mentést? (N, ha "
 "bizonytalan) "
 
-#: src/files.c:1705
+#: src/files.c:1707
 #, c-format
 msgid "Can't write outside of %s"
 msgstr "Nem lehet a következőn kívülre írni: %s"
 
-#: src/files.c:1788 src/files.c:1813 src/files.c:1831 src/files.c:1844
-#: src/files.c:1855 src/files.c:1883
+#: src/files.c:1790 src/files.c:1815 src/files.c:1833 src/files.c:1846
+#: src/files.c:1857 src/files.c:1885
 #, c-format
 msgid "Error writing backup file %s: %s"
 msgstr "Hiba a biztonságimentés-fájl (%s) írásakor: %s"
 
-#: src/files.c:1789 src/nano.c:654
+#: src/files.c:1791 src/nano.c:658
 msgid "Too many backup files?"
 msgstr "Túl sok biztonsági mentés van?"
 
-#: src/files.c:1927 src/files.c:1949 src/text.c:3108 src/text.c:3120
-#: src/text.c:3482 src/text.c:3491
+#: src/files.c:1929 src/files.c:1951 src/text.c:3114 src/text.c:3126
+#: src/text.c:3488 src/text.c:3497
 #, c-format
 msgid "Error writing temp file: %s"
 msgstr "Hiba az ideiglenes fájl írásakor: %s"
 
-#: src/files.c:1968 src/files.c:1978 src/files.c:1998 src/files.c:2015
-#: src/files.c:2025 src/files.c:2057 src/files.c:2064
+#: src/files.c:1970 src/files.c:1980 src/files.c:2000 src/files.c:2017
+#: src/files.c:2027 src/files.c:2059 src/files.c:2066
 #, c-format
 msgid "Error writing %s: %s"
 msgstr "Hiba „%s” írása közben: %s"
 
-#: src/files.c:2103
+#: src/files.c:2105
 #, c-format
 msgid "Wrote %lu line"
 msgid_plural "Wrote %lu lines"
 msgstr[0] "%lu sor kiírva"
 msgstr[1] "%lu sor kiírva"
 
-#: src/files.c:2199
+#: src/files.c:2201
 msgid " [DOS Format]"
 msgstr " [DOS formátum]"
 
-#: src/files.c:2200
+#: src/files.c:2202
 msgid " [Mac Format]"
 msgstr " [Mac formátum]"
 
-#: src/files.c:2202
+#: src/files.c:2204
 msgid " [Backup]"
 msgstr " [Biztonsági mentés]"
 
 #. TRANSLATORS: The next six strings are prompts.
-#: src/files.c:2210
+#: src/files.c:2212
 msgid "Prepend Selection to File"
 msgstr "A kiválasztott rész beszúrása a szöveg elé"
 
-#: src/files.c:2211
+#: src/files.c:2213
 msgid "Append Selection to File"
 msgstr "A kiválasztott rész hozzáfűzése a fájlhoz"
 
-#: src/files.c:2212
+#: src/files.c:2214
 msgid "Write Selection to File"
 msgstr "A kiválasztott rész mentése fájlba"
 
-#: src/files.c:2215
+#: src/files.c:2217
 msgid "File Name to Prepend to"
 msgstr "Beszúrás ezen fájl elé"
 
-#: src/files.c:2216
+#: src/files.c:2218
 msgid "File Name to Append to"
 msgstr "Hozzáfűzés ehhez a fájlhoz"
 
-#: src/files.c:2217
+#: src/files.c:2219
 msgid "File Name to Write"
 msgstr "Mentés ebbe a fájlba"
 
-#: src/files.c:2246
+#: src/files.c:2248
 msgid "Save modified buffer anyway? "
 msgstr "Mindenképp menti a módosított puffert? "
 
 #. TRANSLATORS: Restricted mode forbids overwriting.
-#: src/files.c:2339
+#: src/files.c:2341
 msgid "File exists -- cannot overwrite"
 msgstr ""
 
-#: src/files.c:2349
+#: src/files.c:2351
 msgid "Save file under DIFFERENT NAME? "
 msgstr "Menti a fájlt MÁS NÉVEN? "
 
-#: src/files.c:2357
+#: src/files.c:2359
 #, c-format
 msgid "File \"%s\" exists; OVERWRITE? "
 msgstr "A(z) „%s” fájl már létezik, FELÜLÍRJA? "
 
-#: src/files.c:2378
+#: src/files.c:2380
 msgid "File was modified since you opened it; continue saving? "
 msgstr "A fájl módosult, mióta megnyitotta, folytatja a mentést? "
 
-#: src/files.c:2796
+#: src/files.c:2798
 msgid "(more)"
 msgstr "(tovább)"
 
-#: src/files.c:2881
+#: src/files.c:2883
 #, c-format
 msgid ""
 "\n"
@@ -387,7 +388,7 @@ msgstr ""
 "\n"
 "A folytatáshoz nyomja le az Enter billentyűt\n"
 
-#: src/files.c:2897
+#: src/files.c:2899
 #, c-format
 msgid ""
 "Unable to create directory %s: %s\n"
@@ -397,7 +398,7 @@ msgstr ""
 "Ez a keresési előzmények vagy a kurzorpozíciók mentéséhez/betöltéséhez "
 "kell.\n"
 
-#: src/files.c:2904
+#: src/files.c:2906
 #, c-format
 msgid ""
 "Path %s is not a directory and needs to be.\n"
@@ -407,7 +408,7 @@ msgstr ""
 "A Nano nem tud menteni/betölteni keresési előzményeket vagy "
 "kurzorpozíciókat.\n"
 
-#: src/files.c:2926
+#: src/files.c:2928
 #, c-format
 msgid ""
 "Detected a legacy nano history file (%s) which I tried to move\n"
@@ -416,7 +417,7 @@ msgstr ""
 "Örökölt nano előzményfájlt találtam (%s), amit megpróbáltam\n"
 "áthelyezni az előnyben részesített helyre (%s), de hiba történt: %s"
 
-#: src/files.c:2930
+#: src/files.c:2932
 #, c-format
 msgid ""
 "Detected a legacy nano history file (%s) which I moved\n"
@@ -427,7 +428,7 @@ msgstr ""
 "az előnyben részesített helyre (%s).\n"
 "(a változásról lásd a Nano FAQ-ot)"
 
-#: src/files.c:3012 src/files.c:3020 src/files.c:3043 src/files.c:3065
+#: src/files.c:3014 src/files.c:3022 src/files.c:3045 src/files.c:3067
 #, c-format
 msgid "Error writing %s: %s\n"
 msgstr "Hiba „%s” írása közben: %s\n"
@@ -1501,19 +1502,19 @@ msgstr ""
 msgid "enable/disable"
 msgstr "be/kikapcsolása"
 
-#: src/nano.c:525
+#: src/nano.c:529
 msgid "Key is invalid in view mode"
 msgstr "A billentyű illegális megjelenítés módban"
 
-#: src/nano.c:531
+#: src/nano.c:535
 msgid "This function is disabled in restricted mode"
 msgstr "Ez a funkció ki van kapcsolva korlátozott módban"
 
-#: src/nano.c:539
+#: src/nano.c:543
 msgid "Help is not available"
 msgstr "A súgó nem érhető el"
 
-#: src/nano.c:648
+#: src/nano.c:652
 #, c-format
 msgid ""
 "\n"
@@ -1522,7 +1523,7 @@ msgstr ""
 "\n"
 "A puffer a(z) %s fájlba írva\n"
 
-#: src/nano.c:650
+#: src/nano.c:654
 #, c-format
 msgid ""
 "\n"
@@ -1531,7 +1532,7 @@ msgstr ""
 "\n"
 "A puffer nem lett a(z) %s fájlba írva: %s\n"
 
-#: src/nano.c:653
+#: src/nano.c:657
 #, c-format
 msgid ""
 "\n"
@@ -1540,7 +1541,7 @@ msgstr ""
 "\n"
 "A puffer nem került mentésre: %s\n"
 
-#: src/nano.c:780
+#: src/nano.c:784
 #, c-format
 msgid ""
 "Usage: nano [OPTIONS] [[+LINE,COLUMN] FILE]...\n"
@@ -1549,306 +1550,306 @@ msgstr ""
 "Használat: nano [KAPCSOLÓK] [[+SOR,OSZLOP] FÁJL]...\n"
 "\n"
 
-#: src/nano.c:782
+#: src/nano.c:786
 #, c-format
 msgid "Option\t\tGNU long option\t\tMeaning\n"
 msgstr "Kapcsoló\t\tGNU hosszú kapcsoló\t\tJelentés\n"
 
-#: src/nano.c:784
+#: src/nano.c:788
 #, c-format
 msgid "Option\t\tMeaning\n"
 msgstr "Kapcsoló\t\tJelentés\n"
 
-#: src/nano.c:786
+#: src/nano.c:790
 msgid "+LINE,COLUMN"
 msgstr "+SOR,OSZLOP"
 
 #. TRANSLATORS: The next forty or so strings are option descriptions
 #. * for the --help output.  Try to keep them at most 40 characters.
-#: src/nano.c:789
+#: src/nano.c:793
 msgid "Start at line LINE, column COLUMN"
 msgstr "A SOR. sorban és OSZLOP. oszlopban kezd"
 
-#: src/nano.c:791
+#: src/nano.c:795
 msgid "Enable smart home key"
 msgstr "Okos home billentyű engedélyezése"
 
-#: src/nano.c:793
+#: src/nano.c:797
 msgid "Save backups of existing files"
 msgstr ""
 "Meglévő fájlokról biztonsági másolatok\n"
 "\t\t\t\t\t  mentése"
 
-#: src/nano.c:794
+#: src/nano.c:798
 msgid "-C <dir>"
 msgstr "-C <könyvtár>"
 
-#: src/nano.c:794
+#: src/nano.c:798
 msgid "--backupdir=<dir>"
 msgstr "--backupdir=<könyvtár>"
 
-#: src/nano.c:795
+#: src/nano.c:799
 msgid "Directory for saving unique backup files"
 msgstr ""
 "Az egyedi biztonsági mentés fájlok\n"
 "\t\t\t\t\t  mentési könyvtára"
 
-#: src/nano.c:798
+#: src/nano.c:802
 msgid "Use bold instead of reverse video text"
 msgstr ""
 "Félkövér használata invertált szöveg\n"
 "\t\t\t\t\t  helyett"
 
-#: src/nano.c:800
+#: src/nano.c:804
 msgid "Convert typed tabs to spaces"
 msgstr ""
 "Beírt tab karakterek átalakítása\n"
 "\t\t\t\t\t  szóközökké"
 
-#: src/nano.c:805
+#: src/nano.c:809
 msgid "Read a file into a new buffer by default"
 msgstr "Fájl új pufferbe olvasása alapesetben"
 
-#: src/nano.c:808
+#: src/nano.c:812
 msgid "Use (vim-style) lock files"
 msgstr "(vim-stílusú) zárolási fájlok használata"
 
-#: src/nano.c:813
+#: src/nano.c:817
 msgid "Log & read search/replace string history"
 msgstr ""
 "Keresés/csere előzményeinek naplózása\n"
 "\t\t\t\t\t  és olvasása"
 
-#: src/nano.c:817
+#: src/nano.c:821
 msgid "Don't look at nanorc files"
 msgstr "nanorc fájlok keresésének kihagyása"
 
-#: src/nano.c:820
+#: src/nano.c:824
 msgid "Fix numeric keypad key confusion problem"
 msgstr ""
 "A numerikus billentyűzet zavarainak\n"
 "\t\t\t\t\t  javítása"
 
-#: src/nano.c:822
+#: src/nano.c:826
 msgid "Don't add newlines to the ends of files"
 msgstr "Ne adjon új sorokat a fájlok végéhez"
 
-#: src/nano.c:825
+#: src/nano.c:829
 msgid "Don't convert files from DOS/Mac format"
 msgstr ""
 "Ne alakítsa át a fájlokat DOS/Mac\n"
 "\t\t\t\t\t  formátumról"
 
-#: src/nano.c:827
+#: src/nano.c:831
 msgid "Use one more line for editing"
 msgstr ""
 "Eggyel több sor használata a\n"
 "\t\t\t\t\t  szerkesztéshez"
 
-#: src/nano.c:831
+#: src/nano.c:835
 msgid "Log & read location of cursor position"
 msgstr "Kurzor helyének naplózása és olvasása"
 
-#: src/nano.c:834
+#: src/nano.c:838
 msgid "-Q <str>"
 msgstr "-Q <szöveg>"
 
-#: src/nano.c:834
+#: src/nano.c:838
 msgid "--quotestr=<str>"
 msgstr "--quotestr=<szöveg>"
 
-#: src/nano.c:834
+#: src/nano.c:838
 msgid "Quoting string"
 msgstr "Idézetszöveg"
 
-#: src/nano.c:837
+#: src/nano.c:841
 msgid "Restricted mode"
 msgstr "Korlátozott mód"
 
-#: src/nano.c:839
+#: src/nano.c:843
 msgid "Scroll by line instead of half-screen"
 msgstr "Görgetés soronként fél képernyő helyett"
 
-#: src/nano.c:841
+#: src/nano.c:845
 msgid "-T <#cols>"
 msgstr "-T <#oszlop>"
 
-#: src/nano.c:841
+#: src/nano.c:845
 msgid "--tabsize=<#cols>"
 msgstr "--tabsize=<#oszlop>"
 
-#: src/nano.c:842
+#: src/nano.c:846
 msgid "Set width of a tab to #cols columns"
 msgstr ""
 "A tabulátorszélesség legyen #oszlop\n"
 "\t\t\t\t\t  oszlop"
 
-#: src/nano.c:844
+#: src/nano.c:848
 msgid "Do quick statusbar blanking"
 msgstr "Törölje gyorsan az állapotsort"
 
-#: src/nano.c:846
+#: src/nano.c:850
 msgid "Print version information and exit"
 msgstr "Verziószám kiírása és kilépés"
 
-#: src/nano.c:849
+#: src/nano.c:853
 msgid "Detect word boundaries more accurately"
 msgstr "Szóhatárok pontosabb észlelése"
 
-#: src/nano.c:850
+#: src/nano.c:854
 msgid "-X <str>"
 msgstr "-X <szöveg>"
 
-#: src/nano.c:850
+#: src/nano.c:854
 msgid "--wordchars=<str>"
 msgstr "--wordchars=<szöveg>"
 
-#: src/nano.c:851
+#: src/nano.c:855
 msgid "Which other characters are word parts"
 msgstr "Ezen további karakterek is szó részei"
 
-#: src/nano.c:855
+#: src/nano.c:859
 msgid "-Y <str>"
 msgstr "-Y <szöveg>"
 
-#: src/nano.c:855
+#: src/nano.c:859
 msgid "--syntax=<str>"
 msgstr "--syntax=<szöveg>"
 
-#: src/nano.c:856
+#: src/nano.c:860
 msgid "Syntax definition to use for coloring"
 msgstr ""
 "A színezéshez használandó\n"
 "\t\t\t\t\t  szintaxisleírás"
 
-#: src/nano.c:858
+#: src/nano.c:862
 msgid "Constantly show cursor position"
 msgstr "Kurzor pozíciójának állandó mutatása"
 
-#: src/nano.c:860
+#: src/nano.c:864
 msgid "Fix Backspace/Delete confusion problem"
 msgstr "Visszatörlés/törlés zavarainak javítása"
 
-#: src/nano.c:861
+#: src/nano.c:865
 msgid "Show this help text and exit"
 msgstr "Megjeleníti ezt a súgóüzenetet, és kilép"
 
-#: src/nano.c:863
+#: src/nano.c:867
 msgid "Automatically indent new lines"
 msgstr "Új sorok automatikus behúzása"
 
-#: src/nano.c:864
+#: src/nano.c:868
 msgid "Cut from cursor to end of line"
 msgstr "Kivágás a kurzor helyétől a sor végéig"
 
-#: src/nano.c:867
+#: src/nano.c:871
 msgid "Show line numbers in front of the text"
 msgstr ""
 
-#: src/nano.c:870
+#: src/nano.c:874
 msgid "Enable the use of the mouse"
 msgstr "Egér használatának engedélyezése"
 
-#: src/nano.c:872
+#: src/nano.c:876
 msgid "Do not read the file (only write it)"
 msgstr "Ne olvassa a fájlt (csak írja)"
 
-#: src/nano.c:874
+#: src/nano.c:878
 msgid "-o <dir>"
 msgstr "-o <könyvtár>"
 
-#: src/nano.c:874
+#: src/nano.c:878
 msgid "--operatingdir=<dir>"
 msgstr "--operatingdir=<könyvtár>"
 
-#: src/nano.c:875
+#: src/nano.c:879
 msgid "Set operating directory"
 msgstr "Munkakönyvtár beállítása"
 
-#: src/nano.c:877
+#: src/nano.c:881
 msgid "Preserve XON (^Q) and XOFF (^S) keys"
 msgstr ""
 "XON (^Q) és XOFF (^S) billentyűk\n"
 "\t\t\t\t\t  megőrzése"
 
-#: src/nano.c:881
+#: src/nano.c:885
 msgid "Silently ignore startup issues like rc file errors"
 msgstr ""
 "Indítási hibák, például rc-fájlhibák\n"
 "\t\t\t\t\t  csendes mellőzése"
 
-#: src/nano.c:884
+#: src/nano.c:888
 msgid "-r <#cols>"
 msgstr "-r <#oszlop>"
 
-#: src/nano.c:884
+#: src/nano.c:888
 msgid "--fill=<#cols>"
 msgstr "--fill=<#oszlop>"
 
-#: src/nano.c:885
+#: src/nano.c:889
 msgid "Set hard-wrapping point at column #cols"
 msgstr ""
 "Kemény töréspont beállítása a #oszlop\n"
 "\t\t\t\t\t  oszlopnál"
 
-#: src/nano.c:889
+#: src/nano.c:893
 msgid "-s <prog>"
 msgstr "-s <prog>"
 
-#: src/nano.c:889
+#: src/nano.c:893
 msgid "--speller=<prog>"
 msgstr "--speller=<prog>"
 
-#: src/nano.c:890
+#: src/nano.c:894
 msgid "Enable alternate speller"
 msgstr ""
 "Alternatív helyesírás-ellenőrző\n"
 "\t\t\t\t\t  használata"
 
-#: src/nano.c:892
+#: src/nano.c:896
 msgid "Auto save on exit, don't prompt"
 msgstr "Automatikus mentés kilépéskor"
 
-#: src/nano.c:894
+#: src/nano.c:898
 msgid "Save a file by default in Unix format"
 msgstr "Fájl mentése alapesetben Unix formátumba"
 
-#: src/nano.c:896
+#: src/nano.c:900
 msgid "View mode (read-only)"
 msgstr "Megjelenítés mód (csak olvasható)"
 
-#: src/nano.c:898
+#: src/nano.c:902
 msgid "Don't hard-wrap long lines"
 msgstr "Ne tördelje keményen a hosszú sorokat"
 
-#: src/nano.c:900
+#: src/nano.c:904
 msgid "Don't show the two help lines"
 msgstr "A két súgósor elrejtése"
 
-#: src/nano.c:902
+#: src/nano.c:906
 msgid "Enable suspension"
 msgstr "Felfüggesztés engedélyezése"
 
-#: src/nano.c:904
+#: src/nano.c:908
 msgid "Enable soft line wrapping"
 msgstr "Laza sortördelés engedélyezése"
 
-#: src/nano.c:916
+#: src/nano.c:920
 #, c-format
 msgid " GNU nano, version %s\n"
 msgstr " GNU nano %s verzió\n"
 
-#: src/nano.c:919
+#: src/nano.c:923
 #, c-format
 msgid " (C) 2014..%s the contributors to nano\n"
 msgstr " (C) 2014..%s a nano közreműködői\n"
 
-#: src/nano.c:921
+#: src/nano.c:925
 #, c-format
 msgid " Email: nano@nano-editor.org\tWeb: https://nano-editor.org/"
 msgstr " E-mail: nano@nano-editor.org\tWeb: https://nano-editor.org/"
 
-#: src/nano.c:922
+#: src/nano.c:926
 #, c-format
 msgid ""
 "\n"
@@ -1857,89 +1858,93 @@ msgstr ""
 "\n"
 " Fordítási kapcsolók:"
 
-#: src/nano.c:1068
+#: src/nano.c:1072
 msgid "No file name"
 msgstr "Nincs fájlnév"
 
-#: src/nano.c:1070
+#: src/nano.c:1074
 msgid "Save modified buffer?  (Answering \"No\" will DISCARD changes.) "
 msgstr "Menti a módosított puffert? (A „Nem” válasz ELDOBJA a módosításokat.) "
 
-#: src/nano.c:1131
+#: src/nano.c:1135
 msgid "Couldn't reopen stdin from keyboard, sorry\n"
 msgstr "Az stdin nem nyitható újra a billentyűzetről.\n"
 
-#: src/nano.c:1155
+#: src/nano.c:1159
 #, c-format
 msgid "Reading from stdin, ^C to abort\n"
 msgstr "Olvasás stdinről, ^C megszakítja\n"
 
-#: src/nano.c:1219
+#: src/nano.c:1223
 msgid "Received SIGHUP or SIGTERM\n"
 msgstr "SIGHUP vagy SIGTERM érkezett\n"
 
-#: src/nano.c:1235
+#: src/nano.c:1239
 #, c-format
 msgid "Use \"fg\" to return to nano.\n"
 msgstr "Az „fg” kiadásával visszatérhet a nanohoz.\n"
 
-#: src/nano.c:1257
+#: src/nano.c:1261
 msgid "Suspension is not enabled"
 msgstr "A felfüggesztés nem engedélyezett"
 
-#: src/nano.c:1405
+#: src/nano.c:1406
 msgid "enabled"
 msgstr "engedélyezve"
 
-#: src/nano.c:1405
+#: src/nano.c:1406
 msgid "disabled"
 msgstr "kikapcsolva"
 
-#: src/nano.c:1532
+#: src/nano.c:1533
 msgid "Unbound key"
 msgstr "Kiosztatlan billentyű"
 
-#: src/nano.c:1535
+#: src/nano.c:1536
 msgid "Unbindable key: M-["
 msgstr "Kioszthatatlan billentyű: M-["
 
-#: src/nano.c:1537
+#: src/nano.c:1538
 #, c-format
 msgid "Unbound key: M-%c"
 msgstr "Kiosztatlan billentyű: M-%c"
 
-#: src/nano.c:1539
+#: src/nano.c:1540
 #, c-format
 msgid "Unbound key: ^%c"
 msgstr "Kiosztatlan billentyű: ^%c"
 
-#: src/nano.c:1541
+#: src/nano.c:1542
 #, c-format
 msgid "Unbound key: %c"
 msgstr "Kiosztatlan billentyű: %c"
 
-#: src/nano.c:1714
+#: src/nano.c:1715
 msgid "XON ignored, mumble mumble"
 msgstr "XON kihagyva, ej-ej"
 
-#: src/nano.c:1719
+#: src/nano.c:1720
 msgid "XOFF ignored, mumble mumble"
 msgstr "XOFF kihagyva, ej-ej"
 
-#: src/nano.c:2126 src/rcfile.c:1211
+#: src/nano.c:2127 src/rcfile.c:1219
 #, c-format
 msgid "Requested tab size \"%s\" is invalid"
 msgstr "A kért „%s” tabméret érvénytelen"
 
-#: src/nano.c:2193 src/rcfile.c:1147
+#: src/nano.c:2194 src/rcfile.c:1156
 #, c-format
 msgid "Requested fill size \"%s\" is invalid"
 msgstr "A kért „%s” kitöltésméret érvénytelen"
 
-#: src/nano.c:2247
+#: src/nano.c:2248
 #, c-format
 msgid "Type '%s -h' for a list of available options.\n"
 msgstr "Az elérhető kapcsolók megjelenítéséhez adja ki a „%s -h” parancsot.\n"
+
+#: src/nano.c:2562 src/nano.c:2588 src/search.c:879
+msgid "Invalid line or column number"
+msgstr "Érvénytelen sor- vagy oszlopszám"
 
 #. TRANSLATORS: For the next three strings, if possible, specify
 #. * the single-byte shortcuts for both your language and English.
@@ -1978,11 +1983,11 @@ msgstr "Hiba a(z) %s %lu. sorában: "
 msgid "Argument '%s' has an unterminated \""
 msgstr "A(z) „%s” argumentum lezáratlan \" jellel rendelkezik"
 
-#: src/rcfile.c:242 src/rcfile.c:694 src/rcfile.c:745 src/rcfile.c:844
+#: src/rcfile.c:242 src/rcfile.c:694 src/rcfile.c:749 src/rcfile.c:853
 msgid "Regex strings must begin and end with a \" character"
 msgstr "A reguláris kifejezéseknek \" karakterekkel kezdődniük és végződniük"
 
-#: src/rcfile.c:268 src/search.c:57
+#: src/rcfile.c:268 src/search.c:55
 #, c-format
 msgid "Bad regex \"%s\": %s"
 msgstr "Hibás regex: „%s”: %s"
@@ -2070,7 +2075,7 @@ msgstr ""
 "„white”, „yellow”, „cyan”, „magenta” és \n"
 "„black”, opcionális „bright” előtaggal az előtérszínekhez."
 
-#: src/rcfile.c:657 src/rcfile.c:815 src/rcfile.c:878
+#: src/rcfile.c:657 src/rcfile.c:824 src/rcfile.c:887
 #, c-format
 msgid "A '%s' command requires a preceding 'syntax' command"
 msgstr "Egy „%s” parancsot „syntax” parancsnak kell megelőznie"
@@ -2079,43 +2084,48 @@ msgstr "Egy „%s” parancsot „syntax” parancsnak kell megelőznie"
 msgid "Missing color name"
 msgstr "Hiányzik a szín neve"
 
-#: src/rcfile.c:673 src/rcfile.c:827
+#: src/rcfile.c:673 src/rcfile.c:836
 #, c-format
 msgid "Missing regex string after '%s' command"
 msgstr "Hiányzó regex karakterlánc a(z) „%s” parancs után"
 
-#: src/rcfile.c:739
+#: src/rcfile.c:705 src/rcfile.c:759
+#, fuzzy
+msgid "Empty regex string"
+msgstr "Hiányzó regex karaktersorozat"
+
+#: src/rcfile.c:743
 msgid "\"start=\" requires a corresponding \"end=\""
 msgstr "„start=” -hoz kell egy megfelelő „end=”"
 
-#: src/rcfile.c:788
+#: src/rcfile.c:797
 #, c-format
 msgid "Background color \"%s\" cannot be bright"
 msgstr "A(z) „%s” háttérszín nem lehet világos"
 
-#: src/rcfile.c:822
+#: src/rcfile.c:831
 #, c-format
 msgid "The \"default\" syntax does not accept '%s' regexes"
 msgstr "Az „alapértelmezett” szintaxis nem fogad el „%s” regexeket"
 
-#: src/rcfile.c:883
+#: src/rcfile.c:892
 #, c-format
 msgid "Missing command after '%s'"
 msgstr "Hiányzó parancs „%s” után"
 
-#: src/rcfile.c:899
+#: src/rcfile.c:908
 #, c-format
 msgid "Argument of '%s' lacks closing \""
 msgstr "A(z) „%s” argumentuma mögül hiányzik a \" jel"
 
-#: src/rcfile.c:930
+#: src/rcfile.c:939
 #, c-format
 msgid "Fatal error: no keys mapped for function \"%s\".  Exiting.\n"
 msgstr ""
 "Végzetes hiba: nincsenek billentyűk leképezve a függvényhez („%s”). "
 "Kilépés.\n"
 
-#: src/rcfile.c:932
+#: src/rcfile.c:941
 #, c-format
 msgid ""
 "If needed, use nano with the -I option to adjust your nanorc settings.\n"
@@ -2123,63 +2133,63 @@ msgstr ""
 "Használja a nanot a -I kapcsolóval, ha módosítani kívánja a nanorc "
 "beállításait.\n"
 
-#: src/rcfile.c:987
+#: src/rcfile.c:996
 #, c-format
 msgid "Could not find syntax \"%s\" to extend"
 msgstr "A kiterjesztendő szintaxis („%s”) nem található"
 
-#: src/rcfile.c:1009 src/rcfile.c:1222
+#: src/rcfile.c:1018 src/rcfile.c:1230
 #, c-format
 msgid "Syntax \"%s\" has no color commands"
 msgstr "A(z) „%s” szintaxis nem rendelkezik színparancsokkal"
 
-#: src/rcfile.c:1040
+#: src/rcfile.c:1049
 #, c-format
 msgid "Command \"%s\" not allowed in included file"
 msgstr "A(z) „%s” parancs nem engedélyezett a tartalmazott fájlban"
 
-#: src/rcfile.c:1055
+#: src/rcfile.c:1064
 #, c-format
 msgid "Command \"%s\" not understood"
 msgstr "A(z) „%s” parancs nem értelmezhető"
 
-#: src/rcfile.c:1067
+#: src/rcfile.c:1076
 msgid "Missing option"
 msgstr "Hiányzó kapcsoló"
 
-#: src/rcfile.c:1081
+#: src/rcfile.c:1090
 #, c-format
 msgid "Unknown option \"%s\""
 msgstr "Ismeretlen „%s” opció"
 
-#: src/rcfile.c:1094
+#: src/rcfile.c:1103
 #, c-format
 msgid "Cannot unset option \"%s\""
 msgstr "A(z) „%s” beállítás nem törölhető"
 
-#: src/rcfile.c:1106
+#: src/rcfile.c:1115
 #, c-format
 msgid "Option \"%s\" requires an argument"
 msgstr "A(z) „%s” kapcsoló egy paramétert igényel"
 
-#: src/rcfile.c:1122
+#: src/rcfile.c:1131
 #, fuzzy
 msgid "Argument is not a valid multibyte string"
 msgstr "A kapcsoló nem érvényes több bájtos karaktersorozat"
 
-#: src/rcfile.c:1160 src/rcfile.c:1181 src/rcfile.c:1188
+#: src/rcfile.c:1168 src/rcfile.c:1189 src/rcfile.c:1196
 msgid "Non-blank characters required"
 msgstr "Nem üres karakterek szükségesek"
 
-#: src/rcfile.c:1167
+#: src/rcfile.c:1175
 msgid "Two single-column characters required"
 msgstr "Két egyoszlopos karakter szükséges"
 
-#: src/rcfile.c:1276
+#: src/rcfile.c:1284
 msgid "I can't find my home directory!  Wah!"
 msgstr "Nincs meg a saját könyvtár! Hopp!"
 
-#: src/rcfile.c:1291
+#: src/rcfile.c:1299
 #, c-format
 msgid ""
 "\n"
@@ -2188,50 +2198,50 @@ msgstr ""
 "\n"
 "A nano indításának folytatásához nyomja le az Enter billentyűt.\n"
 
-#: src/search.c:95
+#: src/search.c:89
 #, c-format
 msgid "\"%.*s%s\" not found"
 msgstr "A(z) „%.*s%s” nem található"
 
 #. TRANSLATORS: The next three modify the search prompt.
-#: src/search.c:164
+#: src/search.c:158
 msgid " [Case Sensitive]"
 msgstr " [kis/Nagy]"
 
-#: src/search.c:166
+#: src/search.c:160
 msgid " [Regexp]"
 msgstr " [Regexp]"
 
-#: src/search.c:169
+#: src/search.c:163
 msgid " [Backwards]"
 msgstr " [Vissza]"
 
 #. TRANSLATORS: The next two modify the search prompt.
-#: src/search.c:172
+#: src/search.c:166
 msgid " (to replace) in selection"
 msgstr " (cseréhez) a kijelölésben"
 
-#: src/search.c:174
+#: src/search.c:168
 msgid " (to replace)"
 msgstr " (cseréhez)"
 
 #. TRANSLATORS: This is shown when searching takes
 #. * more than half a second.
-#: src/search.c:292
+#: src/search.c:277
 msgid "Searching..."
 msgstr "Keresés…"
 
 #. TRANSLATORS: This is a prompt.
-#: src/search.c:667
+#: src/search.c:653
 msgid "Replace this instance?"
 msgstr "Lecseréli ezt a találatot?"
 
 #. TRANSLATORS: This is a prompt.
-#: src/search.c:805
+#: src/search.c:791
 msgid "Replace with"
 msgstr "Csere ezzel"
 
-#: src/search.c:835
+#: src/search.c:821
 #, c-format
 msgid "Replaced %lu occurrence"
 msgid_plural "Replaced %lu occurrences"
@@ -2239,19 +2249,15 @@ msgstr[0] "%lu előfordulás cserélve"
 msgstr[1] "%lu előfordulás cserélve"
 
 #. TRANSLATORS: This is a prompt.
-#: src/search.c:871
+#: src/search.c:857
 msgid "Enter line number, column number"
 msgstr "Kérem a sor, oszlop számát"
 
-#: src/search.c:893
-msgid "Invalid line or column number"
-msgstr "Érvénytelen sor- vagy oszlopszám"
-
-#: src/search.c:1045
+#: src/search.c:1031
 msgid "Not a bracket"
 msgstr "Nem zárójel"
 
-#: src/search.c:1111
+#: src/search.c:1097
 msgid "No matching bracket"
 msgstr "Nincs illeszkedő zárójel"
 
@@ -2349,12 +2355,12 @@ msgstr ""
 msgid "Redid action (%s)"
 msgstr "Művelet megismételve (%s)"
 
-#: src/text.c:1067 src/text.c:2748 src/text.c:3187
+#: src/text.c:1067 src/text.c:2746 src/text.c:3193
 msgid "Could not create pipe"
 msgstr "Nem hozható létre a cső"
 
-#: src/text.c:1093 src/text.c:2835 src/text.c:2988 src/text.c:3235
-#: src/text.c:3524
+#: src/text.c:1093 src/text.c:2833 src/text.c:2986 src/text.c:3241
+#: src/text.c:3530
 msgid "Could not fork"
 msgstr "Nem forkolható"
 
@@ -2363,139 +2369,139 @@ msgstr "Nem forkolható"
 msgid "Bad quote string %s: %s"
 msgstr "Hibás idézetszöveg: %s: %s"
 
-#: src/text.c:2501
+#: src/text.c:2502
 msgid "Can now UnJustify!"
 msgstr "Most már lehet nem sorkizárttá tenni!"
 
-#: src/text.c:2664
+#: src/text.c:2663
 #, c-format
 msgid "Unfindable word: %s"
 msgstr "Megtalálhatatlan szó: %s"
 
-#: src/text.c:2680
+#: src/text.c:2679
 msgid "Edit a replacement"
 msgstr "A helyettesítő érték módosítása"
 
 #. TRANSLATORS: Shown after fixing misspellings in one word.
-#: src/text.c:2696
+#: src/text.c:2694
 msgid "Next word..."
 msgstr "Köv. szó…"
 
-#: src/text.c:2750
+#: src/text.c:2748
 msgid "Creating misspelled word list, please wait..."
 msgstr "Elgépelt szavak listájának létrehozása, kis türelmet..."
 
-#: src/text.c:2841 src/text.c:3242
+#: src/text.c:2839 src/text.c:3248
 msgid "Could not get size of pipe buffer"
 msgstr "Nem kérhető le a csőpuffer mérete"
 
-#: src/text.c:2890
+#: src/text.c:2888
 msgid "Error invoking \"spell\""
 msgstr "Hiba a „spell” meghívásakor"
 
-#: src/text.c:2893
+#: src/text.c:2891
 msgid "Error invoking \"sort -f\""
 msgstr "Hiba a „sort -f” meghívásakor"
 
-#: src/text.c:2896
+#: src/text.c:2894
 msgid "Error invoking \"uniq\""
 msgstr "Hiba a „uniq” meghívásakor"
 
-#: src/text.c:3126
+#: src/text.c:3132
 msgid "Invoking spell checker, please wait"
 msgstr "A helyesírás-ellenőrző indítása, kis türelmet"
 
-#: src/text.c:3140
+#: src/text.c:3146
 #, c-format
 msgid "Spell checking failed: %s"
 msgstr "A helyesírás-ellenőrzés meghiúsult: %s"
 
-#: src/text.c:3142
+#: src/text.c:3148
 #, c-format
 msgid "Spell checking failed: %s: %s"
 msgstr "A helyesírás-ellenőrzés meghiúsult: %s: %s"
 
-#: src/text.c:3145
+#: src/text.c:3151
 msgid "Finished checking spelling"
 msgstr "A helyesírás-ellenőrzés befejeződött"
 
-#: src/text.c:3170
+#: src/text.c:3176
 msgid "No linter defined for this type of file!"
 msgstr "Nincs megadva linter ehhez a fájltípushoz!"
 
-#: src/text.c:3175
+#: src/text.c:3181
 msgid "Save modified buffer before linting?"
 msgstr "Menti a módosított puffert a linter használata előtt?"
 
-#: src/text.c:3192
+#: src/text.c:3198
 msgid "Invoking linter, please wait"
 msgstr "A linter indítása, kis türelmet"
 
-#: src/text.c:3347
+#: src/text.c:3353
 #, c-format
 msgid "Got 0 parsable lines from command: %s"
 msgstr "0 feldolgozható sor érkezett a parancstól: %s"
 
-#: src/text.c:3377
+#: src/text.c:3383
 #, c-format
 msgid "This message is for unopened file %s, open it in a new buffer?"
 msgstr ""
 "Ez az üzenet a meg nem nyitott %s fájlhoz tartozik, megnyitja új pufferben?"
 
-#: src/text.c:3394
+#: src/text.c:3400
 msgid "No more errors in unopened files, cancelling"
 msgstr "Nincs több hiba a meg nem nyitott fájlokban, megszakítás"
 
-#: src/text.c:3434
+#: src/text.c:3440
 msgid "At last message"
 msgstr "Utolsó üzenetnél"
 
-#: src/text.c:3439
+#: src/text.c:3445
 msgid "At first message"
 msgstr "Első üzenetnél"
 
-#: src/text.c:3475
+#: src/text.c:3481
 msgid "Finished"
 msgstr "Befejeződött"
 
-#: src/text.c:3497
+#: src/text.c:3503
 msgid "Invoking formatter, please wait"
 msgstr "Formázó meghívása, kis türelmet"
 
-#: src/text.c:3557
+#: src/text.c:3563
 msgid "Finished formatting"
 msgstr "Formázás befejezve"
 
-#: src/text.c:3639
+#: src/text.c:3645
 #, c-format
 msgid "%sWords: %lu  Lines: %ld  Chars: %lu"
 msgstr "%sSzavak: %lu  Sorok: %ld  Karakterek: %lu"
 
-#: src/text.c:3640
+#: src/text.c:3646
 msgid "In Selection:  "
 msgstr "A kiválasztásban:  "
 
 #. TRANSLATORS: This is displayed when the next keystroke will be
 #. * inserted verbatim.
-#: src/text.c:3654
+#: src/text.c:3660
 msgid "Verbatim Input"
 msgstr "Szó szerinti bevitel"
 
-#: src/text.c:3852
+#: src/text.c:3858
 msgid "No further matches"
 msgstr ""
 
 #. TRANSLATORS: Shown when there are zero possible completions.
-#: src/text.c:3856
+#: src/text.c:3862
 #, fuzzy
 msgid "No matches"
 msgstr "Nincs illeszkedő zárójel"
 
-#: src/utils.c:393 src/utils.c:405
+#: src/utils.c:410 src/utils.c:422
 msgid "nano is out of memory!"
 msgstr "nano: elfogyott a memória!"
 
-#: src/utils.c:583
+#: src/utils.c:594
 #, fuzzy, c-format
 msgid "Internal error: can't match line %ld.  Please save your work."
 msgstr "Belső hiba: a(z) %d. sor nem illeszthető. Mentse a munkáját."
@@ -2529,44 +2535,44 @@ msgstr "Módosítva"
 msgid "View"
 msgstr "Nézet"
 
-#: src/winio.c:3101
+#: src/winio.c:3071
 #, c-format
 msgid "line %ld/%ld (%d%%), col %lu/%lu (%d%%), char %lu/%lu (%d%%)"
 msgstr "sor %ld/%ld (%d%%), oszlop %lu/%lu (%d%%), karakter %lu/%lu (%d%%)"
 
-#: src/winio.c:3232
+#: src/winio.c:3202
 msgid "The nano text editor"
 msgstr "A nano szövegszerkesztő"
 
-#: src/winio.c:3233
+#: src/winio.c:3203
 msgid "version"
 msgstr "verzió"
 
-#: src/winio.c:3234
+#: src/winio.c:3204
 msgid "Brought to you by:"
 msgstr "Fejlesztők:"
 
-#: src/winio.c:3235
+#: src/winio.c:3205
 msgid "Special thanks to:"
 msgstr "Külön köszönet:"
 
-#: src/winio.c:3236
+#: src/winio.c:3206
 msgid "The Free Software Foundation"
 msgstr "A Free Software Foundation"
 
-#: src/winio.c:3237
+#: src/winio.c:3207
 msgid "the many translators and the TP"
 msgstr "számos fordító és a TP"
 
-#: src/winio.c:3238
+#: src/winio.c:3208
 msgid "For ncurses:"
 msgstr "Az ncurses számára:"
 
-#: src/winio.c:3239
+#: src/winio.c:3209
 msgid "and anyone else we forgot..."
 msgstr "és mindenkinek, akit kifelejtettünk volna..."
 
-#: src/winio.c:3240
+#: src/winio.c:3210
 msgid "Thank you for using nano!"
 msgstr "Köszönjük, hogy a nano-t választotta!"
 
@@ -2632,9 +2638,6 @@ msgstr "Köszönjük, hogy a nano-t választotta!"
 
 #~ msgid "Cannot add a color command without a syntax command"
 #~ msgstr "Nem adható meg színparancs szintaxissor nélkül"
-
-#~ msgid "Missing regex string"
-#~ msgstr "Hiányzó regex karaktersorozat"
 
 #~ msgid "Cannot add a header regex without a syntax command"
 #~ msgstr "Nem adható meg fejléc regex szintaxisparancs nélkül"

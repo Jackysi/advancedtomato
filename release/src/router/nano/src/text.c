@@ -92,7 +92,7 @@ char *invocation_error(const char *name)
 void do_deletion(undo_type action)
 {
 #ifndef NANO_TINY
-    size_t orig_lenpt = 0;
+    size_t orig_rows = 0;
 #endif
 
     assert(openfile->current != NULL && openfile->current->data != NULL &&
@@ -113,7 +113,7 @@ void do_deletion(undo_type action)
 	update_undo(action);
 
 	if (ISSET(SOFTWRAP))
-	    orig_lenpt = strlenpt(openfile->current->data);
+	    orig_rows = strlenpt(openfile->current->data) / editwincols;
 #endif
 
 	/* Move the remainder of the line "in", over the current character. */
@@ -184,7 +184,7 @@ void do_deletion(undo_type action)
     /* If the number of screen rows that a softwrapped line occupies
      * has changed, we need a full refresh. */
     if (ISSET(SOFTWRAP) && refresh_needed == FALSE)
-	if (strlenpt(openfile->current->data) / editwincols != orig_lenpt / editwincols)
+	if ((strlenpt(openfile->current->data) / editwincols) != orig_rows)
 	    refresh_needed = TRUE;
 #endif
 
@@ -647,7 +647,7 @@ void undo_cut(undo *u)
     else
 	goto_line_posx(u->mark_begin_lineno, u->mark_begin_x);
 
-    copy_from_filestruct(u->cutbuffer);
+    copy_from_buffer(u->cutbuffer);
 
     if (u->xflags != WAS_MARKED_FORWARD && u->type != PASTE)
 	goto_line_posx(u->mark_begin_lineno, u->mark_begin_x);
@@ -949,7 +949,7 @@ void do_redo(void)
     case INSERT:
 	redidmsg = _("text insert");
 	goto_line_posx(u->lineno, u->begin);
-	copy_from_filestruct(u->cutbuffer);
+	copy_from_buffer(u->cutbuffer);
 	free_filestruct(u->cutbuffer);
 	u->cutbuffer = NULL;
 	break;
@@ -2064,12 +2064,12 @@ void backup_lines(filestruct *first_line, size_t par_len)
 
     /* Move the paragraph from the current buffer's filestruct to the
      * justify buffer. */
-    move_to_filestruct(&jusbuffer, &jusbottom, top, 0, bot,
+    extract_buffer(&jusbuffer, &jusbottom, top, 0, bot,
 		(i == 1 && bot == openfile->filebot) ? strlen(bot->data) : 0);
 
     /* Copy the paragraph back to the current buffer's filestruct from
      * the justify buffer. */
-    copy_from_filestruct(jusbuffer);
+    copy_from_buffer(jusbuffer);
 
     /* Move upward from the last line of the paragraph to the first
      * line, putting first_line, edittop, current, and mark_begin at the
@@ -2445,10 +2445,11 @@ void do_justify(bool full_justify)
 #endif
 
 	    /* Break the current line. */
-	if (ISSET(JUSTIFY_TRIM)) {
+	    if (ISSET(JUSTIFY_TRIM)) {
 		while (break_pos > 0 &&
 			is_blank_mbchar(&openfile->current->data[break_pos - 1])) {
 		    break_pos--;
+		    openfile->totsize--;
 		}
 	    }
 	    null_at(&openfile->current->data, break_pos);
@@ -2641,23 +2642,21 @@ bool do_int_spell_fix(const char *word)
 	 * (current, current_x) (where searching starts) is at the top. */
 	if (right_side_up) {
 	    openfile->current = top;
-	    openfile->current_x = (size_t)(top_x - 1);
+	    openfile->current_x = top_x;
 	    openfile->mark_begin = bot;
 	    openfile->mark_begin_x = bot_x;
-	} else
-	    openfile->current_x = (size_t)(openfile->current_x - 1);
+	}
 	openfile->mark_set = FALSE;
     } else
 #endif
     /* Otherwise, start from the top of the file. */
     {
-	openfile->edittop = openfile->fileage;
 	openfile->current = openfile->fileage;
-	openfile->current_x = (size_t)-1;
+	openfile->current_x = 0;
     }
 
     /* Find the first whole occurrence of word. */
-    result = findnextstr(word, TRUE, NULL, NULL, 0);
+    result = findnextstr(word, TRUE, TRUE, NULL, FALSE, NULL, 0);
 
     /* If the word isn't found, alert the user; if it is, allow correction. */
     if (result == 0) {
@@ -2685,7 +2684,6 @@ bool do_int_spell_fix(const char *word)
 
 	/* If a replacement was given, go through all occurrences. */
 	if (proceed && strcmp(word, answer) != 0) {
-	    openfile->current_x--;
 #ifndef NANO_TINY
 	    /* Replacements should happen only in the marked region. */
 	    openfile->mark_set = old_mark_set;
@@ -2929,7 +2927,7 @@ const char *do_alt_speller(char *tempfile_name)
     bool added_magicline = FALSE;
 	/* Whether we added a magicline after filebot. */
     filestruct *top, *bot;
-    size_t top_x, bot_x;
+    size_t top_x, bot_x, was_x, new_x;
     bool right_side_up = FALSE;
     ssize_t mb_lineno_save = 0;
 	/* We're going to close the current file, and open the output of
@@ -3040,9 +3038,17 @@ const char *do_alt_speller(char *tempfile_name)
 	/* Adjust the end point of the marked region for any change in
 	 * length of the region's last line. */
 	if (right_side_up)
-	    current_x_save = strlen(openfile->filebot->data);
+	    was_x = current_x_save;
 	else
-	    openfile->mark_begin_x = strlen(openfile->filebot->data);
+	    was_x = openfile->mark_begin_x;
+	if (top == bot)
+	    new_x = was_x - bot_x + top_x + strlen(openfile->filebot->data);
+	else
+	    new_x = strlen(openfile->filebot->data);
+	if (right_side_up)
+	    current_x_save = new_x;
+	else
+	    openfile->mark_begin_x = new_x;
 
 	/* Unpartition the filestruct so that it contains all the text
 	 * again.  Note that we've replaced the marked text originally

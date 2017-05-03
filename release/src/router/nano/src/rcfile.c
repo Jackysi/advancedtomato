@@ -648,7 +648,7 @@ void parse_colors(char *ptr, int rex_flags)
 {
     short fg, bg;
     bool bright = FALSE;
-    char *fgstr;
+    char *item;
 
     assert(ptr != NULL);
 
@@ -664,9 +664,9 @@ void parse_colors(char *ptr, int rex_flags)
 	return;
     }
 
-    fgstr = ptr;
+    item = ptr;
     ptr = parse_next_word(ptr);
-    if (!parse_color_names(fgstr, &fg, &bg, &bright))
+    if (!parse_color_names(item, &fg, &bg, &bright))
 	return;
 
     if (*ptr == '\0') {
@@ -696,12 +696,16 @@ void parse_colors(char *ptr, int rex_flags)
 	    continue;
 	}
 
-	fgstr = ++ptr;
+	item = ++ptr;
 	ptr = parse_next_regex(ptr);
 	if (ptr == NULL)
 	    break;
 
-	goodstart = nregcomp(fgstr, rex_flags);
+	if (*item == '\0') {
+	    rcfile_error(N_("Empty regex string"));
+	    goodstart = FALSE;
+	} else
+	    goodstart = nregcomp(item, rex_flags);
 
 	/* If the starting regex is valid, initialize a new color struct,
 	 * and hook it in at the tail of the linked list. */
@@ -713,7 +717,7 @@ void parse_colors(char *ptr, int rex_flags)
 	    newcolor->bright = bright;
 	    newcolor->rex_flags = rex_flags;
 
-	    newcolor->start_regex = mallocstrcpy(NULL, fgstr);
+	    newcolor->start_regex = mallocstrcpy(NULL, item);
 	    newcolor->start = NULL;
 
 	    newcolor->end_regex = NULL;
@@ -746,10 +750,15 @@ void parse_colors(char *ptr, int rex_flags)
 	    continue;
 	}
 
-	fgstr = ++ptr;
+	item = ++ptr;
 	ptr = parse_next_regex(ptr);
 	if (ptr == NULL)
 	    break;
+
+	if (*item == '\0') {
+	    rcfile_error(N_("Empty regex string"));
+	    continue;
+	}
 
 	/* If the start regex was invalid, skip past the end regex
 	 * to stay in sync. */
@@ -757,8 +766,8 @@ void parse_colors(char *ptr, int rex_flags)
 	    continue;
 
 	/* If it's valid, save the ending regex string. */
-	if (nregcomp(fgstr, rex_flags))
-	    newcolor->end_regex = mallocstrcpy(NULL, fgstr);
+	if (nregcomp(item, rex_flags))
+	    newcolor->end_regex = mallocstrcpy(NULL, item);
 
 	/* Lame way to skip another static counter. */
 	newcolor->id = live_syntax->nmultis;
@@ -1147,10 +1156,9 @@ void parse_rcfile(FILE *rcstream, bool syntax_only)
 		rcfile_error(N_("Requested fill size \"%s\" is invalid"),
 				option);
 		wrap_at = -CHARS_FROM_EOL;
-	    } else {
+	    } else
 		UNSET(NO_WRAP);
-		free(option);
-	    }
+	    free(option);
 	} else
 #endif
 #ifndef NANO_TINY
@@ -1211,8 +1219,8 @@ void parse_rcfile(FILE *rcstream, bool syntax_only)
 		rcfile_error(N_("Requested tab size \"%s\" is invalid"),
 				option);
 		tabsize = -1;
-	    } else
-		free(option);
+	    }
+	    free(option);
 	} else
 	    assert(FALSE);
     }

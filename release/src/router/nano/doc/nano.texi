@@ -6,8 +6,8 @@
 
 @smallbook
 @set EDITION 0.4
-@set VERSION 2.7.4
-@set UPDATED January 2017
+@set VERSION 2.7.5
+@set UPDATED February 2017
 
 @dircategory Editors
 @direntry
@@ -21,7 +21,7 @@
 @titlepage
 @title GNU @code{nano}
 @subtitle a small and friendly text editor.
-@subtitle version 2.7.4
+@subtitle version 2.7.5
 
 @author Chris Allegretta
 @page
@@ -97,21 +97,24 @@ The usual way to invoke @code{nano} is:
 @code{nano [FILE]}
 @end quotation
 
-But it is also possible to specify one or more options, and to edit
-several files in a row.  Additionally, the cursor can be put on a
-specific line of a file by adding the line number
+But it is also possible to specify one or more options (see the next
+section), and to edit several files in a row.  Additionally, the cursor
+can be put on a specific line of a file by adding the line number
 with a plus sign before the filename, and even in a specific column by
-adding it with a comma.  So the complete command synopsis is:
+adding it with a comma.  So a more complete command synopsis is:
 
 @quotation
 @code{nano [OPTION]@dots{} [[+LINE[,COLUMN]|+,COLUMN] FILE]@dots{}}
 @end quotation
 
-But normallly you would set your preferred options in your
-@file{.nanorc} file.  And when the @code{positionlog} option is set
+Normally, however, you set your preferred options in a @file{.nanorc}
+file (see @xref{Nanorc Files}).  And when using @code{set positionlog}
 (making @code{nano} remember the cursor position when you close a file),
 you will rarely need to specify a line number.
 
+As a special case: when the first file specified is a dash, @code{nano}
+will read data from standard input.  Which means you can pipe the output
+of a command straight into a buffer.
 
 @node Command-line Options
 @chapter Command-line Options
@@ -119,10 +122,6 @@ you will rarely need to specify a line number.
 @command{nano} takes the following options from the command line:
 
 @table @option
-
-@item +@var{line},@var{column}
-Start at line number @var{line} and column number @var{column} (at least one of
-which must be specified) instead of the default of line 1, column 1.
 
 @item -A
 @itemx --smarthome

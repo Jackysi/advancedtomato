@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: nano 1.9.99pre0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2017-01-10 11:33+0100\n"
+"POT-Creation-Date: 2017-02-23 11:43+0100\n"
 "PO-Revision-Date: 2006-09-25 19:59+0200\n"
 "Last-Translator: Mikel Olasagasti <hey_neken@mundurat.net>\n"
 "Language-Team: Basque <translation-team-eu@lists.sourceforge.net>\n"
@@ -29,9 +29,9 @@ msgstr "Ezin da direktorioan gora egin"
 msgid "Go To Directory"
 msgstr "Joan direktorio honetara"
 
-#: src/browser.c:230 src/browser.c:682 src/files.c:1107 src/files.c:2237
-#: src/nano.c:1083 src/search.c:185 src/search.c:282 src/search.c:816
-#: src/search.c:875 src/text.c:3178 src/text.c:3383
+#: src/browser.c:230 src/browser.c:682 src/files.c:1109 src/files.c:2239
+#: src/nano.c:1087 src/search.c:179 src/search.c:267 src/search.c:802
+#: src/search.c:861 src/text.c:3184 src/text.c:3389
 msgid "Cancelled"
 msgstr "Bertan behera utzita"
 
@@ -46,9 +46,9 @@ msgstr "Ezin da %staz kanpo idatzi"
 msgid "Can't move up a directory"
 msgstr "Ezin da direktorioan gora egin"
 
-#: src/browser.c:286 src/files.c:996 src/files.c:1002 src/files.c:1749
-#: src/files.c:1874 src/files.c:1918 src/files.c:1938 src/files.c:2050
-#: src/files.c:2943 src/files.c:3176 src/rcfile.c:562 src/rcfile.c:1255
+#: src/browser.c:286 src/files.c:997 src/files.c:1003 src/files.c:1751
+#: src/files.c:1876 src/files.c:1920 src/files.c:1940 src/files.c:2052
+#: src/files.c:2945 src/files.c:3178 src/rcfile.c:562 src/rcfile.c:1263
 #, c-format
 msgid "Error reading %s: %s"
 msgstr "Errorea %s irakurtzen: %s"
@@ -74,19 +74,19 @@ msgid "(huge)"
 msgstr ""
 
 #. TRANSLATORS: This is the main search prompt.
-#: src/browser.c:671 src/search.c:162
+#: src/browser.c:671 src/search.c:156
 msgid "Search"
 msgstr "Bilatu"
 
-#: src/browser.c:713 src/search.c:360
+#: src/browser.c:713 src/search.c:344
 msgid "Search Wrapped"
 msgstr "Bilaketa berriz hasia"
 
-#: src/browser.c:723 src/search.c:488
+#: src/browser.c:723 src/search.c:472
 msgid "This is the only occurrence"
 msgstr "Hau da kointzidentzia bakarra"
 
-#: src/browser.c:767 src/search.c:453
+#: src/browser.c:767 src/search.c:437
 msgid "No current search pattern"
 msgstr "Ez dago bilatzeko eredurik"
 
@@ -170,7 +170,7 @@ msgstr ""
 msgid "Can't insert file from outside of %s"
 msgstr "Ezin da artxiboa txertatu %s-tik kanpo"
 
-#: src/files.c:457 src/files.c:986 src/rcfile.c:541
+#: src/files.c:457 src/files.c:987 src/rcfile.c:541
 #, c-format
 msgid "\"%s\" is a directory"
 msgstr "\"%s\" direktorio bat da"
@@ -193,185 +193,186 @@ msgstr "%s-ra aldatua"
 msgid "New Buffer"
 msgstr "Bufer berria"
 
-#: src/files.c:913
+#: src/files.c:914
 #, c-format
 msgid "File '%s' is unwritable"
 msgstr ""
 
 #. TRANSLATORS: Keep the next four messages at most 78 characters.
-#: src/files.c:917
+#: src/files.c:918
 #, c-format
 msgid "Read %lu line (Converted from DOS and Mac format)"
 msgid_plural "Read %lu lines (Converted from DOS and Mac format)"
 msgstr[0] "Lerro %lu irakurria (DOS eta Mac formatutik bihurtuak)"
 msgstr[1] "%lu lerro irakurriak (DOS eta Mac formatutik bihurtuak)"
 
-#: src/files.c:922
+#: src/files.c:923
 #, c-format
 msgid "Read %lu line (Converted from Mac format)"
 msgid_plural "Read %lu lines (Converted from Mac format)"
 msgstr[0] "Lerro %lu irakurria (Mac formatutik bihurtuak)"
 msgstr[1] "%lu lerro irakurriak (Mac formatutik bihurtuak)"
 
-#: src/files.c:927
+#: src/files.c:928
 #, c-format
 msgid "Read %lu line (Converted from DOS format)"
 msgid_plural "Read %lu lines (Converted from DOS format)"
 msgstr[0] "Lerro %lu irakurria (DOS formatutik bihurtuak)"
 msgstr[1] "%lu lerro irakurriak (DOS formatutik bihurtuak)"
 
-#: src/files.c:933
+#: src/files.c:934
 #, c-format
 msgid "Read %lu line"
 msgid_plural "Read %lu lines"
 msgstr[0] "Lerro %lu irakurria"
 msgstr[1] "%lu lerro irakurriak"
 
-#: src/files.c:972
+#: src/files.c:973
 msgid "New File"
 msgstr "Fitxategi berria"
 
-#: src/files.c:977
+#: src/files.c:978
 #, fuzzy, c-format
 msgid "File \"%s\" not found"
 msgstr "\"%s\" ezin aurkitu"
 
-#: src/files.c:987 src/rcfile.c:542
+#: src/files.c:988 src/rcfile.c:542
 #, c-format
 msgid "\"%s\" is a device file"
 msgstr "\"%s\" fitxategia dispositibo-fitxategi bat da"
 
-#: src/files.c:1005
+#: src/files.c:1006
 msgid "Reading File"
 msgstr "Fitxategia irakurtzen"
 
-#: src/files.c:1072
-#, c-format
-msgid "Command to execute in new buffer [from %s] "
+#. TRANSLATORS: The next four messages are prompts.
+#: src/files.c:1074
+#, fuzzy
+msgid "Command to execute in new buffer"
 msgstr "Buffer berrian exekutatzeko komandoa [%s-tik] "
 
-#: src/files.c:1075
-#, c-format
-msgid "Command to execute [from %s] "
+#: src/files.c:1077
+#, fuzzy
+msgid "Command to execute"
 msgstr "Exekutatutzeko komandoa [%s-(e)tik] "
 
-#: src/files.c:1081
+#: src/files.c:1083
 #, c-format
 msgid "File to insert into new buffer [from %s] "
 msgstr "Buffer berrian txertatzeko fitxategia [%s-tik]"
 
-#: src/files.c:1084
+#: src/files.c:1086
 #, c-format
 msgid "File to insert [from %s] "
 msgstr "Txertatzeko fitxategia [%s-tik] "
 
-#: src/files.c:1302
+#: src/files.c:1304
 msgid "Key invalid in non-multibuffer mode"
 msgstr "Baligabeko tekla ez-multibuffer moduan"
 
-#: src/files.c:1588
+#: src/files.c:1590
 msgid "Failed to write backup file; continue saving? (Say N if unsure.) "
 msgstr ""
 
-#: src/files.c:1705
+#: src/files.c:1707
 #, c-format
 msgid "Can't write outside of %s"
 msgstr "Ezin da %staz kanpo idatzi"
 
-#: src/files.c:1788 src/files.c:1813 src/files.c:1831 src/files.c:1844
-#: src/files.c:1855 src/files.c:1883
+#: src/files.c:1790 src/files.c:1815 src/files.c:1833 src/files.c:1846
+#: src/files.c:1857 src/files.c:1885
 #, fuzzy, c-format
 msgid "Error writing backup file %s: %s"
 msgstr "Errorea aldi baterako fitxategia idazten: %s"
 
-#: src/files.c:1789 src/nano.c:654
+#: src/files.c:1791 src/nano.c:658
 msgid "Too many backup files?"
 msgstr "Babes-kopia fitxategi gehiegi?"
 
-#: src/files.c:1927 src/files.c:1949 src/text.c:3108 src/text.c:3120
-#: src/text.c:3482 src/text.c:3491
+#: src/files.c:1929 src/files.c:1951 src/text.c:3114 src/text.c:3126
+#: src/text.c:3488 src/text.c:3497
 #, c-format
 msgid "Error writing temp file: %s"
 msgstr "Errorea aldi baterako fitxategia idazten: %s"
 
-#: src/files.c:1968 src/files.c:1978 src/files.c:1998 src/files.c:2015
-#: src/files.c:2025 src/files.c:2057 src/files.c:2064
+#: src/files.c:1970 src/files.c:1980 src/files.c:2000 src/files.c:2017
+#: src/files.c:2027 src/files.c:2059 src/files.c:2066
 #, c-format
 msgid "Error writing %s: %s"
 msgstr "Errorea %s idazten: %s"
 
-#: src/files.c:2103
+#: src/files.c:2105
 #, c-format
 msgid "Wrote %lu line"
 msgid_plural "Wrote %lu lines"
 msgstr[0] "Lerro %lu idatzia"
 msgstr[1] "%lu lerro idatziak"
 
-#: src/files.c:2199
+#: src/files.c:2201
 msgid " [DOS Format]"
 msgstr "[DOS formatua]"
 
-#: src/files.c:2200
+#: src/files.c:2202
 msgid " [Mac Format]"
 msgstr "[Mac formatua]"
 
-#: src/files.c:2202
+#: src/files.c:2204
 msgid " [Backup]"
 msgstr " [Babeskopia]"
 
 #. TRANSLATORS: The next six strings are prompts.
-#: src/files.c:2210
+#: src/files.c:2212
 msgid "Prepend Selection to File"
 msgstr "Gehitu aukeraketa fitxategiaren hasieran"
 
-#: src/files.c:2211
+#: src/files.c:2213
 msgid "Append Selection to File"
 msgstr "Gehitu aukeraketa fitxategian"
 
-#: src/files.c:2212
+#: src/files.c:2214
 msgid "Write Selection to File"
 msgstr "Ahuatespena artxiboan idatzi"
 
-#: src/files.c:2215
+#: src/files.c:2217
 msgid "File Name to Prepend to"
 msgstr "Gehitu nahi duzun fitxategiaren izena"
 
-#: src/files.c:2216
+#: src/files.c:2218
 msgid "File Name to Append to"
 msgstr "Gehituko zaion fitxategiaren izena "
 
-#: src/files.c:2217
+#: src/files.c:2219
 msgid "File Name to Write"
 msgstr "Idatzi nahi duzun artxiboaren izena"
 
-#: src/files.c:2246
+#: src/files.c:2248
 msgid "Save modified buffer anyway? "
 msgstr ""
 
 #. TRANSLATORS: Restricted mode forbids overwriting.
-#: src/files.c:2339
+#: src/files.c:2341
 msgid "File exists -- cannot overwrite"
 msgstr ""
 
-#: src/files.c:2349
+#: src/files.c:2351
 #, fuzzy
 msgid "Save file under DIFFERENT NAME? "
 msgstr "Gorde fitxategia BESTE izen batekin?"
 
-#: src/files.c:2357
+#: src/files.c:2359
 #, fuzzy, c-format
 msgid "File \"%s\" exists; OVERWRITE? "
 msgstr "Fitxategia existitzen da dagoeneko, GAINIDATZI?"
 
-#: src/files.c:2378
+#: src/files.c:2380
 msgid "File was modified since you opened it; continue saving? "
 msgstr ""
 
-#: src/files.c:2796
+#: src/files.c:2798
 msgid "(more)"
 msgstr "(gehiago)"
 
-#: src/files.c:2881
+#: src/files.c:2883
 #, fuzzy, c-format
 msgid ""
 "\n"
@@ -380,28 +381,28 @@ msgstr ""
 "\n"
 "Nanorekin jarraitzeko return sakatu\n"
 
-#: src/files.c:2897
+#: src/files.c:2899
 #, c-format
 msgid ""
 "Unable to create directory %s: %s\n"
 "It is required for saving/loading search history or cursor positions.\n"
 msgstr ""
 
-#: src/files.c:2904
+#: src/files.c:2906
 #, c-format
 msgid ""
 "Path %s is not a directory and needs to be.\n"
 "Nano will be unable to load or save search history or cursor positions.\n"
 msgstr ""
 
-#: src/files.c:2926
+#: src/files.c:2928
 #, c-format
 msgid ""
 "Detected a legacy nano history file (%s) which I tried to move\n"
 "to the preferred location (%s) but encountered an error: %s"
 msgstr ""
 
-#: src/files.c:2930
+#: src/files.c:2932
 #, c-format
 msgid ""
 "Detected a legacy nano history file (%s) which I moved\n"
@@ -409,7 +410,7 @@ msgid ""
 "(see the nano FAQ about this change)"
 msgstr ""
 
-#: src/files.c:3012 src/files.c:3020 src/files.c:3043 src/files.c:3065
+#: src/files.c:3014 src/files.c:3022 src/files.c:3045 src/files.c:3067
 #, fuzzy, c-format
 msgid "Error writing %s: %s\n"
 msgstr "Errorea %s idazten: %s"
@@ -1533,21 +1534,21 @@ msgstr ""
 msgid "enable/disable"
 msgstr "gaitu/ezgaitu"
 
-#: src/nano.c:525
+#: src/nano.c:529
 #, fuzzy
 msgid "Key is invalid in view mode"
 msgstr "Tekla baliogabea ikuskatze moduan"
 
-#: src/nano.c:531
+#: src/nano.c:535
 #, fuzzy
 msgid "This function is disabled in restricted mode"
 msgstr "Ezin da maila nagusia era murriztuan bisitatu"
 
-#: src/nano.c:539
+#: src/nano.c:543
 msgid "Help is not available"
 msgstr ""
 
-#: src/nano.c:648
+#: src/nano.c:652
 #, c-format
 msgid ""
 "\n"
@@ -1556,7 +1557,7 @@ msgstr ""
 "\n"
 "Bufferra hemen idatzia: %s\n"
 
-#: src/nano.c:650
+#: src/nano.c:654
 #, c-format
 msgid ""
 "\n"
@@ -1565,7 +1566,7 @@ msgstr ""
 "\n"
 "Bufferra ez da %s-(e)n idatzi: %s\n"
 
-#: src/nano.c:653
+#: src/nano.c:657
 #, c-format
 msgid ""
 "\n"
@@ -1574,7 +1575,7 @@ msgstr ""
 "\n"
 "Bufferra ez da idatzi: %s\n"
 
-#: src/nano.c:780
+#: src/nano.c:784
 #, c-format
 msgid ""
 "Usage: nano [OPTIONS] [[+LINE,COLUMN] FILE]...\n"
@@ -1583,287 +1584,287 @@ msgstr ""
 "Erabilera: nano [AUKERAK] [[+LERROA,ZUTABEA] FITXATEGIA]\n"
 "\n"
 
-#: src/nano.c:782
+#: src/nano.c:786
 #, c-format
 msgid "Option\t\tGNU long option\t\tMeaning\n"
 msgstr "Aukera\t\tGNU aukera luzea\t\tEsanahia\n"
 
-#: src/nano.c:784
+#: src/nano.c:788
 #, c-format
 msgid "Option\t\tMeaning\n"
 msgstr "Aukera\t\tEsanahia\n"
 
-#: src/nano.c:786
+#: src/nano.c:790
 msgid "+LINE,COLUMN"
 msgstr "+LERROA,ZUTABEA"
 
 #. TRANSLATORS: The next forty or so strings are option descriptions
 #. * for the --help output.  Try to keep them at most 40 characters.
-#: src/nano.c:789
+#: src/nano.c:793
 msgid "Start at line LINE, column COLUMN"
 msgstr "Hasi LERRO lerro zenbakian, ZUTABE zutabean"
 
-#: src/nano.c:791
+#: src/nano.c:795
 msgid "Enable smart home key"
 msgstr "Gaitu 'smart home' tekla"
 
-#: src/nano.c:793
+#: src/nano.c:797
 msgid "Save backups of existing files"
 msgstr "Gorde existitzen diren fitxategien babeskopiak"
 
-#: src/nano.c:794
+#: src/nano.c:798
 msgid "-C <dir>"
 msgstr "-C <dir>"
 
-#: src/nano.c:794
+#: src/nano.c:798
 msgid "--backupdir=<dir>"
 msgstr "--backupdir=<dir>"
 
-#: src/nano.c:795
+#: src/nano.c:799
 msgid "Directory for saving unique backup files"
 msgstr "Babeskopia fitxategiak idazteko direktorioa"
 
-#: src/nano.c:798
+#: src/nano.c:802
 msgid "Use bold instead of reverse video text"
 msgstr "Erabili lodia alderantzizko testua beharrean"
 
-#: src/nano.c:800
+#: src/nano.c:804
 msgid "Convert typed tabs to spaces"
 msgstr "Bihurtu idatzitako tabuladoreak zuriuneetara"
 
-#: src/nano.c:805
+#: src/nano.c:809
 msgid "Read a file into a new buffer by default"
 msgstr ""
 
-#: src/nano.c:808
+#: src/nano.c:812
 msgid "Use (vim-style) lock files"
 msgstr ""
 
-#: src/nano.c:813
+#: src/nano.c:817
 msgid "Log & read search/replace string history"
 msgstr "Idatzi eta irakurri bilaketa/aldaketa kateen historia"
 
-#: src/nano.c:817
+#: src/nano.c:821
 msgid "Don't look at nanorc files"
 msgstr "Ez begiratu nanorc fitxategietan"
 
-#: src/nano.c:820
+#: src/nano.c:824
 msgid "Fix numeric keypad key confusion problem"
 msgstr "Konpondu zenbakizko teklatu nahaste arazoak"
 
-#: src/nano.c:822
+#: src/nano.c:826
 msgid "Don't add newlines to the ends of files"
 msgstr "Ez gehitu lerro berria fitxategiaren amaieran"
 
-#: src/nano.c:825
+#: src/nano.c:829
 msgid "Don't convert files from DOS/Mac format"
 msgstr "Ez bihurtu DOS/Mac formatuko fitxategiak"
 
-#: src/nano.c:827
+#: src/nano.c:831
 msgid "Use one more line for editing"
 msgstr "Erabili lerro bat edo gehiago editatzeko"
 
-#: src/nano.c:831
+#: src/nano.c:835
 #, fuzzy
 msgid "Log & read location of cursor position"
 msgstr "Txertatu tabuladore karaktere bat kurtsorearen posizioan"
 
-#: src/nano.c:834
+#: src/nano.c:838
 msgid "-Q <str>"
 msgstr "-Q <str>"
 
-#: src/nano.c:834
+#: src/nano.c:838
 msgid "--quotestr=<str>"
 msgstr "--quotestr=<str>"
 
-#: src/nano.c:834
+#: src/nano.c:838
 msgid "Quoting string"
 msgstr "Aipamen katea"
 
-#: src/nano.c:837
+#: src/nano.c:841
 msgid "Restricted mode"
 msgstr "Mugatutako modua"
 
-#: src/nano.c:839
+#: src/nano.c:843
 msgid "Scroll by line instead of half-screen"
 msgstr ""
 
-#: src/nano.c:841
+#: src/nano.c:845
 msgid "-T <#cols>"
 msgstr "-T <#cols>"
 
-#: src/nano.c:841
+#: src/nano.c:845
 msgid "--tabsize=<#cols>"
 msgstr "--tabsize=<#cols>"
 
-#: src/nano.c:842
+#: src/nano.c:846
 msgid "Set width of a tab to #cols columns"
 msgstr "Ezarri fitxa baten zabalera #cols-era"
 
-#: src/nano.c:844
+#: src/nano.c:848
 msgid "Do quick statusbar blanking"
 msgstr "Egin egoera-barra garbiketa azkarra"
 
-#: src/nano.c:846
+#: src/nano.c:850
 msgid "Print version information and exit"
 msgstr "Bertsioaren informazioa inprimatu eta irten"
 
-#: src/nano.c:849
+#: src/nano.c:853
 msgid "Detect word boundaries more accurately"
 msgstr "Aurkitu hitz amaierak zehatzago aurkitu"
 
-#: src/nano.c:850
+#: src/nano.c:854
 #, fuzzy
 msgid "-X <str>"
 msgstr "-Q <str>"
 
-#: src/nano.c:850
+#: src/nano.c:854
 #, fuzzy
 msgid "--wordchars=<str>"
 msgstr "--quotestr=<str>"
 
-#: src/nano.c:851
+#: src/nano.c:855
 msgid "Which other characters are word parts"
 msgstr ""
 
-#: src/nano.c:855
+#: src/nano.c:859
 msgid "-Y <str>"
 msgstr "-Y <str>"
 
-#: src/nano.c:855
+#: src/nano.c:859
 msgid "--syntax=<str>"
 msgstr "--syntax=<str>"
 
-#: src/nano.c:856
+#: src/nano.c:860
 #, fuzzy
 msgid "Syntax definition to use for coloring"
 msgstr "Erabiltzeko sintaxi definizioa"
 
-#: src/nano.c:858
+#: src/nano.c:862
 msgid "Constantly show cursor position"
 msgstr "Erakutsi beti kurtsorearen posizioa"
 
-#: src/nano.c:860
+#: src/nano.c:864
 msgid "Fix Backspace/Delete confusion problem"
 msgstr "Konpondu atzera tekla/ezabatu nahaste arazoak"
 
-#: src/nano.c:861
+#: src/nano.c:865
 #, fuzzy
 msgid "Show this help text and exit"
 msgstr "Erakutsi laguntza testu hau"
 
-#: src/nano.c:863
+#: src/nano.c:867
 msgid "Automatically indent new lines"
 msgstr "Automatikoki indentatu lerro berriak"
 
-#: src/nano.c:864
+#: src/nano.c:868
 msgid "Cut from cursor to end of line"
 msgstr "Moztu kurtsoretik lerro amaierara"
 
-#: src/nano.c:867
+#: src/nano.c:871
 msgid "Show line numbers in front of the text"
 msgstr ""
 
-#: src/nano.c:870
+#: src/nano.c:874
 msgid "Enable the use of the mouse"
 msgstr "Gaitu xaguaren erabilera"
 
-#: src/nano.c:872
+#: src/nano.c:876
 msgid "Do not read the file (only write it)"
 msgstr ""
 
-#: src/nano.c:874
+#: src/nano.c:878
 msgid "-o <dir>"
 msgstr "-o <dir>"
 
-#: src/nano.c:874
+#: src/nano.c:878
 msgid "--operatingdir=<dir>"
 msgstr "--operatingdir=<dir>"
 
-#: src/nano.c:875
+#: src/nano.c:879
 msgid "Set operating directory"
 msgstr "Ezarri eragiketa direktorioa"
 
-#: src/nano.c:877
+#: src/nano.c:881
 msgid "Preserve XON (^Q) and XOFF (^S) keys"
 msgstr "Mantendu XON (^Q) eta XOFF (^S) teklak"
 
-#: src/nano.c:881
+#: src/nano.c:885
 msgid "Silently ignore startup issues like rc file errors"
 msgstr ""
 
-#: src/nano.c:884
+#: src/nano.c:888
 msgid "-r <#cols>"
 msgstr "-r <#cols>"
 
-#: src/nano.c:884
+#: src/nano.c:888
 msgid "--fill=<#cols>"
 msgstr "--fill=<#cols>"
 
-#: src/nano.c:885
+#: src/nano.c:889
 #, fuzzy
 msgid "Set hard-wrapping point at column #cols"
 msgstr "Ezarri zutabe-tab baten zabalera #cols-i"
 
-#: src/nano.c:889
+#: src/nano.c:893
 msgid "-s <prog>"
 msgstr "-s <prog>"
 
-#: src/nano.c:889
+#: src/nano.c:893
 msgid "--speller=<prog>"
 msgstr "--speller=<prog>"
 
-#: src/nano.c:890
+#: src/nano.c:894
 msgid "Enable alternate speller"
 msgstr "Gahitu zuzentzaile alternatiboa"
 
-#: src/nano.c:892
+#: src/nano.c:896
 msgid "Auto save on exit, don't prompt"
 msgstr "Irteterakoan automatikoki gorde, ez galdetu"
 
-#: src/nano.c:894
+#: src/nano.c:898
 #, fuzzy
 msgid "Save a file by default in Unix format"
 msgstr "Idatzi fitxategia DOS formatuan"
 
-#: src/nano.c:896
+#: src/nano.c:900
 msgid "View mode (read-only)"
 msgstr "Ikuskatze modua (irakurri bakarrik)"
 
-#: src/nano.c:898
+#: src/nano.c:902
 #, fuzzy
 msgid "Don't hard-wrap long lines"
 msgstr "Ez doitu lerro luzeak"
 
-#: src/nano.c:900
+#: src/nano.c:904
 msgid "Don't show the two help lines"
 msgstr "Ez erakutsi bi laguntza lerroak"
 
-#: src/nano.c:902
+#: src/nano.c:906
 msgid "Enable suspension"
 msgstr "Gaitu esekitzea"
 
-#: src/nano.c:904
+#: src/nano.c:908
 #, fuzzy
 msgid "Enable soft line wrapping"
 msgstr "Auto-doitu lerro luzeak"
 
-#: src/nano.c:916
+#: src/nano.c:920
 #, fuzzy, c-format
 msgid " GNU nano, version %s\n"
 msgstr "GNU nano %s bertsioa (%s %s konpilatua)\n"
 
-#: src/nano.c:919
+#: src/nano.c:923
 #, c-format
 msgid " (C) 2014..%s the contributors to nano\n"
 msgstr ""
 
-#: src/nano.c:921
+#: src/nano.c:925
 #, fuzzy, c-format
 msgid " Email: nano@nano-editor.org\tWeb: https://nano-editor.org/"
 msgstr "E-posta: nano@nano-editor.org\tWebgunea: http://www.nano-editor.org"
 
-#: src/nano.c:922
+#: src/nano.c:926
 #, c-format
 msgid ""
 "\n"
@@ -1872,89 +1873,94 @@ msgstr ""
 "\n"
 "Konpilazio aukerak:"
 
-#: src/nano.c:1068
+#: src/nano.c:1072
 msgid "No file name"
 msgstr ""
 
-#: src/nano.c:1070
+#: src/nano.c:1074
 msgid "Save modified buffer?  (Answering \"No\" will DISCARD changes.) "
 msgstr ""
 
-#: src/nano.c:1131
+#: src/nano.c:1135
 msgid "Couldn't reopen stdin from keyboard, sorry\n"
 msgstr ""
 
-#: src/nano.c:1155
+#: src/nano.c:1159
 #, c-format
 msgid "Reading from stdin, ^C to abort\n"
 msgstr ""
 
-#: src/nano.c:1219
+#: src/nano.c:1223
 msgid "Received SIGHUP or SIGTERM\n"
 msgstr "SIGHUP edo SIGTERM jaso da\n"
 
-#: src/nano.c:1235
+#: src/nano.c:1239
 #, c-format
 msgid "Use \"fg\" to return to nano.\n"
 msgstr "Erabili \"fg\" nano-ra itzultzeko.\n"
 
-#: src/nano.c:1257
+#: src/nano.c:1261
 msgid "Suspension is not enabled"
 msgstr ""
 
-#: src/nano.c:1405
+#: src/nano.c:1406
 msgid "enabled"
 msgstr "gaitua"
 
-#: src/nano.c:1405
+#: src/nano.c:1406
 msgid "disabled"
 msgstr "ez gaitua"
 
-#: src/nano.c:1532
+#: src/nano.c:1533
 msgid "Unbound key"
 msgstr ""
 
-#: src/nano.c:1535
+#: src/nano.c:1536
 msgid "Unbindable key: M-["
 msgstr ""
 
-#: src/nano.c:1537
+#: src/nano.c:1538
 #, c-format
 msgid "Unbound key: M-%c"
 msgstr ""
 
-#: src/nano.c:1539
+#: src/nano.c:1540
 #, c-format
 msgid "Unbound key: ^%c"
 msgstr ""
 
-#: src/nano.c:1541
+#: src/nano.c:1542
 #, c-format
 msgid "Unbound key: %c"
 msgstr ""
 
-#: src/nano.c:1714
+#: src/nano.c:1715
 msgid "XON ignored, mumble mumble"
 msgstr "XON ignoratua, kaka zarra"
 
-#: src/nano.c:1719
+#: src/nano.c:1720
 msgid "XOFF ignored, mumble mumble"
 msgstr "XOFF ignoratua, kaka zarra"
 
-#: src/nano.c:2126 src/rcfile.c:1211
+#: src/nano.c:2127 src/rcfile.c:1219
 #, c-format
 msgid "Requested tab size \"%s\" is invalid"
 msgstr "Eskatutako \"%s\" tab tamainua baliogabea da"
 
-#: src/nano.c:2193 src/rcfile.c:1147
+#: src/nano.c:2194 src/rcfile.c:1156
 #, c-format
 msgid "Requested fill size \"%s\" is invalid"
 msgstr "Eskatutako \"%s\" betetze tamainua baliogabea da"
 
-#: src/nano.c:2247
+#: src/nano.c:2248
 #, c-format
 msgid "Type '%s -h' for a list of available options.\n"
 msgstr ""
+
+#: src/nano.c:2562 src/nano.c:2588 src/search.c:879
+#, fuzzy
+msgid "Invalid line or column number"
+msgstr "Lerroaren zenbakia, zutabe zenbakia sartu"
 
 #. TRANSLATORS: For the next three strings, if possible, specify
 #. * the single-byte shortcuts for both your language and English.
@@ -1993,11 +1999,11 @@ msgstr "Errorea %s-n %lu lerroan: "
 msgid "Argument '%s' has an unterminated \""
 msgstr "'%s' argumentuak amaitu gabeko \" bat dauka"
 
-#: src/rcfile.c:242 src/rcfile.c:694 src/rcfile.c:745 src/rcfile.c:844
+#: src/rcfile.c:242 src/rcfile.c:694 src/rcfile.c:749 src/rcfile.c:853
 msgid "Regex strings must begin and end with a \" character"
 msgstr "Regex kateak \" karaktearekin hasi eta amaitu behar dute"
 
-#: src/rcfile.c:268 src/search.c:57
+#: src/rcfile.c:268 src/search.c:55
 #, c-format
 msgid "Bad regex \"%s\": %s"
 msgstr "\"%s\" regex okerra: %s"
@@ -2087,7 +2093,7 @@ msgstr ""
 "\"black\", \"bright\" aukerazko aurrizkiarekin\n"
 "aurreplanoko koloreentzat."
 
-#: src/rcfile.c:657 src/rcfile.c:815 src/rcfile.c:878
+#: src/rcfile.c:657 src/rcfile.c:824 src/rcfile.c:887
 #, c-format
 msgid "A '%s' command requires a preceding 'syntax' command"
 msgstr ""
@@ -2096,104 +2102,109 @@ msgstr ""
 msgid "Missing color name"
 msgstr "Kolorearen izena falta da"
 
-#: src/rcfile.c:673 src/rcfile.c:827
+#: src/rcfile.c:673 src/rcfile.c:836
 #, fuzzy, c-format
 msgid "Missing regex string after '%s' command"
 msgstr "Regex katea falta da"
 
-#: src/rcfile.c:739
+#: src/rcfile.c:705 src/rcfile.c:759
+#, fuzzy
+msgid "Empty regex string"
+msgstr "Regex katea falta da"
+
+#: src/rcfile.c:743
 msgid "\"start=\" requires a corresponding \"end=\""
 msgstr "\"start=\"-k \"end=\" behar du"
 
-#: src/rcfile.c:788
+#: src/rcfile.c:797
 #, c-format
 msgid "Background color \"%s\" cannot be bright"
 msgstr "Atzekaldeko \"%s\" koloreak ezin du bizia izan"
 
-#: src/rcfile.c:822
+#: src/rcfile.c:831
 #, fuzzy, c-format
 msgid "The \"default\" syntax does not accept '%s' regexes"
 msgstr "\"default\" sintaxiak ez du extentsiorik hartu behar"
 
-#: src/rcfile.c:883
+#: src/rcfile.c:892
 #, c-format
 msgid "Missing command after '%s'"
 msgstr ""
 
-#: src/rcfile.c:899
+#: src/rcfile.c:908
 #, fuzzy, c-format
 msgid "Argument of '%s' lacks closing \""
 msgstr "'%s' argumentuak amaitu gabeko \" bat dauka"
 
-#: src/rcfile.c:930
+#: src/rcfile.c:939
 #, c-format
 msgid "Fatal error: no keys mapped for function \"%s\".  Exiting.\n"
 msgstr ""
 
-#: src/rcfile.c:932
+#: src/rcfile.c:941
 #, c-format
 msgid ""
 "If needed, use nano with the -I option to adjust your nanorc settings.\n"
 msgstr ""
 
-#: src/rcfile.c:987
+#: src/rcfile.c:996
 #, fuzzy, c-format
 msgid "Could not find syntax \"%s\" to extend"
 msgstr "Ezin izan zen %s ireki %s idazteko"
 
-#: src/rcfile.c:1009 src/rcfile.c:1222
+#: src/rcfile.c:1018 src/rcfile.c:1230
 #, c-format
 msgid "Syntax \"%s\" has no color commands"
 msgstr "\"%s\" sintaxiak ez dauka kolore komandorik"
 
-#: src/rcfile.c:1040
+#: src/rcfile.c:1049
 #, c-format
 msgid "Command \"%s\" not allowed in included file"
 msgstr "\"%s\" komandoa ez dago baimendua fitxategia barne moduan"
 
-#: src/rcfile.c:1055
+#: src/rcfile.c:1064
 #, c-format
 msgid "Command \"%s\" not understood"
 msgstr "Ez da \"%s\" komandoa ulertu"
 
-#: src/rcfile.c:1067
+#: src/rcfile.c:1076
 #, fuzzy
 msgid "Missing option"
 msgstr "Kolorearen izena falta da"
 
-#: src/rcfile.c:1081
+#: src/rcfile.c:1090
 #, fuzzy, c-format
 msgid "Unknown option \"%s\""
 msgstr "\"%s\" bandera ezezaguna"
 
-#: src/rcfile.c:1094
+#: src/rcfile.c:1103
 #, fuzzy, c-format
 msgid "Cannot unset option \"%s\""
 msgstr "Ezin da \"%s\" bandera kendu"
 
-#: src/rcfile.c:1106
+#: src/rcfile.c:1115
 #, c-format
 msgid "Option \"%s\" requires an argument"
 msgstr "\"%s\" aukerak argumentu bat behar du"
 
-#: src/rcfile.c:1122
+#: src/rcfile.c:1131
 #, fuzzy
 msgid "Argument is not a valid multibyte string"
 msgstr "Aukera ez da baliodun multibyte katea"
 
-#: src/rcfile.c:1160 src/rcfile.c:1181 src/rcfile.c:1188
+#: src/rcfile.c:1168 src/rcfile.c:1189 src/rcfile.c:1196
 msgid "Non-blank characters required"
 msgstr "Ez-hutsune karaktereak behar dira"
 
-#: src/rcfile.c:1167
+#: src/rcfile.c:1175
 msgid "Two single-column characters required"
 msgstr "Bi zutabe-bakar karaktere behar dira"
 
-#: src/rcfile.c:1276
+#: src/rcfile.c:1284
 msgid "I can't find my home directory!  Wah!"
 msgstr "Ezin dut nire etxe direktorioa aurkitu!  Outx!"
 
-#: src/rcfile.c:1291
+#: src/rcfile.c:1299
 #, c-format
 msgid ""
 "\n"
@@ -2202,51 +2213,51 @@ msgstr ""
 "\n"
 "Nano abiarazten jarraitzeko return sakatu.\n"
 
-#: src/search.c:95
+#: src/search.c:89
 #, c-format
 msgid "\"%.*s%s\" not found"
 msgstr "\"%.*s%s\" ez da aurkitu"
 
 #. TRANSLATORS: The next three modify the search prompt.
-#: src/search.c:164
+#: src/search.c:158
 msgid " [Case Sensitive]"
 msgstr "[May/Min]"
 
-#: src/search.c:166
+#: src/search.c:160
 msgid " [Regexp]"
 msgstr "[Regexp]"
 
-#: src/search.c:169
+#: src/search.c:163
 msgid " [Backwards]"
 msgstr "[Atzeruntza]"
 
 #. TRANSLATORS: The next two modify the search prompt.
-#: src/search.c:172
+#: src/search.c:166
 msgid " (to replace) in selection"
 msgstr " (aldatzeko) aukeraketan"
 
-#: src/search.c:174
+#: src/search.c:168
 msgid " (to replace)"
 msgstr "(aldatzeko)"
 
 #. TRANSLATORS: This is shown when searching takes
 #. * more than half a second.
-#: src/search.c:292
+#: src/search.c:277
 #, fuzzy
 msgid "Searching..."
 msgstr "Bilatu"
 
 #. TRANSLATORS: This is a prompt.
-#: src/search.c:667
+#: src/search.c:653
 msgid "Replace this instance?"
 msgstr "Instantsia hau aldatu?"
 
 #. TRANSLATORS: This is a prompt.
-#: src/search.c:805
+#: src/search.c:791
 msgid "Replace with"
 msgstr "Aldatu honekin"
 
-#: src/search.c:835
+#: src/search.c:821
 #, c-format
 msgid "Replaced %lu occurrence"
 msgid_plural "Replaced %lu occurrences"
@@ -2254,20 +2265,15 @@ msgstr[0] "%lu kointzidentzia aldatuta"
 msgstr[1] "%lu kointzidentzia aldatuta"
 
 #. TRANSLATORS: This is a prompt.
-#: src/search.c:871
+#: src/search.c:857
 msgid "Enter line number, column number"
 msgstr "Lerroaren zenbakia, zutabe zenbakia sartu"
 
-#: src/search.c:893
-#, fuzzy
-msgid "Invalid line or column number"
-msgstr "Lerroaren zenbakia, zutabe zenbakia sartu"
-
-#: src/search.c:1045
+#: src/search.c:1031
 msgid "Not a bracket"
 msgstr "Ez da hori giltza"
 
-#: src/search.c:1111
+#: src/search.c:1097
 msgid "No matching bracket"
 msgstr "Ez dago giltz egokirik"
 
@@ -2367,12 +2373,12 @@ msgstr ""
 msgid "Redid action (%s)"
 msgstr ""
 
-#: src/text.c:1067 src/text.c:2748 src/text.c:3187
+#: src/text.c:1067 src/text.c:2746 src/text.c:3193
 msgid "Could not create pipe"
 msgstr "Ezin izan da hodia sortu"
 
-#: src/text.c:1093 src/text.c:2835 src/text.c:2988 src/text.c:3235
-#: src/text.c:3524
+#: src/text.c:1093 src/text.c:2833 src/text.c:2986 src/text.c:3241
+#: src/text.c:3530
 msgid "Could not fork"
 msgstr "Ezin izan da bikoiztu"
 
@@ -2381,143 +2387,143 @@ msgstr "Ezin izan da bikoiztu"
 msgid "Bad quote string %s: %s"
 msgstr "%s aipamen kate okerra: %s"
 
-#: src/text.c:2501
+#: src/text.c:2502
 msgid "Can now UnJustify!"
 msgstr "Orain ez-justifikatu dezakezu!"
 
-#: src/text.c:2664
+#: src/text.c:2663
 #, c-format
 msgid "Unfindable word: %s"
 msgstr ""
 
-#: src/text.c:2680
+#: src/text.c:2679
 msgid "Edit a replacement"
 msgstr "Ordezkoa editatu"
 
 #. TRANSLATORS: Shown after fixing misspellings in one word.
-#: src/text.c:2696
+#: src/text.c:2694
 #, fuzzy
 msgid "Next word..."
 msgstr "Hurrengo hitza"
 
-#: src/text.c:2750
+#: src/text.c:2748
 msgid "Creating misspelled word list, please wait..."
 msgstr "Gaizki idatzitako hiz zerrenda sortzen, itxaron mesedez..."
 
-#: src/text.c:2841 src/text.c:3242
+#: src/text.c:2839 src/text.c:3248
 msgid "Could not get size of pipe buffer"
 msgstr "Ezin izan da hodi buffer-aren tamainua lortu"
 
-#: src/text.c:2890
+#: src/text.c:2888
 msgid "Error invoking \"spell\""
 msgstr "Errorea \"spell\"-i deitzen"
 
-#: src/text.c:2893
+#: src/text.c:2891
 msgid "Error invoking \"sort -f\""
 msgstr "Errorea \"sort -f\"-i deitzen"
 
-#: src/text.c:2896
+#: src/text.c:2894
 msgid "Error invoking \"uniq\""
 msgstr "Errorea \"uniq\"-i deitzen"
 
-#: src/text.c:3126
+#: src/text.c:3132
 #, fuzzy
 msgid "Invoking spell checker, please wait"
 msgstr "Deitu zuzentzaileari, eskuragarri badago"
 
-#: src/text.c:3140
+#: src/text.c:3146
 #, c-format
 msgid "Spell checking failed: %s"
 msgstr "Zuzenketa ortografikoan huts egin du: %s"
 
-#: src/text.c:3142
+#: src/text.c:3148
 #, c-format
 msgid "Spell checking failed: %s: %s"
 msgstr "Zuzenketa ortografikoan huts egin du: %s: %s"
 
-#: src/text.c:3145
+#: src/text.c:3151
 msgid "Finished checking spelling"
 msgstr "Zuzenketa ortografikoa bukatu da"
 
-#: src/text.c:3170
+#: src/text.c:3176
 #, fuzzy
 msgid "No linter defined for this type of file!"
 msgstr "Ez gehitu lerro berria fitxategiaren amaieran"
 
-#: src/text.c:3175
+#: src/text.c:3181
 msgid "Save modified buffer before linting?"
 msgstr ""
 
-#: src/text.c:3192
+#: src/text.c:3198
 msgid "Invoking linter, please wait"
 msgstr ""
 
-#: src/text.c:3347
+#: src/text.c:3353
 #, c-format
 msgid "Got 0 parsable lines from command: %s"
 msgstr ""
 
-#: src/text.c:3377
+#: src/text.c:3383
 #, c-format
 msgid "This message is for unopened file %s, open it in a new buffer?"
 msgstr ""
 
-#: src/text.c:3394
+#: src/text.c:3400
 msgid "No more errors in unopened files, cancelling"
 msgstr ""
 
-#: src/text.c:3434
+#: src/text.c:3440
 #, fuzzy
 msgid "At last message"
 msgstr "Mezu hau erakutsi"
 
-#: src/text.c:3439
+#: src/text.c:3445
 #, fuzzy
 msgid "At first message"
 msgstr "Mezu hau erakutsi"
 
-#: src/text.c:3475
+#: src/text.c:3481
 msgid "Finished"
 msgstr ""
 
-#: src/text.c:3497
+#: src/text.c:3503
 msgid "Invoking formatter, please wait"
 msgstr ""
 
-#: src/text.c:3557
+#: src/text.c:3563
 msgid "Finished formatting"
 msgstr ""
 
-#: src/text.c:3639
+#: src/text.c:3645
 #, c-format
 msgid "%sWords: %lu  Lines: %ld  Chars: %lu"
 msgstr "%sHitzak: %lu  Lerroak: %ld  Karaktereak: %lu"
 
-#: src/text.c:3640
+#: src/text.c:3646
 msgid "In Selection:  "
 msgstr "Aukeraketan:  "
 
 #. TRANSLATORS: This is displayed when the next keystroke will be
 #. * inserted verbatim.
-#: src/text.c:3654
+#: src/text.c:3660
 msgid "Verbatim Input"
 msgstr "Sarrera literala"
 
-#: src/text.c:3852
+#: src/text.c:3858
 msgid "No further matches"
 msgstr ""
 
 #. TRANSLATORS: Shown when there are zero possible completions.
-#: src/text.c:3856
+#: src/text.c:3862
 #, fuzzy
 msgid "No matches"
 msgstr "Ez dago giltz egokirik"
 
-#: src/utils.c:393 src/utils.c:405
+#: src/utils.c:410 src/utils.c:422
 msgid "nano is out of memory!"
 msgstr "nano: memoriatik kanpo!"
 
-#: src/utils.c:583
+#: src/utils.c:594
 #, c-format
 msgid "Internal error: can't match line %ld.  Please save your work."
 msgstr ""
@@ -2551,45 +2557,45 @@ msgstr "Aldatua"
 msgid "View"
 msgstr "Ikusi"
 
-#: src/winio.c:3101
+#: src/winio.c:3071
 #, c-format
 msgid "line %ld/%ld (%d%%), col %lu/%lu (%d%%), char %lu/%lu (%d%%)"
 msgstr ""
 "%ld/%ld (%d%%) lerroa, %lu/%lu (%d%%) zutabea, %lu/%lu\t (%d%%) karakterea"
 
-#: src/winio.c:3232
+#: src/winio.c:3202
 msgid "The nano text editor"
 msgstr "Nano textu editorea"
 
-#: src/winio.c:3233
+#: src/winio.c:3203
 msgid "version"
 msgstr "bertsioa"
 
-#: src/winio.c:3234
+#: src/winio.c:3204
 msgid "Brought to you by:"
 msgstr "Zuretzako hauek egina:"
 
-#: src/winio.c:3235
+#: src/winio.c:3205
 msgid "Special thanks to:"
 msgstr "Esker bereziak:"
 
-#: src/winio.c:3236
+#: src/winio.c:3206
 msgid "The Free Software Foundation"
 msgstr "The Free Software Foundation"
 
-#: src/winio.c:3237
+#: src/winio.c:3207
 msgid "the many translators and the TP"
 msgstr ""
 
-#: src/winio.c:3238
+#: src/winio.c:3208
 msgid "For ncurses:"
 msgstr "ncurses-entzat:"
 
-#: src/winio.c:3239
+#: src/winio.c:3209
 msgid "and anyone else we forgot..."
 msgstr "eta ahaztu dugun baten bat..."
 
-#: src/winio.c:3240
+#: src/winio.c:3210
 msgid "Thank you for using nano!"
 msgstr "Mila esker nano erabiltzeagatik!"
 

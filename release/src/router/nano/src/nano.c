@@ -278,7 +278,7 @@ void unpartition_filestruct(partition **p)
  * current filestruct to a filestruct beginning with file_top and ending
  * with file_bot.  If no text is between (top, top_x) and (bot, bot_x),
  * don't do anything. */
-void move_to_filestruct(filestruct **file_top, filestruct **file_bot,
+void extract_buffer(filestruct **file_top, filestruct **file_bot,
 	filestruct *top, size_t top_x, filestruct *bot, size_t bot_x)
 {
     filestruct *top_save;
@@ -353,13 +353,9 @@ void move_to_filestruct(filestruct **file_top, filestruct **file_bot,
     }
 
     /* Since the text has now been saved, remove it from the filestruct. */
-    openfile->fileage = (filestruct *)nmalloc(sizeof(filestruct));
+    openfile->fileage = make_new_node(NULL);
     openfile->fileage->data = mallocstrcpy(NULL, "");
     openfile->filebot = openfile->fileage;
-
-#ifndef DISABLE_COLOR
-    openfile->fileage->multidata = NULL;
-#endif
 
     /* Restore the current line and cursor position.  If the mark begins
      * inside the partition, set the beginning of the mark to where the
@@ -396,9 +392,9 @@ void move_to_filestruct(filestruct **file_top, filestruct **file_bot,
 	new_magicline();
 }
 
-/* Copy all text from the given filestruct to the current filestruct
+/* Meld the given buffer into the current file buffer
  * at the current cursor position. */
-void copy_from_filestruct(filestruct *somebuffer)
+void ingraft_buffer(filestruct *somebuffer)
 {
     filestruct *top_save;
     size_t current_x_save = openfile->current_x;
@@ -431,8 +427,8 @@ void copy_from_filestruct(filestruct *somebuffer)
     free_filestruct(openfile->fileage);
 
     /* Put the top and bottom of the current filestruct at the top and
-     * bottom of a copy of the passed buffer. */
-    openfile->fileage = copy_filestruct(somebuffer);
+     * bottom of the passed buffer. */
+    openfile->fileage = somebuffer;
     openfile->filebot = openfile->fileage;
     while (openfile->filebot->next != NULL)
 	openfile->filebot = openfile->filebot->next;
@@ -486,6 +482,14 @@ void copy_from_filestruct(filestruct *somebuffer)
     /* If the text doesn't end with a magicline, and it should, add one. */
     if (!ISSET(NO_NEWLINES) && openfile->filebot->data[0] != '\0')
 	new_magicline();
+}
+
+/* Meld a copy of the given buffer into the current file buffer. */
+void copy_from_buffer(filestruct *somebuffer)
+{
+    filestruct *the_copy = copy_filestruct(somebuffer);
+
+    ingraft_buffer(the_copy);
 }
 
 /* Create a new openfilestruct node. */
@@ -916,7 +920,7 @@ void version(void)
     printf(_(" GNU nano, version %s\n"), VERSION);
 #endif
     printf(" (C) 1999..2016 Free Software Foundation, Inc.\n");
-    printf(_(" (C) 2014..%s the contributors to nano\n"), "2016");
+    printf(_(" (C) 2014..%s the contributors to nano\n"), "2017");
     printf(
 	_(" Email: nano@nano-editor.org	Web: https://nano-editor.org/"));
     printf(_("\n Compiled options:"));
@@ -1388,9 +1392,6 @@ void do_toggle(int flag)
 #ifndef DISABLE_COLOR
 	case NO_COLOR_SYNTAX:
 #endif
-#ifdef ENABLE_LINENUMBERS
-	case LINE_NUMBERS:
-#endif
 	case SOFTWRAP:
 	    refresh_needed = TRUE;
 	    break;
@@ -1694,7 +1695,7 @@ int do_input(bool allow_funcs)
 #endif
 #ifndef DISABLE_COLOR
 	    if (f && !f->viewok)
-		reset_multis(openfile->current, FALSE);
+		check_the_multis(openfile->current);
 #endif
 	    if (!refresh_needed && (s->scfunc == do_delete || s->scfunc == do_backspace))
 		update_line(openfile->current, openfile->current_x);
@@ -1724,24 +1725,24 @@ void xoff_complaint(void)
 /* Handle a mouse click on the edit window or the shortcut list. */
 int do_mouse(void)
 {
-    int mouse_x, mouse_y;
-    int retval = get_mouseinput(&mouse_x, &mouse_y, TRUE);
+    int mouse_col, mouse_row;
+    int retval = get_mouseinput(&mouse_col, &mouse_row, TRUE);
 
     /* If the click is wrong or already handled, we're done. */
     if (retval != 0)
 	return retval;
 
     /* If the click was in the edit window, put the cursor in that spot. */
-    if (wmouse_trafo(edit, &mouse_y, &mouse_x, FALSE)) {
-	bool sameline = (mouse_y == openfile->current_y);
-	    /* Whether the click was on the line where the cursor is. */
+    if (wmouse_trafo(edit, &mouse_row, &mouse_col, FALSE)) {
+	bool sameline = (mouse_row == openfile->current_y);
+	    /* Whether the click was on the row where the cursor is. */
 	filestruct *current_save = openfile->current;
 #ifndef NANO_TINY
 	size_t current_x_save = openfile->current_x;
 #endif
 
 #ifdef DEBUG
-	fprintf(stderr, "mouse_y = %d, current_y = %ld\n", mouse_y, (long)openfile->current_y);
+	fprintf(stderr, "mouse_row = %d, current_y = %ld\n", mouse_row, (long)openfile->current_y);
 #endif
 
 #ifndef NANO_TINY
@@ -1750,18 +1751,18 @@ int do_mouse(void)
 
 	    openfile->current = openfile->edittop;
 
-	    while (openfile->current->next != NULL && current_row < mouse_y) {
+	    while (openfile->current->next != NULL && current_row < mouse_row) {
 		current_row += strlenpt(openfile->current->data) / editwincols + 1;
 		openfile->current = openfile->current->next;
 	    }
 
-	    if (current_row > mouse_y) {
+	    if (current_row > mouse_row) {
 		openfile->current = openfile->current->prev;
 		current_row -= strlenpt(openfile->current->data) / editwincols + 1;
 		openfile->current_x = actual_x(openfile->current->data,
-				((mouse_y - current_row) * editwincols) + mouse_x);
+				((mouse_row - current_row) * editwincols) + mouse_col);
 	    } else
-		openfile->current_x = actual_x(openfile->current->data, mouse_x);
+		openfile->current_x = actual_x(openfile->current->data, mouse_col);
 
 	    openfile->current_y = current_row;
 	    ensure_line_is_visible();
@@ -1772,17 +1773,17 @@ int do_mouse(void)
 	    ssize_t current_row = openfile->current_y;
 
 	    /* Move to where the click occurred. */
-	    while (current_row < mouse_y && openfile->current->next != NULL) {
+	    while (current_row < mouse_row && openfile->current->next != NULL) {
 		openfile->current = openfile->current->next;
 		current_row++;
 	    }
-	    while (current_row > mouse_y && openfile->current->prev != NULL) {
+	    while (current_row > mouse_row && openfile->current->prev != NULL) {
 		openfile->current = openfile->current->prev;
 		current_row--;
 	    }
 
 	    openfile->current_x = actual_x(openfile->current->data,
-					get_page_start(xplustabs()) + mouse_x);
+					get_page_start(xplustabs()) + mouse_col);
 	}
 
 #ifndef NANO_TINY
@@ -1811,7 +1812,7 @@ void do_output(char *output, size_t output_len, bool allow_cntrls)
 {
     size_t current_len, i = 0;
 #ifndef NANO_TINY
-    size_t orig_lenpt = 0;
+    size_t orig_rows = 0;
 #endif
     char *char_buf = charalloc(mb_cur_max());
     int char_len;
@@ -1820,7 +1821,7 @@ void do_output(char *output, size_t output_len, bool allow_cntrls)
 
 #ifndef NANO_TINY
     if (ISSET(SOFTWRAP))
-	orig_lenpt = strlenpt(openfile->current->data);
+	orig_rows = strlenpt(openfile->current->data) / editwincols;
 #endif
 
     while (i < output_len) {
@@ -1886,7 +1887,7 @@ void do_output(char *output, size_t output_len, bool allow_cntrls)
     /* If the number of screen rows that a softwrapped line occupies
      * has changed, we need a full refresh. */
     if (ISSET(SOFTWRAP) && refresh_needed == FALSE)
-	if (strlenpt(openfile->current->data) / editwincols != orig_lenpt / editwincols)
+	if ((strlenpt(openfile->current->data) / editwincols) != orig_rows)
 	    refresh_needed = TRUE;
 #endif
 
@@ -1895,7 +1896,7 @@ void do_output(char *output, size_t output_len, bool allow_cntrls)
     openfile->placewewant = xplustabs();
 
 #ifndef DISABLE_COLOR
-    reset_multis(openfile->current, FALSE);
+    check_the_multis(openfile->current);
 #endif
 
     if (!refresh_needed)
@@ -2557,7 +2558,8 @@ int main(int argc, char **argv)
      * non-option argument, and it is followed by at least one other
      * argument, the filename it applies to. */
     if (0 < optind && optind < argc - 1 && argv[optind][0] == '+') {
-	parse_line_column(&argv[optind][1], &startline, &startcol);
+	if (!parse_line_column(&argv[optind][1], &startline, &startcol))
+	    statusline(ALERT, _("Invalid line or column number"));
 	optind++;
     }
 
@@ -2581,9 +2583,10 @@ int main(int argc, char **argv)
 	for (; i < argc; i++) {
 	    /* If there's a +LINE or +LINE,COLUMN flag here, it is followed
 	     * by at least one other argument: the filename it applies to. */
-	    if (i < argc - 1 && argv[i][0] == '+')
-		parse_line_column(&argv[i][1], &iline, &icol);
-	    else {
+	    if (i < argc - 1 && argv[i][0] == '+') {
+		if (!parse_line_column(&argv[i][1], &iline, &icol))
+		    statusline(ALERT, _("Invalid line or column number"));
+	    } else {
 		/* If opening fails, don't try to position the cursor. */
 		if (!open_buffer(argv[i], FALSE))
 		    continue;
@@ -2648,19 +2651,16 @@ int main(int argc, char **argv)
 	int needed_margin = digits(openfile->filebot->lineno) + 1;
 
 	/* Only enable line numbers when there is enough room for them. */
-	if (ISSET(LINE_NUMBERS) && needed_margin < COLS - 3) {
-	    if (needed_margin != margin) {
-		margin = needed_margin;
-		editwincols = COLS - margin;
-		/* The margin has changed -- schedule a full refresh. */
-		refresh_needed = TRUE;
-	    }
-	} else
-#endif
-	{
-	    margin = 0;
-	    editwincols = COLS;
+	if (!ISSET(LINE_NUMBERS) || needed_margin > COLS - 4)
+	    needed_margin = 0;
+
+	if (needed_margin != margin) {
+	    margin = needed_margin;
+	    editwincols = COLS - margin;
+	    /* The margin has changed -- schedule a full refresh. */
+	    refresh_needed = TRUE;
 	}
+#endif
 
 	if (currmenu != MMAIN)
 	    display_main_list();

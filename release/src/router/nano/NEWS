@@ -1,3 +1,13 @@
+2017.02.23 - GNU nano 2.7.5 "Nijntje" can properly search and replace
+		the \B and \b regex anchors, correctly repaints things
+		when multiline regexes with identical start and end are
+		involved, fixes a crash with zero-length regex matches,
+		does replacements at the edges of a marked region right,
+		no longer hides double-width characters at the head of
+		softwrapped rows, displays at most three warnings at
+		startup, and documents the ability to read a file from
+		standard input.  Come tickle my ears.
+
 2017.01.10 - GNU nano 2.7.4 "Red dress" undoes deletions in an orderly
 		manner again (bug was introduced in previous version),
 		sets the preferred x position for vertical movements

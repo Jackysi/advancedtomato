@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: nano 1.1.7\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2017-01-10 11:33+0100\n"
+"POT-Creation-Date: 2017-02-23 11:43+0100\n"
 "PO-Revision-Date: 2002-03-22 20:34+0100\n"
 "Last-Translator: Kjetil Torgrim Homme <kjetilho@linpro.no>\n"
 "Language-Team: Norwegian nynorsk <i18n-nn@lister.ping.uio.no>\n"
@@ -29,9 +29,9 @@ msgstr "Kan ikkje skifta til foreldrekatalogen"
 msgid "Go To Directory"
 msgstr "Gå til katalog"
 
-#: src/browser.c:230 src/browser.c:682 src/files.c:1107 src/files.c:2237
-#: src/nano.c:1083 src/search.c:185 src/search.c:282 src/search.c:816
-#: src/search.c:875 src/text.c:3178 src/text.c:3383
+#: src/browser.c:230 src/browser.c:682 src/files.c:1109 src/files.c:2239
+#: src/nano.c:1087 src/search.c:179 src/search.c:267 src/search.c:802
+#: src/search.c:861 src/text.c:3184 src/text.c:3389
 msgid "Cancelled"
 msgstr "Avbrote"
 
@@ -46,9 +46,9 @@ msgstr "Kan ikkje skriva utanfor %s"
 msgid "Can't move up a directory"
 msgstr "Kan ikkje skifta til foreldrekatalogen"
 
-#: src/browser.c:286 src/files.c:996 src/files.c:1002 src/files.c:1749
-#: src/files.c:1874 src/files.c:1918 src/files.c:1938 src/files.c:2050
-#: src/files.c:2943 src/files.c:3176 src/rcfile.c:562 src/rcfile.c:1255
+#: src/browser.c:286 src/files.c:997 src/files.c:1003 src/files.c:1751
+#: src/files.c:1876 src/files.c:1920 src/files.c:1940 src/files.c:2052
+#: src/files.c:2945 src/files.c:3178 src/rcfile.c:562 src/rcfile.c:1263
 #, c-format
 msgid "Error reading %s: %s"
 msgstr ""
@@ -74,19 +74,19 @@ msgid "(huge)"
 msgstr ""
 
 #. TRANSLATORS: This is the main search prompt.
-#: src/browser.c:671 src/search.c:162
+#: src/browser.c:671 src/search.c:156
 msgid "Search"
 msgstr "Søk"
 
-#: src/browser.c:713 src/search.c:360
+#: src/browser.c:713 src/search.c:344
 msgid "Search Wrapped"
 msgstr "Søket gjekk rundt"
 
-#: src/browser.c:723 src/search.c:488
+#: src/browser.c:723 src/search.c:472
 msgid "This is the only occurrence"
 msgstr "Dette er einaste forekomst"
 
-#: src/browser.c:767 src/search.c:453
+#: src/browser.c:767 src/search.c:437
 msgid "No current search pattern"
 msgstr ""
 
@@ -170,7 +170,7 @@ msgstr ""
 msgid "Can't insert file from outside of %s"
 msgstr "Kan ikkje setja inn fil frå utanfor %s"
 
-#: src/files.c:457 src/files.c:986 src/rcfile.c:541
+#: src/files.c:457 src/files.c:987 src/rcfile.c:541
 #, fuzzy, c-format
 msgid "\"%s\" is a directory"
 msgstr "Fila «%s» er ein katalog"
@@ -194,193 +194,192 @@ msgstr "Bytta til %s"
 msgid "New Buffer"
 msgstr "Ny buffer"
 
-#: src/files.c:913
+#: src/files.c:914
 #, c-format
 msgid "File '%s' is unwritable"
 msgstr ""
 
 #. TRANSLATORS: Keep the next four messages at most 78 characters.
-#: src/files.c:917
+#: src/files.c:918
 #, fuzzy, c-format
 msgid "Read %lu line (Converted from DOS and Mac format)"
 msgid_plural "Read %lu lines (Converted from DOS and Mac format)"
 msgstr[0] "Leste %d linjer (på Mac-format)"
 msgstr[1] "Leste %d linjer (på Mac-format)"
 
-#: src/files.c:922
+#: src/files.c:923
 #, fuzzy, c-format
 msgid "Read %lu line (Converted from Mac format)"
 msgid_plural "Read %lu lines (Converted from Mac format)"
 msgstr[0] "Leste %d linjer (på Mac-format)"
 msgstr[1] "Leste %d linjer (på Mac-format)"
 
-#: src/files.c:927
+#: src/files.c:928
 #, fuzzy, c-format
 msgid "Read %lu line (Converted from DOS format)"
 msgid_plural "Read %lu lines (Converted from DOS format)"
 msgstr[0] "Leste %d linjer (på DOS-format)"
 msgstr[1] "Leste %d linjer (på DOS-format)"
 
-#: src/files.c:933
+#: src/files.c:934
 #, fuzzy, c-format
 msgid "Read %lu line"
 msgid_plural "Read %lu lines"
 msgstr[0] "Leste %d linjer"
 msgstr[1] "Leste %d linjer"
 
-#: src/files.c:972
+#: src/files.c:973
 msgid "New File"
 msgstr "Ny fil"
 
-#: src/files.c:977
+#: src/files.c:978
 #, fuzzy, c-format
 msgid "File \"%s\" not found"
 msgstr "«%s» ikkje funne"
 
 # "enhet" = "device", kanskje, men det er litt forvirrande
-#: src/files.c:987 src/rcfile.c:542
+#: src/files.c:988 src/rcfile.c:542
 #, fuzzy, c-format
 msgid "\"%s\" is a device file"
 msgstr "Fila «%s» er ikkje ei vanleg fil"
 
-#: src/files.c:1005
+#: src/files.c:1006
 msgid "Reading File"
 msgstr "Les fil"
 
-#: src/files.c:1072
-#, c-format
-msgid "Command to execute in new buffer [from %s] "
+#. TRANSLATORS: The next four messages are prompts.
+#: src/files.c:1074
+msgid "Command to execute in new buffer"
 msgstr ""
 
-#: src/files.c:1075
-#, fuzzy, c-format
-msgid "Command to execute [from %s] "
-msgstr "Fila som skal setjast inn [frå %s] "
+#: src/files.c:1077
+msgid "Command to execute"
+msgstr ""
 
-#: src/files.c:1081
+#: src/files.c:1083
 #, fuzzy, c-format
 msgid "File to insert into new buffer [from %s] "
 msgstr "Fila som skal setjast inn [frå %s] "
 
-#: src/files.c:1084
+#: src/files.c:1086
 #, c-format
 msgid "File to insert [from %s] "
 msgstr "Fila som skal setjast inn [frå %s] "
 
-#: src/files.c:1302
+#: src/files.c:1304
 #, fuzzy
 msgid "Key invalid in non-multibuffer mode"
 msgstr "Tasten er ugyldig utan fleire buffer"
 
-#: src/files.c:1588
+#: src/files.c:1590
 msgid "Failed to write backup file; continue saving? (Say N if unsure.) "
 msgstr ""
 
-#: src/files.c:1705
+#: src/files.c:1707
 #, c-format
 msgid "Can't write outside of %s"
 msgstr "Kan ikkje skriva utanfor %s"
 
-#: src/files.c:1788 src/files.c:1813 src/files.c:1831 src/files.c:1844
-#: src/files.c:1855 src/files.c:1883
+#: src/files.c:1790 src/files.c:1815 src/files.c:1833 src/files.c:1846
+#: src/files.c:1857 src/files.c:1885
 #, c-format
 msgid "Error writing backup file %s: %s"
 msgstr ""
 
-#: src/files.c:1789 src/nano.c:654
+#: src/files.c:1791 src/nano.c:658
 #, fuzzy
 msgid "Too many backup files?"
 msgstr ""
 "\n"
 "%s vart ikkje lagra (for mange sikringskopiar?)\n"
 
-#: src/files.c:1927 src/files.c:1949 src/text.c:3108 src/text.c:3120
-#: src/text.c:3482 src/text.c:3491
+#: src/files.c:1929 src/files.c:1951 src/text.c:3114 src/text.c:3126
+#: src/text.c:3488 src/text.c:3497
 #, c-format
 msgid "Error writing temp file: %s"
 msgstr ""
 
-#: src/files.c:1968 src/files.c:1978 src/files.c:1998 src/files.c:2015
-#: src/files.c:2025 src/files.c:2057 src/files.c:2064
+#: src/files.c:1970 src/files.c:1980 src/files.c:2000 src/files.c:2017
+#: src/files.c:2027 src/files.c:2059 src/files.c:2066
 #, c-format
 msgid "Error writing %s: %s"
 msgstr ""
 
-#: src/files.c:2103
+#: src/files.c:2105
 #, fuzzy, c-format
 msgid "Wrote %lu line"
 msgid_plural "Wrote %lu lines"
 msgstr[0] "Skreiv %d linjer"
 msgstr[1] "Skreiv %d linjer"
 
-#: src/files.c:2199
+#: src/files.c:2201
 msgid " [DOS Format]"
 msgstr " [DOS-format]"
 
-#: src/files.c:2200
+#: src/files.c:2202
 msgid " [Mac Format]"
 msgstr " [Mac-format]"
 
-#: src/files.c:2202
+#: src/files.c:2204
 #, fuzzy
 msgid " [Backup]"
 msgstr " [Bakover]"
 
 #. TRANSLATORS: The next six strings are prompts.
-#: src/files.c:2210
+#: src/files.c:2212
 #, fuzzy
 msgid "Prepend Selection to File"
 msgstr "Legg til valt område på slutten av fil"
 
-#: src/files.c:2211
+#: src/files.c:2213
 msgid "Append Selection to File"
 msgstr "Legg til valt område på slutten av fil"
 
-#: src/files.c:2212
+#: src/files.c:2214
 msgid "Write Selection to File"
 msgstr "Lagra valt område til fil"
 
-#: src/files.c:2215
+#: src/files.c:2217
 #, fuzzy
 msgid "File Name to Prepend to"
 msgstr "Namn på fil som skal leggjast til"
 
-#: src/files.c:2216
+#: src/files.c:2218
 #, fuzzy
 msgid "File Name to Append to"
 msgstr "Namn på fil som skal leggjast til"
 
-#: src/files.c:2217
+#: src/files.c:2219
 msgid "File Name to Write"
 msgstr "Namn på fila som skal lagrast"
 
-#: src/files.c:2246
+#: src/files.c:2248
 msgid "Save modified buffer anyway? "
 msgstr ""
 
 #. TRANSLATORS: Restricted mode forbids overwriting.
-#: src/files.c:2339
+#: src/files.c:2341
 msgid "File exists -- cannot overwrite"
 msgstr ""
 
-#: src/files.c:2349
+#: src/files.c:2351
 msgid "Save file under DIFFERENT NAME? "
 msgstr ""
 
-#: src/files.c:2357
+#: src/files.c:2359
 #, fuzzy, c-format
 msgid "File \"%s\" exists; OVERWRITE? "
 msgstr "Fila eksisterer, SKRIV OVER?"
 
-#: src/files.c:2378
+#: src/files.c:2380
 msgid "File was modified since you opened it; continue saving? "
 msgstr ""
 
-#: src/files.c:2796
+#: src/files.c:2798
 msgid "(more)"
 msgstr "(meir)"
 
-#: src/files.c:2881
+#: src/files.c:2883
 #, fuzzy, c-format
 msgid ""
 "\n"
@@ -389,28 +388,28 @@ msgstr ""
 "\n"
 "Trykk Enter for å halda fram lastinga av nano\n"
 
-#: src/files.c:2897
+#: src/files.c:2899
 #, c-format
 msgid ""
 "Unable to create directory %s: %s\n"
 "It is required for saving/loading search history or cursor positions.\n"
 msgstr ""
 
-#: src/files.c:2904
+#: src/files.c:2906
 #, c-format
 msgid ""
 "Path %s is not a directory and needs to be.\n"
 "Nano will be unable to load or save search history or cursor positions.\n"
 msgstr ""
 
-#: src/files.c:2926
+#: src/files.c:2928
 #, c-format
 msgid ""
 "Detected a legacy nano history file (%s) which I tried to move\n"
 "to the preferred location (%s) but encountered an error: %s"
 msgstr ""
 
-#: src/files.c:2930
+#: src/files.c:2932
 #, c-format
 msgid ""
 "Detected a legacy nano history file (%s) which I moved\n"
@@ -418,7 +417,7 @@ msgid ""
 "(see the nano FAQ about this change)"
 msgstr ""
 
-#: src/files.c:3012 src/files.c:3020 src/files.c:3043 src/files.c:3065
+#: src/files.c:3014 src/files.c:3022 src/files.c:3045 src/files.c:3067
 #, c-format
 msgid "Error writing %s: %s\n"
 msgstr ""
@@ -1548,21 +1547,21 @@ msgstr ""
 msgid "enable/disable"
 msgstr "%s skru på/av"
 
-#: src/nano.c:525
+#: src/nano.c:529
 #, fuzzy
 msgid "Key is invalid in view mode"
 msgstr "Tasten er ulovleg i VIS-modus"
 
-#: src/nano.c:531
+#: src/nano.c:535
 #, fuzzy
 msgid "This function is disabled in restricted mode"
 msgstr "Kan ikkje gå til foreldrekatalogen i avgrensa modus"
 
-#: src/nano.c:539
+#: src/nano.c:543
 msgid "Help is not available"
 msgstr ""
 
-#: src/nano.c:648
+#: src/nano.c:652
 #, c-format
 msgid ""
 "\n"
@@ -1571,7 +1570,7 @@ msgstr ""
 "\n"
 "Buffer lagra til %s\n"
 
-#: src/nano.c:650
+#: src/nano.c:654
 #, fuzzy, c-format
 msgid ""
 "\n"
@@ -1580,7 +1579,7 @@ msgstr ""
 "\n"
 "Buffer lagra til %s\n"
 
-#: src/nano.c:653
+#: src/nano.c:657
 #, fuzzy, c-format
 msgid ""
 "\n"
@@ -1589,300 +1588,300 @@ msgstr ""
 "\n"
 "Buffer lagra til %s\n"
 
-#: src/nano.c:780
+#: src/nano.c:784
 #, c-format
 msgid ""
 "Usage: nano [OPTIONS] [[+LINE,COLUMN] FILE]...\n"
 "\n"
 msgstr ""
 
-#: src/nano.c:782
+#: src/nano.c:786
 #, fuzzy, c-format
 msgid "Option\t\tGNU long option\t\tMeaning\n"
 msgstr "Opsjon\t\tLang opsjon\t\tTyding\n"
 
-#: src/nano.c:784
+#: src/nano.c:788
 #, c-format
 msgid "Option\t\tMeaning\n"
 msgstr "Opsjon\t\tTyding\n"
 
-#: src/nano.c:786
+#: src/nano.c:790
 msgid "+LINE,COLUMN"
 msgstr ""
 
 #. TRANSLATORS: The next forty or so strings are option descriptions
 #. * for the --help output.  Try to keep them at most 40 characters.
-#: src/nano.c:789
+#: src/nano.c:793
 msgid "Start at line LINE, column COLUMN"
 msgstr ""
 
-#: src/nano.c:791
+#: src/nano.c:795
 msgid "Enable smart home key"
 msgstr ""
 
-#: src/nano.c:793
+#: src/nano.c:797
 msgid "Save backups of existing files"
 msgstr ""
 
-#: src/nano.c:794
+#: src/nano.c:798
 msgid "-C <dir>"
 msgstr ""
 
-#: src/nano.c:794
+#: src/nano.c:798
 msgid "--backupdir=<dir>"
 msgstr ""
 
-#: src/nano.c:795
+#: src/nano.c:799
 msgid "Directory for saving unique backup files"
 msgstr ""
 
-#: src/nano.c:798
+#: src/nano.c:802
 msgid "Use bold instead of reverse video text"
 msgstr ""
 
-#: src/nano.c:800
+#: src/nano.c:804
 msgid "Convert typed tabs to spaces"
 msgstr ""
 
-#: src/nano.c:805
+#: src/nano.c:809
 msgid "Read a file into a new buffer by default"
 msgstr ""
 
-#: src/nano.c:808
+#: src/nano.c:812
 msgid "Use (vim-style) lock files"
 msgstr ""
 
-#: src/nano.c:813
+#: src/nano.c:817
 msgid "Log & read search/replace string history"
 msgstr ""
 
-#: src/nano.c:817
+#: src/nano.c:821
 msgid "Don't look at nanorc files"
 msgstr ""
 
-#: src/nano.c:820
+#: src/nano.c:824
 msgid "Fix numeric keypad key confusion problem"
 msgstr ""
 
-#: src/nano.c:822
+#: src/nano.c:826
 msgid "Don't add newlines to the ends of files"
 msgstr ""
 
-#: src/nano.c:825
+#: src/nano.c:829
 #, fuzzy
 msgid "Don't convert files from DOS/Mac format"
 msgstr "Inga omsetjing frå DOS/Mac-format"
 
-#: src/nano.c:827
+#: src/nano.c:831
 msgid "Use one more line for editing"
 msgstr ""
 
-#: src/nano.c:831
+#: src/nano.c:835
 #, fuzzy
 msgid "Log & read location of cursor position"
 msgstr "Fast markørposisjon"
 
-#: src/nano.c:834
+#: src/nano.c:838
 msgid "-Q <str>"
 msgstr ""
 
-#: src/nano.c:834
+#: src/nano.c:838
 msgid "--quotestr=<str>"
 msgstr ""
 
-#: src/nano.c:834
+#: src/nano.c:838
 msgid "Quoting string"
 msgstr ""
 
-#: src/nano.c:837
+#: src/nano.c:841
 msgid "Restricted mode"
 msgstr ""
 
-#: src/nano.c:839
+#: src/nano.c:843
 msgid "Scroll by line instead of half-screen"
 msgstr ""
 
-#: src/nano.c:841
+#: src/nano.c:845
 msgid "-T <#cols>"
 msgstr ""
 
-#: src/nano.c:841
+#: src/nano.c:845
 msgid "--tabsize=<#cols>"
-msgstr ""
-
-#: src/nano.c:842
-#, fuzzy
-msgid "Set width of a tab to #cols columns"
-msgstr " -T [TAL]\tSet breidda på tabulator til TAL\n"
-
-#: src/nano.c:844
-msgid "Do quick statusbar blanking"
 msgstr ""
 
 #: src/nano.c:846
 #, fuzzy
+msgid "Set width of a tab to #cols columns"
+msgstr " -T [TAL]\tSet breidda på tabulator til TAL\n"
+
+#: src/nano.c:848
+msgid "Do quick statusbar blanking"
+msgstr ""
+
+#: src/nano.c:850
+#, fuzzy
 msgid "Print version information and exit"
 msgstr " -V \t\tSkriv ut versjonsnummer og avslutt\n"
 
-#: src/nano.c:849
+#: src/nano.c:853
 msgid "Detect word boundaries more accurately"
 msgstr ""
 
-#: src/nano.c:850
+#: src/nano.c:854
 msgid "-X <str>"
 msgstr ""
 
-#: src/nano.c:850
+#: src/nano.c:854
 msgid "--wordchars=<str>"
 msgstr ""
 
-#: src/nano.c:851
+#: src/nano.c:855
 msgid "Which other characters are word parts"
 msgstr ""
 
-#: src/nano.c:855
+#: src/nano.c:859
 msgid "-Y <str>"
 msgstr ""
 
-#: src/nano.c:855
+#: src/nano.c:859
 msgid "--syntax=<str>"
 msgstr ""
 
-#: src/nano.c:856
+#: src/nano.c:860
 msgid "Syntax definition to use for coloring"
 msgstr ""
 
-#: src/nano.c:858
+#: src/nano.c:862
 #, fuzzy
 msgid "Constantly show cursor position"
 msgstr " -c \t\tFast markørposisjon\n"
 
-#: src/nano.c:860
+#: src/nano.c:864
 msgid "Fix Backspace/Delete confusion problem"
 msgstr ""
 
-#: src/nano.c:861
+#: src/nano.c:865
 msgid "Show this help text and exit"
 msgstr ""
 
-#: src/nano.c:863
+#: src/nano.c:867
 #, fuzzy
 msgid "Automatically indent new lines"
 msgstr " -i \t\tAutomatisk linjeinnrykk\n"
 
-#: src/nano.c:864
+#: src/nano.c:868
 #, fuzzy
 msgid "Cut from cursor to end of line"
 msgstr " -k \t\tLat ^K klippe frå markøren og ut linja\n"
 
-#: src/nano.c:867
+#: src/nano.c:871
 msgid "Show line numbers in front of the text"
 msgstr ""
 
-#: src/nano.c:870
+#: src/nano.c:874
 msgid "Enable the use of the mouse"
 msgstr ""
 
-#: src/nano.c:872
+#: src/nano.c:876
 msgid "Do not read the file (only write it)"
 msgstr ""
 
-#: src/nano.c:874
+#: src/nano.c:878
 msgid "-o <dir>"
 msgstr ""
 
-#: src/nano.c:874
+#: src/nano.c:878
 msgid "--operatingdir=<dir>"
 msgstr ""
 
-#: src/nano.c:875
+#: src/nano.c:879
 #, fuzzy
 msgid "Set operating directory"
 msgstr " -o [kat] \tSet aktiv filkatalog\n"
 
-#: src/nano.c:877
+#: src/nano.c:881
 msgid "Preserve XON (^Q) and XOFF (^S) keys"
 msgstr ""
 
-#: src/nano.c:881
+#: src/nano.c:885
 msgid "Silently ignore startup issues like rc file errors"
 msgstr ""
 
-#: src/nano.c:884
+#: src/nano.c:888
 msgid "-r <#cols>"
 msgstr ""
 
-#: src/nano.c:884
+#: src/nano.c:888
 msgid "--fill=<#cols>"
 msgstr ""
 
-#: src/nano.c:885
+#: src/nano.c:889
 msgid "Set hard-wrapping point at column #cols"
 msgstr ""
 
-#: src/nano.c:889
+#: src/nano.c:893
 msgid "-s <prog>"
 msgstr ""
 
-#: src/nano.c:889
+#: src/nano.c:893
 msgid "--speller=<prog>"
 msgstr ""
 
-#: src/nano.c:890
+#: src/nano.c:894
 #, fuzzy
 msgid "Enable alternate speller"
 msgstr " -s [PROG]  \tBruk PROG til stavesjekk\n"
 
-#: src/nano.c:892
+#: src/nano.c:896
 #, fuzzy
 msgid "Auto save on exit, don't prompt"
 msgstr " -t \t\tLagra utan å spørja ved avslutning\n"
 
-#: src/nano.c:894
+#: src/nano.c:898
 #, fuzzy
 msgid "Save a file by default in Unix format"
 msgstr "Skriv fila på DOS-format"
 
-#: src/nano.c:896
+#: src/nano.c:900
 #, fuzzy
 msgid "View mode (read-only)"
 msgstr " -v \t\tVis-modus (berre lesing)\n"
 
-#: src/nano.c:898
+#: src/nano.c:902
 #, fuzzy
 msgid "Don't hard-wrap long lines"
 msgstr " -w \t\tIkkje bryt lange linjer\n"
 
-#: src/nano.c:900
+#: src/nano.c:904
 #, fuzzy
 msgid "Don't show the two help lines"
 msgstr " -x \t\tIkkje vis hjelpevindu\n"
 
-#: src/nano.c:902
+#: src/nano.c:906
 #, fuzzy
 msgid "Enable suspension"
 msgstr " -z \t\tTillat å leggja programmet i bakgrunnen\n"
 
-#: src/nano.c:904
+#: src/nano.c:908
 msgid "Enable soft line wrapping"
 msgstr ""
 
-#: src/nano.c:916
+#: src/nano.c:920
 #, fuzzy, c-format
 msgid " GNU nano, version %s\n"
 msgstr "GNU nano versjon %s (kompilert %s, %s)\n"
 
-#: src/nano.c:919
+#: src/nano.c:923
 #, c-format
 msgid " (C) 2014..%s the contributors to nano\n"
 msgstr ""
 
-#: src/nano.c:921
+#: src/nano.c:925
 #, fuzzy, c-format
 msgid " Email: nano@nano-editor.org\tWeb: https://nano-editor.org/"
 msgstr "Epost: nano@nano-editor.org\tVev: http://www.nano-editor.org"
 
-#: src/nano.c:922
+#: src/nano.c:926
 #, c-format
 msgid ""
 "\n"
@@ -1891,90 +1890,94 @@ msgstr ""
 "\n"
 " Kompilerte tillegg:"
 
-#: src/nano.c:1068
+#: src/nano.c:1072
 #, fuzzy
 msgid "No file name"
 msgstr "filnamnet er %s"
 
-#: src/nano.c:1070
+#: src/nano.c:1074
 msgid "Save modified buffer?  (Answering \"No\" will DISCARD changes.) "
 msgstr ""
 
-#: src/nano.c:1131
+#: src/nano.c:1135
 msgid "Couldn't reopen stdin from keyboard, sorry\n"
 msgstr ""
 
-#: src/nano.c:1155
+#: src/nano.c:1159
 #, c-format
 msgid "Reading from stdin, ^C to abort\n"
 msgstr ""
 
-#: src/nano.c:1219
+#: src/nano.c:1223
 #, fuzzy
 msgid "Received SIGHUP or SIGTERM\n"
 msgstr "Mottok SIGHUP"
 
-#: src/nano.c:1235
+#: src/nano.c:1239
 #, c-format
 msgid "Use \"fg\" to return to nano.\n"
 msgstr ""
 
-#: src/nano.c:1257
+#: src/nano.c:1261
 msgid "Suspension is not enabled"
 msgstr ""
 
-#: src/nano.c:1405
+#: src/nano.c:1406
 msgid "enabled"
 msgstr "på"
 
-#: src/nano.c:1405
+#: src/nano.c:1406
 msgid "disabled"
 msgstr "av"
 
-#: src/nano.c:1532
+#: src/nano.c:1533
 msgid "Unbound key"
 msgstr ""
 
-#: src/nano.c:1535
+#: src/nano.c:1536
 msgid "Unbindable key: M-["
 msgstr ""
 
-#: src/nano.c:1537
+#: src/nano.c:1538
 #, c-format
 msgid "Unbound key: M-%c"
 msgstr ""
 
-#: src/nano.c:1539
+#: src/nano.c:1540
 #, c-format
 msgid "Unbound key: ^%c"
 msgstr ""
 
-#: src/nano.c:1541
+#: src/nano.c:1542
 #, c-format
 msgid "Unbound key: %c"
 msgstr ""
 
-#: src/nano.c:1714
+#: src/nano.c:1715
 msgid "XON ignored, mumble mumble"
 msgstr ""
 
-#: src/nano.c:1719
+#: src/nano.c:1720
 msgid "XOFF ignored, mumble mumble"
 msgstr ""
 
-#: src/nano.c:2126 src/rcfile.c:1211
+#: src/nano.c:2127 src/rcfile.c:1219
 #, fuzzy, c-format
 msgid "Requested tab size \"%s\" is invalid"
 msgstr "tab-breidda du foreslo (%d) er for smal"
 
-#: src/nano.c:2193 src/rcfile.c:1147
+#: src/nano.c:2194 src/rcfile.c:1156
 #, fuzzy, c-format
 msgid "Requested fill size \"%s\" is invalid"
 msgstr "fyllbreidda du foreslo (%d) er for smal"
 
-#: src/nano.c:2247
+#: src/nano.c:2248
 #, c-format
 msgid "Type '%s -h' for a list of available options.\n"
+msgstr ""
+
+#: src/nano.c:2562 src/nano.c:2588 src/search.c:879
+msgid "Invalid line or column number"
 msgstr ""
 
 #. TRANSLATORS: For the next three strings, if possible, specify
@@ -2014,12 +2017,12 @@ msgstr "Feil i %s på linje %d: "
 msgid "Argument '%s' has an unterminated \""
 msgstr ""
 
-#: src/rcfile.c:242 src/rcfile.c:694 src/rcfile.c:745 src/rcfile.c:844
+#: src/rcfile.c:242 src/rcfile.c:694 src/rcfile.c:749 src/rcfile.c:853
 #, fuzzy
 msgid "Regex strings must begin and end with a \" character"
 msgstr "reguttrykk må starte og slutte med eit \"-teikn\n"
 
-#: src/rcfile.c:268 src/search.c:57
+#: src/rcfile.c:268 src/search.c:55
 #, fuzzy, c-format
 msgid "Bad regex \"%s\": %s"
 msgstr "Kan ikkje opna «%s»: %s"
@@ -2107,7 +2110,7 @@ msgstr ""
 "«white» (kvit), «yellow» (gul), «cyan» (lysblå), «magenta» (fiolett) og\n"
 "«black» (svart), med den valfrie nemninga «bright» (lys) først.\n"
 
-#: src/rcfile.c:657 src/rcfile.c:815 src/rcfile.c:878
+#: src/rcfile.c:657 src/rcfile.c:824 src/rcfile.c:887
 #, c-format
 msgid "A '%s' command requires a preceding 'syntax' command"
 msgstr ""
@@ -2116,106 +2119,110 @@ msgstr ""
 msgid "Missing color name"
 msgstr "Fargenamnet manglar"
 
-#: src/rcfile.c:673 src/rcfile.c:827
+#: src/rcfile.c:673 src/rcfile.c:836
 #, c-format
 msgid "Missing regex string after '%s' command"
 msgstr ""
 
-#: src/rcfile.c:739
+#: src/rcfile.c:705 src/rcfile.c:759
+msgid "Empty regex string"
+msgstr ""
+
+#: src/rcfile.c:743
 #, fuzzy
 msgid "\"start=\" requires a corresponding \"end=\""
 msgstr ""
 "\n"
 "\tfor kvar «start=» må der vera ein «end=»"
 
-#: src/rcfile.c:788
+#: src/rcfile.c:797
 #, c-format
 msgid "Background color \"%s\" cannot be bright"
 msgstr ""
 
-#: src/rcfile.c:822
+#: src/rcfile.c:831
 #, c-format
 msgid "The \"default\" syntax does not accept '%s' regexes"
 msgstr ""
 
-#: src/rcfile.c:883
+#: src/rcfile.c:892
 #, c-format
 msgid "Missing command after '%s'"
 msgstr ""
 
-#: src/rcfile.c:899
+#: src/rcfile.c:908
 #, c-format
 msgid "Argument of '%s' lacks closing \""
 msgstr ""
 
-#: src/rcfile.c:930
+#: src/rcfile.c:939
 #, c-format
 msgid "Fatal error: no keys mapped for function \"%s\".  Exiting.\n"
 msgstr ""
 
-#: src/rcfile.c:932
+#: src/rcfile.c:941
 #, c-format
 msgid ""
 "If needed, use nano with the -I option to adjust your nanorc settings.\n"
 msgstr ""
 
-#: src/rcfile.c:987
+#: src/rcfile.c:996
 #, c-format
 msgid "Could not find syntax \"%s\" to extend"
 msgstr ""
 
-#: src/rcfile.c:1009 src/rcfile.c:1222
+#: src/rcfile.c:1018 src/rcfile.c:1230
 #, c-format
 msgid "Syntax \"%s\" has no color commands"
 msgstr ""
 
-#: src/rcfile.c:1040
+#: src/rcfile.c:1049
 #, c-format
 msgid "Command \"%s\" not allowed in included file"
 msgstr ""
 
-#: src/rcfile.c:1055
+#: src/rcfile.c:1064
 #, fuzzy, c-format
 msgid "Command \"%s\" not understood"
 msgstr "kommandoen %s er ikkje forståeleg"
 
-#: src/rcfile.c:1067
+#: src/rcfile.c:1076
 #, fuzzy
 msgid "Missing option"
 msgstr "Fargenamnet manglar"
 
-#: src/rcfile.c:1081
+#: src/rcfile.c:1090
 #, c-format
 msgid "Unknown option \"%s\""
 msgstr ""
 
-#: src/rcfile.c:1094
+#: src/rcfile.c:1103
 #, fuzzy, c-format
 msgid "Cannot unset option \"%s\""
 msgstr "Kan ikkje endra storleik på toppvindauget"
 
-#: src/rcfile.c:1106
+#: src/rcfile.c:1115
 #, fuzzy, c-format
 msgid "Option \"%s\" requires an argument"
 msgstr "opsjonen %s krev eit argument"
 
-#: src/rcfile.c:1122
+#: src/rcfile.c:1131
 msgid "Argument is not a valid multibyte string"
 msgstr ""
 
-#: src/rcfile.c:1160 src/rcfile.c:1181 src/rcfile.c:1188
+#: src/rcfile.c:1168 src/rcfile.c:1189 src/rcfile.c:1196
 msgid "Non-blank characters required"
 msgstr ""
 
-#: src/rcfile.c:1167
+#: src/rcfile.c:1175
 msgid "Two single-column characters required"
 msgstr ""
 
-#: src/rcfile.c:1276
+#: src/rcfile.c:1284
 msgid "I can't find my home directory!  Wah!"
 msgstr ""
 
-#: src/rcfile.c:1291
+#: src/rcfile.c:1299
 #, fuzzy, c-format
 msgid ""
 "\n"
@@ -2224,52 +2231,52 @@ msgstr ""
 "\n"
 "Trykk Enter for å halda fram lastinga av nano\n"
 
-#: src/search.c:95
+#: src/search.c:89
 #, fuzzy, c-format
 msgid "\"%.*s%s\" not found"
 msgstr "«%s» ikkje funne"
 
 #. TRANSLATORS: The next three modify the search prompt.
-#: src/search.c:164
+#: src/search.c:158
 msgid " [Case Sensitive]"
 msgstr " [Skil store/små]"
 
-#: src/search.c:166
+#: src/search.c:160
 msgid " [Regexp]"
 msgstr " [Reguttrykk]"
 
-#: src/search.c:169
+#: src/search.c:163
 msgid " [Backwards]"
 msgstr " [Bakover]"
 
 #. TRANSLATORS: The next two modify the search prompt.
-#: src/search.c:172
+#: src/search.c:166
 #, fuzzy
 msgid " (to replace) in selection"
 msgstr " (å erstatta)"
 
-#: src/search.c:174
+#: src/search.c:168
 msgid " (to replace)"
 msgstr " (å erstatta)"
 
 #. TRANSLATORS: This is shown when searching takes
 #. * more than half a second.
-#: src/search.c:292
+#: src/search.c:277
 #, fuzzy
 msgid "Searching..."
 msgstr "Søk"
 
 #. TRANSLATORS: This is a prompt.
-#: src/search.c:667
+#: src/search.c:653
 msgid "Replace this instance?"
 msgstr "Erstatta dette tilfellet?"
 
 #. TRANSLATORS: This is a prompt.
-#: src/search.c:805
+#: src/search.c:791
 msgid "Replace with"
 msgstr "Erstatt med"
 
-#: src/search.c:835
+#: src/search.c:821
 #, fuzzy, c-format
 msgid "Replaced %lu occurrence"
 msgid_plural "Replaced %lu occurrences"
@@ -2277,20 +2284,16 @@ msgstr[0] "Erstatta %d tilfelle"
 msgstr[1] "Erstatta %d tilfelle"
 
 #. TRANSLATORS: This is a prompt.
-#: src/search.c:871
+#: src/search.c:857
 #, fuzzy
 msgid "Enter line number, column number"
 msgstr "Skriv linjenummer"
 
-#: src/search.c:893
-msgid "Invalid line or column number"
-msgstr ""
-
-#: src/search.c:1045
+#: src/search.c:1031
 msgid "Not a bracket"
 msgstr "Ikkje ei klamme"
 
-#: src/search.c:1111
+#: src/search.c:1097
 msgid "No matching bracket"
 msgstr "Inga motsvarande klamme"
 
@@ -2391,13 +2394,13 @@ msgstr ""
 msgid "Redid action (%s)"
 msgstr ""
 
-#: src/text.c:1067 src/text.c:2748 src/text.c:3187
+#: src/text.c:1067 src/text.c:2746 src/text.c:3193
 #, fuzzy
 msgid "Could not create pipe"
 msgstr "Kunne ikkje oppretta mellombels fil: %s"
 
-#: src/text.c:1093 src/text.c:2835 src/text.c:2988 src/text.c:3235
-#: src/text.c:3524
+#: src/text.c:1093 src/text.c:2833 src/text.c:2986 src/text.c:3241
+#: src/text.c:3530
 #, fuzzy
 msgid "Could not fork"
 msgstr "Kunne ikkje lukka %s: %s"
@@ -2407,141 +2410,141 @@ msgstr "Kunne ikkje lukka %s: %s"
 msgid "Bad quote string %s: %s"
 msgstr ""
 
-#: src/text.c:2501
+#: src/text.c:2502
 msgid "Can now UnJustify!"
 msgstr "Du kan no gjera om ombrekkinga!"
 
-#: src/text.c:2664
+#: src/text.c:2663
 #, c-format
 msgid "Unfindable word: %s"
 msgstr ""
 
-#: src/text.c:2680
+#: src/text.c:2679
 msgid "Edit a replacement"
 msgstr "Rediger erstatning"
 
 #. TRANSLATORS: Shown after fixing misspellings in one word.
-#: src/text.c:2696
+#: src/text.c:2694
 msgid "Next word..."
 msgstr ""
 
-#: src/text.c:2750
+#: src/text.c:2748
 msgid "Creating misspelled word list, please wait..."
 msgstr ""
 
-#: src/text.c:2841 src/text.c:3242
+#: src/text.c:2839 src/text.c:3248
 msgid "Could not get size of pipe buffer"
 msgstr ""
 
-#: src/text.c:2890
+#: src/text.c:2888
 msgid "Error invoking \"spell\""
 msgstr ""
 
-#: src/text.c:2893
+#: src/text.c:2891
 msgid "Error invoking \"sort -f\""
 msgstr ""
 
-#: src/text.c:2896
+#: src/text.c:2894
 msgid "Error invoking \"uniq\""
 msgstr ""
 
-#: src/text.c:3126
+#: src/text.c:3132
 #, fuzzy
 msgid "Invoking spell checker, please wait"
 msgstr "Start stavekontroll (om tilgjengeleg)"
 
-#: src/text.c:3140
+#: src/text.c:3146
 #, fuzzy, c-format
 msgid "Spell checking failed: %s"
 msgstr "Stavekontroll feila"
 
-#: src/text.c:3142
+#: src/text.c:3148
 #, fuzzy, c-format
 msgid "Spell checking failed: %s: %s"
 msgstr "Stavekontroll feila"
 
-#: src/text.c:3145
+#: src/text.c:3151
 msgid "Finished checking spelling"
 msgstr "Stavekontroll fullført"
 
-#: src/text.c:3170
+#: src/text.c:3176
 msgid "No linter defined for this type of file!"
 msgstr ""
 
-#: src/text.c:3175
+#: src/text.c:3181
 msgid "Save modified buffer before linting?"
 msgstr ""
 
-#: src/text.c:3192
+#: src/text.c:3198
 msgid "Invoking linter, please wait"
 msgstr ""
 
-#: src/text.c:3347
+#: src/text.c:3353
 #, c-format
 msgid "Got 0 parsable lines from command: %s"
 msgstr ""
 
-#: src/text.c:3377
+#: src/text.c:3383
 #, c-format
 msgid "This message is for unopened file %s, open it in a new buffer?"
 msgstr ""
 
-#: src/text.c:3394
+#: src/text.c:3400
 msgid "No more errors in unopened files, cancelling"
 msgstr ""
 
-#: src/text.c:3434
+#: src/text.c:3440
 msgid "At last message"
 msgstr ""
 
-#: src/text.c:3439
+#: src/text.c:3445
 msgid "At first message"
 msgstr ""
 
-#: src/text.c:3475
+#: src/text.c:3481
 msgid "Finished"
 msgstr ""
 
-#: src/text.c:3497
+#: src/text.c:3503
 msgid "Invoking formatter, please wait"
 msgstr ""
 
-#: src/text.c:3557
+#: src/text.c:3563
 msgid "Finished formatting"
 msgstr ""
 
-#: src/text.c:3639
+#: src/text.c:3645
 #, c-format
 msgid "%sWords: %lu  Lines: %ld  Chars: %lu"
 msgstr ""
 
-#: src/text.c:3640
+#: src/text.c:3646
 #, fuzzy
 msgid "In Selection:  "
 msgstr "Legg til valt område på slutten av fil"
 
 #. TRANSLATORS: This is displayed when the next keystroke will be
 #. * inserted verbatim.
-#: src/text.c:3654
+#: src/text.c:3660
 msgid "Verbatim Input"
 msgstr ""
 
-#: src/text.c:3852
+#: src/text.c:3858
 msgid "No further matches"
 msgstr ""
 
 #. TRANSLATORS: Shown when there are zero possible completions.
-#: src/text.c:3856
+#: src/text.c:3862
 #, fuzzy
 msgid "No matches"
 msgstr "Inga motsvarande klamme"
 
-#: src/utils.c:393 src/utils.c:405
+#: src/utils.c:410 src/utils.c:422
 #, fuzzy
 msgid "nano is out of memory!"
 msgstr "nano: malloc: tom for minne!"
 
-#: src/utils.c:583
+#: src/utils.c:594
 #, c-format
 msgid "Internal error: can't match line %ld.  Please save your work."
 msgstr ""
@@ -2577,46 +2580,46 @@ msgstr "Endra"
 msgid "View"
 msgstr ""
 
-#: src/winio.c:3101
+#: src/winio.c:3071
 #, fuzzy, c-format
 msgid "line %ld/%ld (%d%%), col %lu/%lu (%d%%), char %lu/%lu (%d%%)"
 msgstr "linje %d/%d (%.0f%%), kol %ld/%ld (%.0f%%), teikn %ld/%ld (%.0f%%)"
 
-#: src/winio.c:3232
+#: src/winio.c:3202
 msgid "The nano text editor"
 msgstr "Teksteditoren nano"
 
-#: src/winio.c:3233
+#: src/winio.c:3203
 #, fuzzy
 msgid "version"
 msgstr "versjon "
 
-#: src/winio.c:3234
+#: src/winio.c:3204
 msgid "Brought to you by:"
 msgstr "Gjeve til deg av:"
 
-#: src/winio.c:3235
+#: src/winio.c:3205
 msgid "Special thanks to:"
 msgstr "Spesiell takk til:"
 
 # Oversette dette ?
-#: src/winio.c:3236
+#: src/winio.c:3206
 msgid "The Free Software Foundation"
 msgstr "Free Sofware Foundation"
 
-#: src/winio.c:3237
+#: src/winio.c:3207
 msgid "the many translators and the TP"
 msgstr ""
 
-#: src/winio.c:3238
+#: src/winio.c:3208
 msgid "For ncurses:"
 msgstr ""
 
-#: src/winio.c:3239
+#: src/winio.c:3209
 msgid "and anyone else we forgot..."
 msgstr "og alle dei andre vi gløymde..."
 
-#: src/winio.c:3240
+#: src/winio.c:3210
 #, fuzzy
 msgid "Thank you for using nano!"
 msgstr "Takk for at du brukar nano!\n"

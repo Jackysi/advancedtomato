@@ -76,7 +76,7 @@ extern WINDOW *topwin;
 extern WINDOW *edit;
 extern WINDOW *bottomwin;
 extern int editwinrows;
-extern int maxrows;
+extern int maxlines;
 
 extern filestruct *cutbuffer;
 extern filestruct *cutbottom;
@@ -266,7 +266,7 @@ bool is_valid_mbstring(const char *s);
 void set_colorpairs(void);
 void color_init(void);
 void color_update(void);
-void reset_multis(filestruct *fileptr, bool force);
+void check_the_multis(filestruct *line);
 void alloc_multidata_if_needed(filestruct *fileptr);
 void precalc_multicolorinfo(void);
 #endif
@@ -302,7 +302,8 @@ void switch_to_next_buffer_void(void);
 bool close_buffer(void);
 #endif
 filestruct *read_line(char *buf, size_t buf_len, filestruct *prevnode);
-void read_file(FILE *f, int fd, const char *filename, bool undoable, bool checkwritable);
+void read_file(FILE *f, int fd, const char *filename, bool undoable,
+		bool checkwritable);
 int open_file(const char *filename, bool newfie, bool quiet, FILE **f);
 char *get_next_filename(const char *name, const char *suffix);
 void do_insertfile_void(void);
@@ -429,9 +430,10 @@ void renumber(filestruct *fileptr);
 partition *partition_filestruct(filestruct *top, size_t top_x,
 	filestruct *bot, size_t bot_x);
 void unpartition_filestruct(partition **p);
-void move_to_filestruct(filestruct **file_top, filestruct **file_bot,
+void extract_buffer(filestruct **file_top, filestruct **file_bot,
 	filestruct *top, size_t top_x, filestruct *bot, size_t bot_x);
-void copy_from_filestruct(filestruct *somebuffer);
+void ingraft_buffer(filestruct *somebuffer);
+void copy_from_buffer(filestruct *somebuffer);
 openfilestruct *make_new_opennode(void);
 void unlink_opennode(openfilestruct *fileptr);
 void delete_opennode(openfilestruct *fileptr);
@@ -532,8 +534,8 @@ void regexp_cleanup(void);
 void not_found_msg(const char *str);
 void search_replace_abort(void);
 int search_init(bool replacing, bool use_answer);
-int findnextstr(const char *needle, bool whole_word_only, size_t *match_len,
-	const filestruct *begin, size_t begin_x);
+int findnextstr(const char *needle, bool whole_word_only, bool have_region,
+	size_t *match_len, bool skipone, const filestruct *begin, size_t begin_x);
 void do_search(void);
 #ifndef NANO_TINY
 void do_findprevious(void);
@@ -727,7 +729,7 @@ int *parse_verbatim_kbinput(WINDOW *win, size_t *count);
 int get_mouseinput(int *mouse_x, int *mouse_y, bool allow_shortcuts);
 #endif
 const sc *get_shortcut(int *kbinput);
-void blank_line(WINDOW *win, int y, int x, int n);
+void blank_row(WINDOW *win, int y, int x, int n);
 void blank_titlebar(void);
 void blank_edit(void);
 void blank_statusbar(void);
@@ -747,7 +749,7 @@ void edit_draw(filestruct *fileptr, const char *converted,
 	int line, size_t from_col);
 int update_line(filestruct *fileptr, size_t index);
 bool need_horizontal_scroll(const size_t old_column, const size_t new_column);
-void edit_scroll(scroll_dir direction, ssize_t nlines);
+void edit_scroll(scroll_dir direction, int nrows);
 void edit_redraw(filestruct *old_current);
 void edit_refresh(void);
 void adjust_viewport(update_type location);
