@@ -109,6 +109,10 @@ function clientSideInclude(id, url) {
 	<div class='section'>
 		<span id="ups-data"></span>
 	</div>
+	<div id='bwm-controls'>
+		<br><br>
+		&nbsp; &raquo; <a href="nas-usb.asp">Configure</a>
+	</div>
 </td></tr>
 <tr><td id='footer' colspan=2>&nbsp;</td></tr>
 </table>

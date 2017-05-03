@@ -176,6 +176,7 @@ ifneq ($(TCONFIG_UPS),y)
 	rm -f $(INSTALLDIR)/www/nas-ups.asp
 	sed -i $(INSTALLDIR)/www/tomato.js -e "/UPS-BEGIN/,/UPS-END/d"
 	sed -i $(INSTALLDIR)/www/about.asp -e "/UPS-BEGIN/,/UPS-END/d"
+	sed -i $(INSTALLDIR)/www/nas-usb.asp -e "/UPS-BEGIN/,/UPS-END/d"
 endif
 
 # Only include the TOR pages if tor project is configured in.
@@ -298,6 +299,7 @@ endif
 		-e "/MIPSR2-BEGIN/d"	-e "/MIPSR2-END/d" \
 		-e "/MIPSR1-BEGIN/d"	-e "/MIPSR1-END/d" \
 		-e "/USB-BEGIN/d"	-e "/USB-END/d" \
+		-e "/UPS-BEGIN/d"	-e "/UPS-END/d" \
 		-e "/NTFS-BEGIN/d"	-e "/NTFS-END/d" \
 		-e "/SAMBA-BEGIN/d"	-e "/SAMBA-END/d" \
 		-e "/FTP-BEGIN/d"	-e "/FTP-END/d" \

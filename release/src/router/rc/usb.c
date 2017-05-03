@@ -170,7 +170,9 @@ void start_usb(void)
 #endif
 
 #ifdef TCONFIG_UPS
-		start_ups();
+		if (nvram_get_int("usb_apcupsd") == 1) {
+			start_ups();
+		}
 #endif
 
 // shibby
