@@ -4,6 +4,9 @@
 
 #include <assert.h>
 #include <errno.h>
+#ifdef HAVE_GRP_H
+# include <grp.h>
+#endif
 #include <limits.h>
 #include <locale.h>
 #include <signal.h>
@@ -202,6 +205,14 @@ revoke_privileges(ProxyContext * const proxy_context)
         exit(1);
     }
     if (proxy_context->user_id != (uid_t) 0) {
+#  ifdef HAVE_INITGROUPS
+        if (initgroups(proxy_context->user_name,
+                       proxy_context->user_group) != 0) {
+            logger(proxy_context, LOG_ERR, "Unable to initialize groups for user [%s]",
+                   proxy_context->user_name);
+            exit(1);
+        }
+#  endif
         if (setgid(proxy_context->user_group) != 0 ||
             setegid(proxy_context->user_group) != 0 ||
             setuid(proxy_context->user_id) != 0 ||

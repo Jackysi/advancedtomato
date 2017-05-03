@@ -12,5 +12,10 @@ WantedBy=multi-user.target
 [Service]
 Type=simple
 NonBlocking=true
+
+# Fill in the resolver name with one from dnscrypt-resolvers.csv file
+# It is also recommended to create a dedicated system user, for example _dnscrypt
+# Additional features, such as ephemeral keys and plugins, can be enabled here as well
 ExecStart=/usr/local/sbin/dnscrypt-proxy \
-	  -R dnscrypt.eu-nl
+          --resolver-name=<resolver name> \
+          --user=<user name to run the service as>

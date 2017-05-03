@@ -26,7 +26,23 @@ export SODIUM_ANDROID_PREFIX=${SODIUM_ANDROID_PREFIX:-/tmp/libsodium-android-${T
 export CPPFLAGS="$CPPFLAGS -I${SODIUM_ANDROID_PREFIX}/include"
 export LDFLAGS="$LDFLAGS -L${SODIUM_ANDROID_PREFIX}/lib"
 
+export UPDATE_BINARY="dist-build/android-files/META-INF/com/google/android/update-binary"
+export UPDATE_BINARY_URL="https://github.com/jedisct1/dnscrypt-proxy/blob/master/dist-build/android-files/META-INF/com/google/android/update-binary?raw=true"
+export UPDATE_BINARY_SIG_URL="https://github.com/jedisct1/dnscrypt-proxy/blob/master/dist-build/android-files/META-INF/com/google/android/update-binary.minisig?raw=true"
+export UPDATE_BINARY_PUBKEY="RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3"
+
 rm -rf "${TOOLCHAIN_DIR}" "${PREFIX}"
+
+if [ ! -f "$UPDATE_BINARY" ]; then
+  curl -v -L -o "${UPDATE_BINARY}.tmp" "$UPDATE_BINARY_URL" || exit 1
+  if $(which minisign > /dev/null 2>&1); then
+    curl -v -L -o "${UPDATE_BINARY}.tmp.minisig" "$UPDATE_BINARY_SIG_URL" || exit 1
+    minisign -V -P "$UPDATE_BINARY_PUBKEY" -m "${UPDATE_BINARY}.tmp" || exit 1
+    mv -f "${UPDATE_BINARY}.tmp.minisig" "${UPDATE_BINARY}.minisig"
+  fi
+  mv -f "${UPDATE_BINARY}.tmp" "$UPDATE_BINARY"
+  chmod 755 "$UPDATE_BINARY"
+fi
 
 bash $MAKE_TOOLCHAIN --platform="${NDK_PLATFORM:-android-16}" \
     --arch="$ARCH" --install-dir="$TOOLCHAIN_DIR" && \

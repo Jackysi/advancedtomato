@@ -451,6 +451,7 @@ evport_del(struct event_base *base, int fd, short old, short events, void *p)
 		}
 	} else {
 		if ((fdi->fdi_what & (EV_READ|EV_WRITE)) == 0) {
+			EVUTIL_ASSERT(i < EVENTS_PER_GETN);
 			evpd->ed_pending[i] = -1;
 		}
 	}

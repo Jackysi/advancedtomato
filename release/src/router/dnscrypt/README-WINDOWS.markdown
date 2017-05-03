@@ -175,6 +175,7 @@ The following subkeys are recognized and should be self-explanatory:
     ResolverAddress   (REG_SZ)
     ResolverName      (REG_SZ)
     ResolversList     (REG_SZ)
+    LogFile           (REG_SZ)
     EDNSPayloadSize   (DWORD)
     MaxActiveRequests (DWORD)
     TCPOnly           (DWORD)

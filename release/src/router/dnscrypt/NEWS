@@ -1,4 +1,17 @@
 
+* Version 1.7.0:
+ - Plugins are now enabled by default.
+ - Windows: new registry key: `LogFile`.
+ - New command-line option: `--ignore-timestamps` to ignore timestamps
+when performing certificate validation.
+ - New command-line option: `--syslog-prefix` to add a prefix to log
+messages.
+ - Certificates can now be retrieved using TCP.
+ - Libevent was updated to version 2.0.23.
+ - Certificates serial numbers are printed as a string if possible.
+ - The list of known public resolvers was updated.
+ - Builds for Win64 are now available.
+
 * Version 1.6.1:
  - Security: malformed packets could cause the OpenDNS deviceid,
 OpenDNS set-client-ip, blocking and AAAA blocking plugins to use

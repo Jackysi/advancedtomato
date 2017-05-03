@@ -388,13 +388,11 @@ header of the chosen certificate, as well as the specified encryption
 system and public key.
 
 The client must check for new certificates every hour, and switch to a
-new certificate if the current certificate is not present or not valid
-any more.
-
-The client shouldn't switch to a new certificate if the current one is
-still valid and still present in the set of returned certificates,
-even if the new set includes certificates with a higher serial number
-than the current one.
+new certificate if:
+- the current certificate is not present or not valid any more
+or
+- a certificate with a higher serial number than the current one is
+available.
 
 13. Operational perspective
 ---------------------------

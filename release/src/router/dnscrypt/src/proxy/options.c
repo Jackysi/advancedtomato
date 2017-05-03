@@ -33,19 +33,16 @@
 #endif
 
 static struct option getopt_long_options[] = {
+    { "resolver-name", 1, NULL, 'R' },
     { "local-address", 1, NULL, 'a' },
 #ifndef _WIN32
     { "daemonize", 0, NULL, 'd' },
 #endif
-    { "edns-payload-size", 1, NULL, 'e' },
     { "ephemeral-keys", 0, NULL, 'E' },
     { "client-key", 1, NULL, 'K' },
-    { "help", 0, NULL, 'h' },
     { "resolvers-list", 1, NULL, 'L' },
-    { "resolver-name", 1, NULL, 'R' },
     { "logfile", 1, NULL, 'l' },
     { "loglevel", 1, NULL, 'm' },
-    { "max-active-requests", 1, NULL, 'n' },
 #ifndef _WIN32
     { "pidfile", 1, NULL, 'p' },
 #endif
@@ -55,11 +52,16 @@ static struct option getopt_long_options[] = {
     { "resolver-address", 1, NULL, 'r' },
 #ifndef _WIN32
     { "syslog", 0, NULL, 'S' },
+    { "syslog-prefix", 1, NULL, 'Z' },
 #endif
+    { "max-active-requests", 1, NULL, 'n' },
     { "user", 1, NULL, 'u' },
     { "test", 1, NULL, 't' },
     { "tcp-only", 0, NULL, 'T' },
+    { "edns-payload-size", 1, NULL, 'e' },
+    { "ignore-timestamps", 0, NULL, 'I' },
     { "version", 0, NULL, 'V' },
+    { "help", 0, NULL, 'h' },
 #ifdef _WIN32
     { "install", 0, NULL, WIN_OPTION_INSTALL },
     { "reinstall", 0, NULL, WIN_OPTION_REINSTALL },
@@ -68,9 +70,9 @@ static struct option getopt_long_options[] = {
     { NULL, 0, NULL, 0 }
 };
 #ifndef _WIN32
-static const char *getopt_options = "a:de:Ehk:K:L:l:m:n:p:r:R:St:u:N:TVX:";
+static const char *getopt_options = "a:de:EhIk:K:L:l:m:n:p:r:R:St:u:N:TVX:Z:";
 #else
-static const char *getopt_options = "a:e:Ehk:K:L:l:m:n:r:R:t:u:N:TVX:";
+static const char *getopt_options = "a:e:EhIk:K:L:l:m:n:r:R:t:u:N:TVX:";
 #endif
 
 #ifndef DEFAULT_CONNECTIONS_COUNT_MAX
@@ -123,16 +125,19 @@ void options_init_with_default(AppContext * const app_context,
     proxy_context->provider_publickey_s = NULL;
     proxy_context->resolver_ip = NULL;
     proxy_context->syslog = 0;
+    proxy_context->syslog_prefix = NULL;
 #ifndef _WIN32
+    proxy_context->user_name = NULL;
     proxy_context->user_id = (uid_t) 0;
     proxy_context->user_group = (uid_t) 0;
-#endif
     proxy_context->user_dir = NULL;
+#endif
     proxy_context->daemonize = 0;
     proxy_context->test_cert_margin = (time_t) -1;
     proxy_context->test_only = 0;
     proxy_context->tcp_only = 0;
     proxy_context->ephemeral_keys = 0;
+    proxy_context->ignore_timestamps = 0;
 }
 
 static int
@@ -554,6 +559,9 @@ options_parse(AppContext * const app_context,
         case 'h':
             options_usage();
             exit(0);
+        case 'I':
+            proxy_context->ignore_timestamps = 1;
+            break;
         case 'k':
             proxy_context->provider_publickey_s = optarg;
             break;
@@ -569,9 +577,15 @@ options_parse(AppContext * const app_context,
         case 'R':
             proxy_context->resolver_name = optarg;
             break;
+#ifndef _WIN32
         case 'S':
             proxy_context->syslog = 1;
             break;
+        case 'Z':
+            proxy_context->syslog = 1;
+            proxy_context->syslog_prefix = optarg;
+            break;
+#endif
         case 'm': {
             char *endptr;
             const long max_log_level = strtol(optarg, &endptr, 10);
@@ -628,6 +642,7 @@ options_parse(AppContext * const app_context,
                 logger(proxy_context, LOG_ERR, "Unknown user: [%s]", optarg);
                 exit(1);
             }
+            proxy_context->user_name = strdup(pw->pw_name);
             proxy_context->user_id = pw->pw_uid;
             proxy_context->user_group = pw->pw_gid;
             proxy_context->user_dir = strdup(pw->pw_dir);
@@ -705,6 +720,11 @@ options_parse(AppContext * const app_context,
 void
 options_free(ProxyContext * const proxy_context)
 {
+    (void) proxy_context;
+#ifndef _WIN32
+    free(proxy_context->user_name);
+    proxy_context->user_name = NULL;
     free(proxy_context->user_dir);
     proxy_context->user_dir = NULL;
+#endif
 }

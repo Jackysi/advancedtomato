@@ -107,7 +107,8 @@ am__CONFIG_DISTCLEAN_FILES = config.status config.cache config.log \
  configure.lineno config.status.lineno
 mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = config.h
-CONFIG_CLEAN_FILES = src/include/dnscrypt/version.h test/Makefile
+CONFIG_CLEAN_FILES = dnscrypt-update-resolvers.sh \
+	src/include/dnscrypt/version.h test/Makefile
 CONFIG_CLEAN_VPATH_FILES =
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
@@ -196,6 +197,7 @@ CTAGS = ctags
 CSCOPE = cscope
 DIST_SUBDIRS = dist-build man libltdl src test
 am__DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/config.h.in \
+	$(srcdir)/dnscrypt-update-resolvers.sh.in \
 	$(top_srcdir)/libltdl/config/compile \
 	$(top_srcdir)/libltdl/config/config.guess \
 	$(top_srcdir)/libltdl/config/config.sub \
@@ -471,6 +473,8 @@ $(srcdir)/config.h.in: @MAINTAINER_MODE_TRUE@ $(am__configure_deps)
 
 distclean-hdr:
 	-rm -f config.h stamp-h1
+dnscrypt-update-resolvers.sh: $(top_builddir)/config.status $(srcdir)/dnscrypt-update-resolvers.sh.in
+	cd $(top_builddir) && $(SHELL) ./config.status $@
 src/include/dnscrypt/version.h: $(top_builddir)/config.status $(top_srcdir)/src/include/dnscrypt/version.h.in
 	cd $(top_builddir) && $(SHELL) ./config.status $@
 test/Makefile: $(top_builddir)/config.status $(top_srcdir)/test/Makefile.in

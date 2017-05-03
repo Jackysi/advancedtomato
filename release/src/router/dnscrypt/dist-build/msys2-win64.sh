@@ -1,10 +1,10 @@
 #! /bin/sh
 
-export CFLAGS="-Os -m32 -march=pentium3 -mtune=core2"
-export LDFLAGS="-march=pentium3"
-export PREFIX="$(pwd)/dnscrypt-proxy-win32"
-export MINGW_PREFIX='/mingw32'
-export SODIUM_PREFIX='/tmp/libsodium-win32'
+export CFLAGS="-Os -m64 -mtune=westmere"
+export LDFLAGS="-mtune=westmere"
+export PREFIX="$(pwd)/dnscrypt-proxy-win64"
+export MINGW_PREFIX='/mingw64'
+export SODIUM_PREFIX='/tmp/libsodium-win64'
 
 export CPPFLAGS="${CPPFLAGS} -I${SODIUM_PREFIX}/include"
 export LDFLAGS="${LDFLAGS} -L${SODIUM_PREFIX}/lib"
@@ -15,7 +15,7 @@ if [ ! -d "$SODIUM_PREFIX" ]; then
 fi
 
 ./configure --prefix="$PREFIX" --exec-prefix="$PREFIX" \
-  --host=i686-w64-mingw32 \
+  --host=x86_64-w64-mingw32 \
   --bindir="$PREFIX" \
   --sbindir="$PREFIX" \
   --with-included-ltdl && \
@@ -27,7 +27,7 @@ mv "${PREFIX}/lib/dnscrypt-proxy/"*.dll "${PREFIX}/"
 mv "${PREFIX}/lib/dnscrypt-proxy/"*.la "${PREFIX}/"
 rm -fr "${PREFIX}/lib"
 cp "${MINGW_PREFIX}/bin/libwinpthread-1.dll" "${PREFIX}/"
-cp "${MINGW_PREFIX}/bin/libgcc_s_dw2-1.dll" "${PREFIX}/"
+cp "${MINGW_PREFIX}/bin/libgcc_s_seh-1.dll" "${PREFIX}/"
 cp "${MINGW_PREFIX}/bin/libldns-1.dll" "${PREFIX}/"
 cp "${SODIUM_PREFIX}/bin/libsodium-18.dll" "${PREFIX}/"
 

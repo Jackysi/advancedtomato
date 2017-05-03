@@ -1,5 +1,5 @@
 AC_PREREQ([2.65])
-AC_INIT([dnscrypt-proxy],[1.6.1],[https://dnscrypt.org])
+AC_INIT([dnscrypt-proxy],[1.7.0],[https://dnscrypt.org])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_AUX_DIR([libltdl/config])
 AC_CONFIG_SRCDIR([src/proxy/app.c])
@@ -48,6 +48,23 @@ AC_ARG_WITH(safecode,
   ])
 ])
 
+AC_ARG_ENABLE(plugins,
+[AS_HELP_STRING(--disable-plugins,Disable support for plugins)],
+[
+  AS_IF([test "x$enableval" = "xno"], [
+    plugins="disabled"
+  ], [
+    plugins="enabled"
+  ])
+],
+[
+  plugins="enabled"
+])
+AS_IF([test "$plugins" = "enabled"], [
+  CPPFLAGS="$CPPFLAGS -DPLUGINS=1"
+])
+AM_CONDITIONAL(PLUGINS, test x$plugins = xenabled)
+
 AC_ARG_ENABLE(debug,
 [AS_HELP_STRING(--enable-debug,For maintainers only - please do not use)],
 [
@@ -65,17 +82,6 @@ AC_ARG_ENABLE(debug,
     CPPFLAGS="$CPPFLAGS -DDEBUG=1"
   ])
 ])
-
-plugins=disabled
-AC_ARG_ENABLE(plugins,
-[AS_HELP_STRING(--enable-plugins,Enable support for plugins)],
-[
-	AS_IF([test "x$enableval" != "xno"], [
-		CPPFLAGS="$CPPFLAGS -DPLUGINS=1"
-		plugins=enabled
-	])
-])
-AM_CONDITIONAL(PLUGINS, test x$plugins = xenabled)
 
 relaxed_plugins_permissions=disabled
 AC_ARG_ENABLE(relaxed-plugins-permissions,
@@ -265,7 +271,7 @@ dnl Checks for header files.
 
 AC_SYS_LARGEFILE
 AC_CHECK_HEADERS([sys/cdefs.h sys/feature_tests.h])
-AC_CHECK_HEADERS([execinfo.h paths.h pwd.h uuid/uuid.h])
+AC_CHECK_HEADERS([execinfo.h paths.h pwd.h grp.h uuid/uuid.h])
 AC_CHECK_HEADERS([sandbox.h])
 AC_CHECK_HEADERS([ws2tcpip.h])
 
@@ -434,7 +440,7 @@ esac
 AC_CHECK_HEADER([CoreServices/CoreServices.h],
   [LIBS="$LIBS -framework CoreFoundation -framework CoreServices"])
 
-AC_CHECK_FUNCS([getpwnam sandbox_init setrlimit putc_unlocked gmtime_r])
+AC_CHECK_FUNCS([getpwnam sandbox_init setrlimit putc_unlocked gmtime_r initgroups])
 
 dnl Libtool.
 
@@ -470,6 +476,7 @@ AH_VERBATIM([NDEBUG], [/* Never ever ignore assertions */
 
 AC_CONFIG_FILES([Makefile
                  dist-build/Makefile
+                 dnscrypt-update-resolvers.sh
                  man/Makefile
                  src/Makefile
                  src/hostip/Makefile

@@ -127,7 +127,7 @@ am__CONFIG_DISTCLEAN_FILES = config.status config.cache config.log \
 mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = config.h
 CONFIG_CLEAN_FILES = libevent.pc libevent_openssl.pc \
-	libevent_pthreads.pc
+	libevent_pthreads.pc libevent_core.pc libevent_extra.pc
 CONFIG_CLEAN_VPATH_FILES =
 am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
 am__vpath_adj = case $$p in \
@@ -352,7 +352,9 @@ CTAGS = ctags
 CSCOPE = cscope
 DIST_SUBDIRS = $(SUBDIRS)
 am__DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/config.h.in \
-	$(srcdir)/libevent.pc.in $(srcdir)/libevent_openssl.pc.in \
+	$(srcdir)/libevent.pc.in $(srcdir)/libevent_core.pc.in \
+	$(srcdir)/libevent_extra.pc.in \
+	$(srcdir)/libevent_openssl.pc.in \
 	$(srcdir)/libevent_pthreads.pc.in ChangeLog README compile \
 	config.guess config.sub depcomp epoll_sub.c install-sh \
 	ltmain.sh missing
@@ -558,7 +560,7 @@ RELEASE = -release 2.0
 #
 # Once an RC is out, DO NOT MAKE ANY ABI-BREAKING CHANGES IN THAT SERIES
 # UNLESS YOU REALLY REALLY HAVE TO.
-VERSION_INFO = 6:10:1
+VERSION_INFO = 6:11:1
 
 # History:          RELEASE    VERSION_INFO
 #  2.0.1-alpha --     2.0        1:0:0
@@ -583,6 +585,7 @@ VERSION_INFO = 6:10:1
 #  2.0.20-stable--    2.0        6:8:1 (No ABI change)
 #  2.0.21-stable--    2.0        6:9:1 (No ABI change)
 #  2.0.22-stable--    2.0        6:10:1 (No ABI change)
+#  2.0.23-stable--    2.0        6:11:1 (no ABI change)
 #
 # For Libevent 2.1:
 #  2.1.1-alpha --     2.1        1:0:0
@@ -606,7 +609,8 @@ VERSION_INFO = 6:10:1
 # series won't be binary-compatible.
 @INSTALL_LIBEVENT_TRUE@dist_bin_SCRIPTS = event_rpcgen.py
 pkgconfigdir = $(libdir)/pkgconfig
-LIBEVENT_PKGCONFIG = libevent.pc $(am__append_2) $(am__append_4)
+LIBEVENT_PKGCONFIG = libevent.pc libevent_core.pc libevent_extra.pc \
+	$(am__append_2) $(am__append_4)
 
 # These sources are conditionally added by configure.in or conditionally
 # included from other files.
@@ -630,7 +634,7 @@ LIBEVENT_LIBS_LA = libevent.la libevent_core.la libevent_extra.la \
 @INSTALL_LIBEVENT_TRUE@lib_LTLIBRARIES = $(LIBEVENT_LIBS_LA)
 @INSTALL_LIBEVENT_TRUE@pkgconfig_DATA = $(LIBEVENT_PKGCONFIG)
 @INSTALL_LIBEVENT_FALSE@noinst_LTLIBRARIES = $(LIBEVENT_LIBS_LA)
-SUBDIRS = . include sample test
+SUBDIRS = . include test
 @BUILD_WIN32_FALSE@SYS_LIBS = 
 @BUILD_WIN32_TRUE@SYS_LIBS = -lws2_32 -lshell32 -ladvapi32
 @BUILD_WIN32_FALSE@SYS_SRC = $(am__append_5) $(am__append_6) \
@@ -683,7 +687,7 @@ noinst_HEADERS = util-internal.h mm-internal.h ipv6-internal.h \
 EVENT1_HDRS = event.h evhttp.h evdns.h evrpc.h evutil.h
 @INSTALL_LIBEVENT_TRUE@include_HEADERS = $(EVENT1_HDRS)
 AM_CPPFLAGS = -I$(srcdir)/compat -I$(srcdir)/include -I./include $(SYS_INCLUDES)
-DISTCLEANFILES = *~ libevent.pc ./include/event2/event-config.h
+DISTCLEANFILES = *~ libevent.pc libevent_core.pc libevent_extra.pc ./include/event2/event-config.h
 all: $(BUILT_SOURCES) config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-recursive
 
@@ -742,6 +746,10 @@ libevent.pc: $(top_builddir)/config.status $(srcdir)/libevent.pc.in
 libevent_openssl.pc: $(top_builddir)/config.status $(srcdir)/libevent_openssl.pc.in
 	cd $(top_builddir) && $(SHELL) ./config.status $@
 libevent_pthreads.pc: $(top_builddir)/config.status $(srcdir)/libevent_pthreads.pc.in
+	cd $(top_builddir) && $(SHELL) ./config.status $@
+libevent_core.pc: $(top_builddir)/config.status $(srcdir)/libevent_core.pc.in
+	cd $(top_builddir) && $(SHELL) ./config.status $@
+libevent_extra.pc: $(top_builddir)/config.status $(srcdir)/libevent_extra.pc.in
 	cd $(top_builddir) && $(SHELL) ./config.status $@
 
 install-libLTLIBRARIES: $(lib_LTLIBRARIES)

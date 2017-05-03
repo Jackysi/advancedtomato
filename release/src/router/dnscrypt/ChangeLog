@@ -1,3 +1,1023 @@
+* Sun Jul 31 12:19:15 2016 +0200
+
+    Builds for Win64 are now available
+
+* Sun Jul 31 11:04:32 2016 +0200
+
+    Remove LTO on Win32
+    
+    Starting to think that the only platform where LTO works is MacOS
+
+* Sun Jul 31 10:07:02 2016 +0200
+
+    Silence the libeay grep
+
+* Sun Jul 31 09:25:08 2016 +0200
+
+    Add msys2-win64.sh to the package
+
+* Sun Jul 31 09:24:08 2016 +0200
+
+    Add a warning when using system libsodium
+
+* Sun Jul 31 09:19:14 2016 +0200
+
+    On win64: libgcc_s_dw2-1.dll -> libgcc_s_seh-1.dll
+
+* Sun Jul 31 01:57:59 2016 +0200
+
+    No LTO for the win64 version
+
+* Sun Jul 31 01:17:59 2016 +0200
+
+    Add a win64 build script
+
+* Sat Jul 30 23:10:30 2016 +0200
+
+    Check for grp.h - No struct passwd on win32
+
+* Sat Jul 30 19:24:45 2016 +0200
+
+    Don't compile levent samples
+
+* Sat Jul 30 19:03:23 2016 +0200
+
+    Get ready for version 1.7.0
+
+* Sat Jul 30 18:59:57 2016 +0200
+
+    Remove DNSCrypt tools for Linux. Unmaintained, not on Github.
+
+* Sat Jul 30 18:59:48 2016 +0200
+
+    Remove DNSCrypt Windows Service Manager
+
+* Sat Jul 30 18:48:52 2016 +0200
+
+    --enable-plugins is not required any more
+
+* Sat Jul 30 18:41:12 2016 +0200
+
+    Enable plugins by default
+
+* Sat Jul 30 18:11:45 2016 +0200
+
+    Add a Windows registry key for the log file
+
+* Sat Jul 30 18:03:22 2016 +0200
+
+    Add a `--ignore-timestamps` switch
+
+* Sat Jul 30 16:59:27 2016 +0200
+
+    Do not use the default resolvers any more to retrieve the certs
+    
+    Besides Cisco, nobody's manually creating the certificates any more.
+
+* Sat Jul 30 16:57:26 2016 +0200
+
+    Fix off-by-one when printing the day
+
+* Sat Jul 30 15:45:00 2016 +0200
+
+    Certs retrieval: use TCP if a response over UDP has the TC bit
+
+* Sat Jul 30 01:13:25 2016 +0200
+
+    Sign
+
+* Sat Jul 30 01:12:44 2016 +0200
+
+    Remove d0wn-de-ns1-ipv6 (unreachable)
+
+* Sat Jul 30 01:07:21 2016 +0200
+
+    More Resolvers Online checked certificate received (#445)
+    
+    * More Resolvers Online checked certificate received
+    
+    ./dnscrypt-proxy.exe --test=1 -R $1
+    
+    
+    
+    
+    [INFO] - [fvz-rec-hk-ztw-01] does not support DNS Security Extensions
+    [INFO] + Namecoin domains can be resolved
+    [INFO] + Provider supposedly doesn't keep logs
+    [NOTICE] Starting dnscrypt-proxy 1.6.1
+    [INFO] Generating a new session key pair
+    [INFO] Done
+    [INFO] Server certificate #808464433 received
+    [INFO] This certificate is valid
+    [INFO] Server key fingerprint is 9E71:4780:7FEE:D8FF:CDEC:A1F2:948F:DC04:1ACB:0FF3:7432:11DC:B0EB:4785:B19E:0161
+    
+    [INFO] - [fvz-rec-nl-ams-01] does not support DNS Security Extensions
+    [INFO] + Namecoin domains can be resolved
+    [INFO] + Provider supposedly doesn't keep logs
+    [NOTICE] Starting dnscrypt-proxy 1.6.1
+    [INFO] Generating a new session key pair
+    [INFO] Done
+    [INFO] Server certificate #808464433 received
+    [INFO] This certificate is valid
+    [INFO] Server key fingerprint is 8F15:3E6F:22FE:0779:8442:2EA1:A7C6:D499:30DE:8322:1EC6:4691:691B:BD1B:9BD2:F749
+    
+    [INFO] - [fvz-rec-no-osl-01] does not support DNS Security Extensions
+    [INFO] + Namecoin domains can be resolved
+    [INFO] + Provider supposedly doesn't keep logs
+    [NOTICE] Starting dnscrypt-proxy 1.6.1
+    [INFO] Generating a new session key pair
+    [INFO] Done
+    [INFO] Server certificate #808464433 received
+    [INFO] This certificate is valid
+    [INFO] Server key fingerprint is 84CA:096E:6658:1578:2AA8:89AD:6882:4EFB:CC9D:B07D:4A68:0DE3:15A7:C3C8:0DCB:0E00
+    
+    [INFO] - [fvz-rec-ro-buh-01] does not support DNS Security Extensions
+    [INFO] + Namecoin domains can be resolved
+    [INFO] + Provider supposedly doesn't keep logs
+    [NOTICE] Starting dnscrypt-proxy 1.6.1
+    [INFO] Generating a new session key pair
+    [INFO] Done
+    [INFO] Server certificate #808464433 received
+    [INFO] This certificate is valid
+    [INFO] Server key fingerprint is E6C2:2A53:2DC3:E604:16CF:0AD0:5583:2BCE:6704:617E:7643:3A15:7D40:A2CA:2CDD:0B38
+    
+    * opennic-fvz-rec-de-dus-01
+    
+    ./dnscrypt-proxy.exe --test=1  -R       fvz-rec-de-dus-01
+    [INFO] - [fvz-rec-de-dus-01] does not support DNS Security Extensions
+    [INFO] + Namecoin domains can be resolved
+    [INFO] + Provider supposedly doesn't keep logs
+    [NOTICE] Starting dnscrypt-proxy 1.6.1
+    [INFO] Generating a new session key pair
+    [INFO] Done
+    [INFO] Server certificate #808464433 received
+    [INFO] This certificate is valid
+    [INFO] Server key fingerprint is 9EF2:3C23:5418:2F42:7760:60F1:5243:7A19:42E7:EAFB:D03C:7C4D:A1E3:9F17:6207:D65E
+    
+    * add d0wn-de-ns1-ipv6
+    
+    the IPv6 one does work! (for now!)
+    
+    > ./dnscrypt-proxy.exe --test=1 --provider-name=2.dnscrypt-cert.de.d0wn.biz -r [2001:1608:10:195:3:dead:beef:cafe]:443 --provider-key=D4A8:6FB5:AA0C:2B6B:8C13:8C29:7F69:F9C8:29C8:E157:F279:6FC7:7366:290F:2A80:0AD2
+    
+    `[NOTICE] Starting dnscrypt-proxy 1.6.1
+    [INFO] Generating a new session key pair
+    [INFO] Done
+    [ERROR] Unable to retrieve server certificates
+    [INFO] Refetching server certificates
+    [INFO] Server certificate #808464433 received
+    [INFO] This certificate is valid
+    [INFO] Server key fingerprint is 5B8C:68CA:BE7B:8BB6:5D5F:ED0F:2210:A729:0CB0:C9BB:2AF1:78C7:0C1F:0F88:2CC9:5678`
+    
+    * Update dnscrypt-resolvers.csv
+    
+    *  [fvz-rec-fr-sxb-01]
+    
+    [INFO] - [fvz-rec-fr-sxb-01] does not support DNS Security Extensions
+    [INFO] + Namecoin domains can be resolved
+    [INFO] + Provider supposedly doesn't keep logs
+    [NOTICE] Starting dnscrypt-proxy 1.6.1
+    [INFO] Generating a new session key pair
+    [INFO] Done
+    [INFO] Server certificate #808464433 received
+    [INFO] This certificate is valid
+    [INFO] Server key fingerprint is 9560:97AF:9B71:2596:CDDB:7246:4722:076F:4097:CDA8:5F41:8664:338E:8646:DD3D:7738
+
+* Thu Jul 28 19:56:05 2016 +0200
+
+    Sign
+
+* Thu Jul 28 19:55:38 2016 +0200
+
+    Remove d0wn-de-ns1-*
+    
+    The one on port 80 is a duplicate, the IPv6 one doesn't work.
+
+Merge: c7947fd a5c1756
+* Thu Jul 28 19:51:56 2016 +0200
+
+    Merge branch 'master' of https://github.com/jedisct1/dnscrypt-proxy
+    
+    * 'master' of https://github.com/jedisct1/dnscrypt-proxy:
+      https://dns.d0wn.biz/
+
+Merge: ae693fb 7ef27e0
+* Thu Jul 28 19:51:52 2016 +0200
+
+    Merge pull request #443 from Opensourcecommunitydevelopment/patch-1
+    
+    https://dns.d0wn.biz/
+
+* Thu Jul 28 19:50:51 2016 +0200
+
+    IPv6 addresses require a port
+
+Merge: 51dff5e 3c203bb
+* Thu Jul 28 19:49:20 2016 +0200
+
+    Merge pull request #444 from Opensourcecommunitydevelopment/patch-2
+    
+    new fvz-rec-de-muc-01 IPv4&IPv6 Entrys corrected
+
+* Thu Jul 28 16:37:02 2016 +0200
+
+    new fvz-rec-de-muc-01 IPv4&IPv6 Entrys
+    
+    http://dnsrec.meo.ws/#fvz-rec-de-muc-01
+    
+    fvz-rec-de-muc-01 in Munich, Germany
+    
+    DNSCrypt-Name:  2.dnscrypt-cert.fvz-rec-de-muc-01.dnsrec.meo.ws
+    DNSCrypt-Key:   C392:2B83:8EB3:884B:B99B:70BD:B90A:C204:37A4:797A:35F4:3600:7641:94E3:F995:444A
+    IPv4:   185.90.62.45
+    IPv6:   2a05:dfc0:1ee3:dee:ba::1
+
+* Thu Jul 28 16:16:36 2016 +0200
+
+    https://dns.d0wn.biz/
+    
+    DNS-Server:             ns1.de.dns.d0wn.biz
+    IPv6:                   2001:1608:10:195:3:dead:beef:cafe
+    Location:               Germany
+    Provider-Key:           D4A8:6FB5:AA0C:2B6B:8C13:8C29:7F69:F9C8:29C8:E157:F279:6FC7:7366:290F:2A80:0AD2
+    Provider-Name:          2.dnscrypt-cert.de.d0wn.biz
+    Ports:                  54 80 443 1053 5353 27015
+    Key valid until:        2016-10-31
+    Pubkey TXT Record:      pubkey.de.dnscrypt.d0wn.biz
+
+* Wed Jul 27 21:45:25 2016 +0200
+
+    Valid certs with the highest serial# should always be preferred
+
+* Mon Jul 25 11:19:57 2016 +0200
+
+    Temporarily remove fvz-rec-nz-akl-01
+
+* Sun Jul 17 18:08:30 2016 +0200
+
+    libevent version bump
+
+* Sun Jul 17 18:03:22 2016 +0200
+
+    libevent: fix overflow check in expand_singlechain()
+
+* Sun Jul 17 18:01:23 2016 +0200
+
+    Add an assertion to remove confusion
+
+* Fri Jul 15 22:38:21 2016 +0200
+
+    resolv-{east,west} have been down for too long
+
+* Thu Jul 7 18:54:59 2016 +0200
+
+    sign
+
+Merge: 4588404 68c0444
+* Thu Jul 7 18:54:43 2016 +0200
+
+    Merge pull request #433 from xxdesmus/master
+    
+    removing SpdySync
+
+* Thu Jul 7 09:50:45 2016 -0700
+
+    removing SpdySync
+
+* Mon Jun 27 10:35:39 2016 +0200
+
+    Provide a systemd service that doesn't work by default :)
+
+* Mon Jun 27 10:14:14 2016 +0200
+
+    Regen man page
+
+* Mon Jun 27 10:13:13 2016 +0200
+
+    Clarify why ephemeral keys are not enabled by default
+
+* Thu Jun 23 17:20:30 2016 +0200
+
+    Don't even try to quote a path with a quote
+
+* Wed Jun 22 12:07:14 2016 +0200
+
+    d0wn-ro-ns1 and ovpnto-se are down
+
+Merge: 3673840 fcbd7e6
+* Mon Jun 20 08:52:54 2016 +0200
+
+    Merge pull request #426 from taozhijiang/master
+    
+    add the gitignore for additional m4 and libevent
+
+* Mon Jun 20 08:49:36 2016 +0800
+
+    add the gitignore for additional m4 and libevent
+    
+    The following entries should be added to .gitignore file:
+    
+    m4/ltargz.m4
+    src/libevent-modified/libevent_core.pc
+    src/libevent-modified/libevent_extra.pc
+
+* Tue Jun 14 15:10:50 2016 +0200
+
+    Include <grp.h> for initgroups()
+
+* Thu Jun 9 10:38:15 2016 +0200
+
+    Print certificates serial number as a string if applicable
+
+* Mon Jun 6 19:00:06 2016 +0200
+
+    Call initgroups(3) if available
+
+* Sun Jun 5 19:16:21 2016 +0200
+
+    Sign
+
+* Sun Jun 5 19:16:09 2016 +0200
+
+    Revert "fvz anycast addresses are down"
+    
+
+* Fri Jun 3 21:00:20 2016 +0200
+
+    Sign
+
+* Fri Jun 3 21:00:06 2016 +0200
+
+    ovpnto-ro is down
+
+* Fri Jun 3 20:59:25 2016 +0200
+
+    fvz-rec-no-osl-01 and fvz-rec-us-mia-01 are down
+
+* Fri Jun 3 20:59:03 2016 +0200
+
+    fvz anycast addresses are down
+
+* Fri Jun 3 20:55:48 2016 +0200
+
+    cloudns-can is down
+
+* Fri Jun 3 20:55:17 2016 +0200
+
+    OpenNIC Resolver Singapore 01 is in Singapore, not in Germany
+
+* Fri Jun 3 20:54:41 2016 +0200
+
+    Add explicit port number to IPv6 addresses
+
+* Sat May 28 19:44:17 2016 -0700
+
+    Sign
+
+Merge: 187a480 04ca5b5
+* Sat May 28 19:31:23 2016 -0700
+
+    Merge pull request #419 from Fusl/patch-1
+    
+    Adding fault-tolerant OpenNIC anycast resolver addresses
+
+* Sun May 29 02:59:03 2016 +0200
+
+    Adding fault-tolerant OpenNIC anycast resolver addresses
+    
+    Since anycast networks tend to not have any central location, I put "Earth" in the location field. Feel free to change it to anything else if required.
+
+* Wed May 25 23:24:06 2016 -0700
+
+    Imoprt libevent_{core,extra}.pc.in
+
+* Wed May 25 22:55:13 2016 -0700
+
+    libevent2: add tests for evbuffer_add() breakage on empty last chain
+
+* Wed May 25 22:53:51 2016 -0700
+
+    libevent: add tests for evbuffer_add() breakage on empty last chain
+
+* Tue May 24 12:44:59 2016 -0700
+
+    Update d0wn resolvers, remove redundant port numbers
+
+* Mon May 23 09:11:39 2016 -0700
+
+    Reorder options and ensure that order is the same in man and --help
+
+* Sun May 22 19:09:39 2016 -0700
+
+    Correctly handle the syslog prefix
+    
+    The context may not be available when the log function is called.
+
+* Sun May 22 19:02:12 2016 -0700
+
+    Revert "Revert "Add --syslog-prefix (-Z) option""
+    
+
+* Sun May 22 16:23:12 2016 -0700
+
+    Revert "Add --syslog-prefix (-Z) option"
+    
+
+* Sun May 22 16:14:19 2016 -0700
+
+    evdns_set_option() -> evdns_base_set_option()
+
+* Fri May 20 18:22:49 2016 -0700
+
+    Keep var declarations of the same type together
+
+* Fri May 20 18:22:19 2016 -0700
+
+    Proper quotes
+
+Merge: 324a75f 5b14bb1
+* Fri May 20 18:21:29 2016 -0700
+
+    Merge branch 'master' of https://github.com/jedisct1/dnscrypt-proxy
+    
+    * 'master' of https://github.com/jedisct1/dnscrypt-proxy:
+      Update dnscrypt-resolvers.csv
+      update origin for Spdysync
+      Add --syslog-prefix (-Z) option
+
+Merge: 7211a59 92d0ef3
+* Fri May 20 18:21:09 2016 -0700
+
+    Merge pull request #409 from konsolebox/add_syslog_prefix_option
+    
+    Add --syslog-prefix (-Z) option
+
+* Fri May 20 18:20:51 2016 -0700
+
+    Sign
+
+Merge: d9b530d 43075f3
+* Fri May 20 18:20:17 2016 -0700
+
+    Merge pull request #411 from xxdesmus/master
+    
+    updating origin IP for spdysync
+
+* Fri May 20 17:22:20 2016 -0700
+
+    Update dnscrypt-resolvers.csv
+
+* Fri May 20 17:19:47 2016 -0700
+
+    update origin for Spdysync
+
+* Fri May 20 15:39:35 2016 -0700
+
+    Revert "canhazip[.]com -> canihazip[.]com"
+    
+
+* Thu May 19 16:47:34 2016 -0700
+
+    Sign
+
+* Thu May 19 16:47:05 2016 -0700
+
+    canhazip[.]com -> canihazip[.]com
+
+* Thu May 19 16:26:18 2016 -0700
+
+    Re-add spdysync with a few tweaks
+
+* Thu May 19 13:09:56 2016 +0200
+
+    Revert "Revert Spdysync addition"
+    
+
+* Thu May 19 06:45:12 2016 +0200
+
+    Revert Spdysync addition
+
+Merge: a9294cb bd004ef
+* Thu May 19 06:44:20 2016 +0200
+
+    Merge pull request #410 from xxdesmus/master
+    
+    adding spdysync.com as a resolver
+
+Merge: a9294cb d4d71ae
+* Wed May 18 21:35:55 2016 -0700
+
+    Merge pull request #1 from xxdesmus/xxdesmus-addresolver
+    
+    Update dnscrypt-resolvers.csv
+
+* Wed May 18 21:33:38 2016 -0700
+
+    Update dnscrypt-resolvers.csv
+    
+    adding SpdySync resolver.
+
+* Wed May 18 18:06:06 2016 +0800
+
+    Add --syslog-prefix (-Z) option
+
+* Wed May 18 00:25:53 2016 +0200
+
+    Sign
+
+* Wed May 18 00:25:35 2016 +0200
+
+    - CRLF
+
+* Wed May 18 00:24:53 2016 +0200
+
+    Revert "Remove resolv-west for now"
+    
+
+* Tue May 17 23:55:10 2016 +0200
+
+    Sign
+
+* Tue May 17 23:54:36 2016 +0200
+
+    Remove resolv-west for now
+
+Merge: 14f0aa7 bfa4381
+* Tue May 17 23:50:32 2016 +0200
+
+    Merge pull request #407 from neilwillgettoit/master
+    
+    Additional resolvers
+
+* Tue May 17 18:38:45 2016 +0200
+
+    Sign
+
+Merge: db9c05b 4ecd1a2
+* Tue May 17 18:37:09 2016 +0200
+
+    Merge pull request #408 from intchloe/patch-1
+    
+    Added OVPN public server
+
+* Tue May 17 16:41:57 2016 +0200
+
+    Added OVPN public server
+
+* Mon May 16 12:58:54 2016 -0500
+
+    correction to dnssec flag
+    
+    dnssec is not on right now.
+
+* Mon May 16 11:46:03 2016 -0500
+
+    adding resolv.site east and west to list of resolvers
+
+* Mon May 16 11:41:40 2016 -0500
+
+    adding resolv.site east and west to list of resolvers
+
+* Tue May 10 23:36:28 2016 +0200
+
+    Recommend a short cert TTL when clients use static key pairs
+
+* Tue May 10 23:33:47 2016 +0200
+
+    Format
+
+* Tue May 10 16:40:24 2016 +0200
+
+    Reformat
+
+* Tue May 3 14:04:59 2016 +0200
+
+    Remove offline resolvers
+
+* Mon May 2 06:05:42 2016 +0200
+
+    Script for Android should add to iptable tables when enabling the proxy
+
+* Thu Apr 21 11:36:39 2016 +0200
+
+    Don't advertise namecoin support. It's not the case any more.
+
+* Thu Apr 21 00:26:43 2016 +0200
+
+    Verified list of resolvers actually supporting .bit domains
+
+* Wed Apr 20 19:53:56 2016 +0200
+
+    d0wn-hk-ns1 has been down for a while
+
+* Sun Apr 17 10:18:21 2016 +0200
+
+    Mention dnsdist
+
+* Fri Apr 15 09:17:10 2016 +0200
+
+    d0wn-de-ns1 is down
+
+* Wed Apr 13 09:07:29 2016 +0200
+
+    msys2 supports LTO
+
+* Mon Apr 11 23:45:15 2016 +0200
+
+    Allow for SSE instructions
+
+* Wed Apr 6 09:11:22 2016 +0200
+
+    libevent: unlock lev on error in listener_read_cb()
+
+* Mon Apr 4 09:59:25 2016 +0200
+
+    Add d0wn-hk-ns1
+
+* Sun Apr 3 20:17:30 2016 +0200
+
+    Remove offline resolvers
+
+* Tue Mar 29 22:48:33 2016 +0200
+
+    Missing \n
+
+* Tue Mar 29 18:01:14 2016 +0200
+
+    + Yandex
+
+Merge: 7dc203f c764e66
+* Sat Mar 26 21:19:17 2016 +0100
+
+    Merge pull request #390 from TheDoctorsLife/patch-1
+    
+    Fix Broken Link in README
+
+* Sat Mar 26 16:18:28 2016 -0400
+
+    Fix Broken Link
+    
+    The DNSCrypt Windows Service Manager GUI link is broken, relink to github project.
+
+* Fri Mar 25 10:30:45 2016 +0100
+
+    evdns: fix searching empty hostnames
+    
+    Bug report by Guido Vranken via the Tor bug bounty program
+
+* Thu Mar 24 12:46:49 2016 +0100
+
+    evdns: avoid double-free in evdns_base_free() for probing requests
+
+* Thu Mar 24 12:44:25 2016 +0100
+
+    Confusing indentation
+
+* Fri Mar 18 07:35:56 2016 +0100
+
+    Typo
+
+* Thu Mar 17 22:19:38 2016 +0100
+
+    cd-md is down
+
+* Tue Mar 15 19:40:26 2016 +0100
+
+    sign
+
+Merge: 3df3e76 0e9af27
+* Tue Mar 15 19:39:39 2016 +0100
+
+    Merge pull request #382 from tealcavalon/patch-3
+    
+    Updating all cryptostorm.is
+
+* Tue Mar 15 19:39:02 2016 +0100
+
+    Updating all cryptostorm.is
+
+* Sat Mar 12 16:20:13 2016 +0100
+
+    sign
+
+Merge: 1eb3837 d70ae2a
+* Sat Mar 12 16:19:56 2016 +0100
+
+    Merge branch 'master' of https://github.com/jedisct1/dnscrypt-proxy
+    
+    * 'master' of https://github.com/jedisct1/dnscrypt-proxy:
+      Update dnscrypt-resolvers.csv
+      Update dnscrypt-resolvers.csv
+      Update dnscrypt-resolvers.csv
+      Update dnscrypt-resolvers.csv
+      Update dnscrypt-resolvers.csv
+      Update dnscrypt-resolvers.csv
+      Update dnscrypt-resolvers.csv
+
+* Sat Mar 12 16:19:43 2016 +0100
+
+    Remove d0wn-cr-ns1 and sign
+
+Merge: 58b08ed c42148d
+* Sat Mar 12 16:17:53 2016 +0100
+
+    Merge pull request #377 from brian5hea/master
+    
+    Update details for shea-us-noads[-ipv6]
+
+* Fri Mar 11 01:46:27 2016 +0100
+
+    When using TCP, try the default resolvers as a last resort
+    Also increase the number of retries in that case
+
+* Thu Mar 10 08:41:38 2016 +0100
+
+    Remove offline resolvers
+
+* Tue Mar 8 22:55:47 2016 -0500
+
+    Update dnscrypt-resolvers.csv
+    
+
+* Tue Mar 8 09:40:33 2016 -0500
+
+    Update dnscrypt-resolvers.csv
+
+* Tue Mar 8 09:36:23 2016 -0500
+
+    Update dnscrypt-resolvers.csv
+
+* Tue Mar 8 09:23:42 2016 -0500
+
+    Update dnscrypt-resolvers.csv
+
+* Mon Mar 7 21:15:28 2016 -0500
+
+    Update dnscrypt-resolvers.csv
+
+* Mon Mar 7 21:08:25 2016 -0500
+
+    Update dnscrypt-resolvers.csv
+
+* Mon Mar 7 21:02:18 2016 -0500
+
+    Update dnscrypt-resolvers.csv
+
+Merge: 7f295a2 b780d0b
+* Mon Mar 7 20:13:11 2016 -0500
+
+    Merge pull request #1 from jedisct1/master
+    
+    Sync
+
+* Fri Mar 4 12:18:59 2016 +0100
+
+    $
+
+* Fri Mar 4 11:49:48 2016 +0100
+
+    Mention that releases are signed with the same key as CSVs
+
+* Wed Mar 2 19:50:58 2016 +0100
+
+    d0wn-al-ns1 is down
+
+* Tue Mar 1 21:33:40 2016 +0100
+
+    Remove temporarily down servers
+
+* Tue Mar 1 21:26:55 2016 +0100
+
+    Recommend drill -aD
+
+* Tue Mar 1 21:26:08 2016 +0100
+
+    while true -> while :
+
+Merge: a4a8280 17d2e4f
+* Tue Mar 1 21:23:47 2016 +0100
+
+    Merge pull request #375 from licaon-kter/patch-1
+    
+    Retry getting a cert if no connection is available
+
+* Tue Mar 1 21:56:00 2016 +0200
+
+    Retry getting a cert if no connection is available
+
+* Thu Feb 25 11:15:58 2016 +0100
+
+    LAX FVZ resolvers are unresponsive
+
+* Wed Feb 24 08:39:36 2016 +0100
+
+    quotes
+
+* Wed Feb 24 08:34:50 2016 +0100
+
+    Mention that dnscrypt-proxy is only a client
+
+* Wed Feb 24 08:31:52 2016 +0100
+
+    gcc producing broken code is an old issue from the pre-libsodium days
+
+* Wed Feb 24 08:31:13 2016 +0100
+
+    Link Simple DNSCrypt
+
+* Wed Feb 24 08:14:32 2016 +0100
+
+    Windows: quote `self_path` when installing the Windows service
+    Prodded by @bitbeans
+
+* Mon Feb 22 15:54:17 2016 +0100
+
+    name_component => label
+
+* Mon Feb 22 15:53:23 2016 +0100
+
+    Correctly parse compressed names
+
+* Sun Feb 21 08:47:14 2016 +0100
+
+    Sign
+
+Merge: 7d540ca 7f295a2
+* Sun Feb 21 08:46:18 2016 +0100
+
+    Merge pull request #369 from brian5hea/master
+    
+    Add shea-us-noads-ip6
+
+* Sat Feb 20 21:06:42 2016 -0500
+
+    Add shea-us-noads-ip6
+
+* Sat Feb 20 19:48:56 2016 +0100
+
+    Two d0wn servers that appear to be d0wn
+
+* Sat Feb 20 13:54:04 2016 +0100
+
+    Add a sample script to update the resolvers list
+
+* Sat Feb 20 12:28:55 2016 +0100
+
+    Pasto
+
+* Fri Feb 19 07:29:50 2016 +0100
+
+    sign
+
+* Wed Feb 17 21:45:07 2016 +0100
+
+    Sign
+
+Merge: 52f112e 3862b07
+* Wed Feb 17 21:33:00 2016 +0100
+
+    Merge pull request #367 from tealcavalon/patch-2
+    
+    Updating all https://dns.d0wn.biz/
+
+* Wed Feb 17 17:05:54 2016 +0100
+
+    Updating all https://dns.d0wn.biz/
+    
+    + Added new servers
+    + Removed old servers
+    + Changed providers keys and names
+    + Full list of d0wn servers now updated!
+
+* Wed Feb 17 16:31:07 2016 +0100
+
+    Updating all https://dns.d0wn.biz/
+    
+    + Several changes in provider key/name
+    + Added new random server
+
+* Wed Feb 17 10:26:05 2016 +0100
+
+    V2
+
+* Tue Feb 16 16:57:25 2016 +0100
+
+    sign
+
+* Tue Feb 16 16:57:14 2016 +0100
+
+    Sort
+
+Merge: aa98a4f 2cf490c
+* Tue Feb 16 16:56:32 2016 +0100
+
+    Merge pull request #365 from mausspb/patch-1
+    
+    Update dnscrypt-resolvers.csv
+
+* Tue Feb 16 18:44:09 2016 +0300
+
+    Update dnscrypt-resolvers.csv
+    
+    Update keys for the last news from here https://dns.d0wn.biz/
+    
+    > News:
+    - ns1.za.dns.d0wn.biz will be removed on 03-01-2016
+    - ns1.mx.dns.d0wn.biz will be removed on 03-01-2016
+    - ns1.es.dns.d0wn.biz will be removed on 03-01-2016
+    
+    >- There are many servers with old keys which expired at 02-12-2016. This will be fixed today.
+      Please take a look here for the new keys.
+      Each server with the key "9970:E22D:7F6C:967F:8AED:CEEB:FBC1:94B9:AF54:376E:2BF7:39F1:F466:CBC9:AFDB:2A62" won't work anymore!
+    
+    >- ns2.fr.dns.d0wn.biz got a new Provider-Key and Provider-Name!
+    - ns1.sg.dns.d0wn.biz got a new Provider-Key and Provider-Name!
+    - ns1.nl.dns.d0wn.biz got a new Provider-Key and Provider-Name!
+    - ns2.nl.dns.d0wn.biz got a new Provider-Key and Provider-Name!
+    - ns1.ru.dns.d0wn.biz got a new Provider-Key and Provider-Name!
+    - ns1.ua.dns.d0wn.biz got a new Provider-Key and Provider-Name!
+    - ns1.bg.dns.d0wn.biz got a new Provider-Key and Provider-Name!
+    - ns1.random.dns.d0wn.biz got a new Provider-Key and Provider-Name!
+
+* Mon Feb 15 10:59:00 2016 +0100
+
+    Make the Android update binary executable
+
+* Mon Feb 15 10:57:43 2016 +0100
+
+    Remove updater-script from the tarball
+
+* Mon Feb 15 10:53:24 2016 +0100
+
+    Load update-binary from Github, check its signature
+
+* Fri Feb 12 08:29:08 2016 +0100
+
+    sign
+
+Merge: a44a4c7 4a4c4c9
+* Fri Feb 12 08:28:16 2016 +0100
+
+    Merge pull request #361 from dacarrs/patch-1
+    
+    Added OpenNIC Resolver Spain 01
+
+* Fri Feb 12 06:45:28 2016 +0100
+
+    Added OpenNIC Resolver Spain 01
+    
+    Added by d0wn-es-ns1 provided by Martin 'd0wn' Albus.
+
+Merge: 41c6d8b c7eb66b
+* Wed Feb 10 20:23:54 2016 +0100
+
+    Merge branch 'master' of https://github.com/jedisct1/dnscrypt-proxy
+    
+    * 'master' of https://github.com/jedisct1/dnscrypt-proxy:
+      Update README.markdown
+
+* Wed Feb 10 20:23:41 2016 +0100
+
+    Remove offline resolvers
+
+Merge: bdb26cf 46df5e7
+* Tue Feb 9 23:28:35 2016 +0100
+
+    Merge pull request #359 from jakezeal/master
+    
+    Update README.markdown
+
+* Tue Feb 9 17:11:22 2016 -0500
+
+    Update README.markdown
+
+* Sun Feb 7 09:39:15 2016 +0100
+
+    Sign after shea-us-noads addition
+
+Merge: a193c6f 297ced2
+* Sun Feb 7 09:35:06 2016 +0100
+
+    Merge pull request #358 from brian5hea/master
+    
+    Add new resolver
+
+* Sun Feb 7 02:03:29 2016 -0500
+
+    Add new resolver
+
+* Wed Feb 3 23:23:59 2016 +0100
+
+    Repair edns0 support
+
+* Wed Feb 3 14:22:15 2016 +0100
+
+    Link libsodium-18.dll on msys2
+
+* Wed Feb 3 12:13:56 2016 +0100
+
+    Update ChangeLog
+
 * Wed Feb 3 12:13:42 2016 +0100
 
     Regen man pages
@@ -2244,9 +3264,9 @@ Merge: 9ec8509 5a9a96d
       * New ebuild for 1.4.0 * New ebuild for 1.4.1 * Configuration change to support providers * Drop libsodium from overlay (is not in portage tree) * Dnscrypt-Proxy 1.4.x requires libsodium 1.0.0 or newer
     
     Conflicts:
-    	packages/gentoo/net-dns/dnscrypt-proxy/Manifest
-    	packages/gentoo/net-dns/dnscrypt-proxy/dnscrypt-proxy-1.4.0.ebuild
-    	packages/gentoo/net-dns/dnscrypt-proxy/dnscrypt-proxy-1.4.1.ebuild
+            packages/gentoo/net-dns/dnscrypt-proxy/Manifest
+            packages/gentoo/net-dns/dnscrypt-proxy/dnscrypt-proxy-1.4.0.ebuild
+            packages/gentoo/net-dns/dnscrypt-proxy/dnscrypt-proxy-1.4.1.ebuild
 
 * Wed Sep 24 11:17:38 2014 -0400
 
@@ -3527,20 +4547,20 @@ Merge: cfd5184 13e171f
     --- a/http.c
     +++ b/http.c
     @@ -383,8 +383,6 @@ evhttp_write_buffer(struct evhttp_connection *evcon,
-     	evcon->cb = cb;
-     	evcon->cb_arg = arg;
+            evcon->cb = cb;
+            evcon->cb_arg = arg;
     
-    -	bufferevent_enable(evcon->bufev, EV_WRITE);
+    -       bufferevent_enable(evcon->bufev, EV_WRITE);
     -
-     	/* Disable the read callback: we don't actually care about data;
-     	 * we only care about close detection.  (We don't disable reading,
-     	 * since we *do* want to learn about any close events.) */
+            /* Disable the read callback: we don't actually care about data;
+             * we only care about close detection.  (We don't disable reading,
+             * since we *do* want to learn about any close events.) */
     @@ -393,6 +391,8 @@ evhttp_write_buffer(struct evhttp_connection *evcon,
-     	    evhttp_write_cb,
-     	    evhttp_error_cb,
-     	    evcon);
+                evhttp_write_cb,
+                evhttp_error_cb,
+                evcon);
     +
-    +	bufferevent_enable(evcon->bufev, EV_WRITE);
+    +       bufferevent_enable(evcon->bufev, EV_WRITE);
      }
     
      static void
@@ -3699,7 +4719,7 @@ Merge: 7aba22f 9a1e8ba
         because of NULL dereference in evdns_requests_pump_waiting_queue()
     
         Conflicts:
-        	evdns.c
+            evdns.c
     
     * Wed May 29 13:30:56 2013 -0400
     
@@ -7040,7 +8060,7 @@ Merge: f04c9ed 7a99603
 
 * Sat May 5 19:07:29 2012 -0700
 
-    Move all checks for linker flags to the same place, and	always use -Wl.
+    Move all checks for linker flags to the same place, and always use -Wl.
 
 * Sat May 5 18:56:25 2012 -0700
 

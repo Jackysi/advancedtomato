@@ -105,11 +105,15 @@ typedef struct ProxyContext_ {
     const char              *resolvers_list;
     const char              *resolver_name;
     const char              *resolver_ip;
+    const char              *syslog_prefix;
+#ifndef _WIN32
+    char                    *user_dir;
+    char                    *user_name;
+#endif
     struct evconnlistener   *tcp_conn_listener;
     struct event            *tcp_accept_timer;
     struct event            *udp_listener_event;
     struct event            *udp_proxy_resolver_event;
-    char                    *user_dir;
     ev_socklen_t             local_sockaddr_len;
     ev_socklen_t             resolver_sockaddr_len;
     size_t                   edns_payload_size;
@@ -128,6 +132,7 @@ typedef struct ProxyContext_ {
     int                      max_log_level;
     _Bool                    daemonize;
     _Bool                    ephemeral_keys;
+    _Bool                    ignore_timestamps;
     _Bool                    listeners_started;
     _Bool                    syslog;
     _Bool                    tcp_only;

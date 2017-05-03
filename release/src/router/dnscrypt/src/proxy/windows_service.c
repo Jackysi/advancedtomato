@@ -327,6 +327,12 @@ windows_build_command_line_from_registry(int * const argc_p,
         err += cmdline_add_option(argc_p, argv_p, string_value);
         free(string_value);
     }
+    if (windows_service_registry_read_string
+        ("LogFile", &string_value) == 0) {
+        err += cmdline_add_option(argc_p, argv_p, "--logfile");
+        err += cmdline_add_option(argc_p, argv_p, string_value);
+        free(string_value);
+    }
     windows_service_registry_read_multi_sz
         ("Plugins", & (WindowsServiceParseMultiSzCb) {
             .cb = windows_service_parse_multi_sz_cb,
@@ -437,6 +443,10 @@ windows_registry_install(ProxyContext * const proxy_context)
         windows_service_registry_write_string("ClientKeyFile",
                                               proxy_context->client_key_file);
     }
+    if (proxy_context->log_file != NULL) {
+        windows_service_registry_write_string("LogFile",
+                                              proxy_context->log_file);
+    }
     return 0;
 }
 
@@ -444,6 +454,7 @@ int
 windows_service_install(ProxyContext * const proxy_context)
 {
     char      self_path[MAX_PATH];
+    char      self_path_quoted[2U + MAX_PATH];
     SC_HANDLE scm_handle;
     SC_HANDLE service_handle;
 
@@ -455,6 +466,11 @@ windows_service_install(ProxyContext * const proxy_context)
     if (GetModuleFileName(NULL, self_path, MAX_PATH) <= (DWORD) 0) {
         return -1;
     }
+    if (strchr(self_path, '"') != NULL) {
+        return -1;
+    }
+    evutil_snprintf(self_path_quoted, sizeof self_path_quoted,
+                    "\"%s\"", self_path);
     scm_handle = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
     if (scm_handle == NULL) {
         return -1;
@@ -463,7 +479,7 @@ windows_service_install(ProxyContext * const proxy_context)
         (scm_handle, WINDOWS_SERVICE_NAME,
          WINDOWS_SERVICE_NAME, SERVICE_ALL_ACCESS,
          SERVICE_WIN32_OWN_PROCESS, SERVICE_AUTO_START,
-         SERVICE_ERROR_NORMAL, self_path, NULL, NULL, NULL, NULL, NULL);
+         SERVICE_ERROR_NORMAL, self_path_quoted, NULL, NULL, NULL, NULL, NULL);
     if (service_handle == NULL) {
         CloseServiceHandle(scm_handle);
         return -1;

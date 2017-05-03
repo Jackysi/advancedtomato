@@ -15,6 +15,7 @@ export LDFLAGS="$LDFLAGS -L${SODIUM_IOS_PREFIX}/lib"
 
 ./configure --host=arm-apple-darwin10 \
             --disable-shared \
+            --disable-plugins \
             --prefix="$PREFIX" && \
 make -j3 install && \
 sed 's#/usr/local/#/usr/#g' < org.dnscrypt.osx.DNSCryptProxy.plist > \
