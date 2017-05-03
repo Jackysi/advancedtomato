@@ -38,14 +38,14 @@ void create_passwd(void)
 	m = umask(0777);
 	if ((f = fopen("/etc/shadow", "w")) != NULL) {
 		p = crypt(p, salt);
-		fprintf(f, "root:%s:0:0:99999:7:0:0:\n"
-				   "nobody:*:0:0:99999:7:0:0:\n", p);
+		fprintf(f, "root:%s:1:0:99999:7:0:0:\n"
+				   "nobody:*:1:0:99999:7:0:0:\n", p);
 #if TOMATO_SL
 		// todo		zzz
-		fprintf(f, "admin:*:0:0:99999:7:0:0:\n");
+		fprintf(f, "admin:*:1:0:99999:7:0:0:\n");
 #endif
 #ifdef TCONFIG_SAMBASRV	//!!TB
-		fprintf(f, "%s:*:0:0:99999:7:0:0:\n", smbd_user);
+		fprintf(f, "%s:*:1:0:99999:7:0:0:\n", smbd_user);
 #endif
 
 		fappend(f, "/etc/shadow.custom");
