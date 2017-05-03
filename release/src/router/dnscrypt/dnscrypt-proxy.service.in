@@ -15,4 +15,4 @@ NonBlocking=true
 
 # Edit the configuration file appropriately, or the service will not start.
 # See https://dnscrypt.org for more information.
-ExecStart=/usr/sbin/dnscrypt-proxy /etc/dnscrypt-proxy.conf
+ExecStart=@sbindir@/dnscrypt-proxy @sysconfdir@/dnscrypt-proxy.conf

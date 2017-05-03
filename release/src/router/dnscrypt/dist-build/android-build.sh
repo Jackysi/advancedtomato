@@ -59,11 +59,12 @@ bash $MAKE_TOOLCHAIN --platform="${NDK_PLATFORM:-android-16}" \
     --datadir="${PREFIX}/system/etc" \
     --disable-soname-versions \
     --disable-plugins \
+    --disable-shared \
     --enable-relaxed-plugins-permissions \
     --host="${HOST_COMPILER}" \
     --prefix="${PREFIX}/system" \
     --sbindir="${PREFIX}/system/xbin" \
-    --sysconfdir="${PREFIX}/system/etc" \
+    --sysconfdir="${PREFIX}/system/etc/dnscrypt-proxy" \
     --with-sysroot="${TOOLCHAIN_DIR}/sysroot" && \
 make clean && \
 make -j3 install && \

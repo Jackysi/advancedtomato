@@ -3,7 +3,7 @@
 [![DNSCrypt](https://raw.github.com/jedisct1/dnscrypt-proxy/master/dnscrypt-small.png)](https://dnscrypt.org)
 ============
 
-DNScrypt is a protocol for securing communications between a client
+DNSCrypt is a protocol for securing communications between a client
 and a DNS resolver, using high-speed high-security elliptic-curve
 cryptography.
 
@@ -28,7 +28,7 @@ dnscrypt-proxy can be downloaded here:
 
 Signatures can be verified with [Minisign](https://jedisct1.github.io/minisign/):
 
-    $ minisign -VP RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3 -m dnscrypt-proxy-1.9.1.tar.bz2
+    $ minisign -VP RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3 -m dnscrypt-proxy-1.9.4.tar.bz2
 
 Plugins
 -------

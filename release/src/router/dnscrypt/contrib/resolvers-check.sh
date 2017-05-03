@@ -4,7 +4,7 @@ RESOLVERS_LIST=dnscrypt-resolvers.csv
 ONLINE_RESOLVERS_LIST=dnscrypt-online-resolvers.csv
 DNSCRYPT_PROXY=dnscrypt-proxy
 MARGIN=720
-CSV_FILE="$(dirname $0)/${RESOLVERS_LIST}"
+CSV_FILE="${RESOLVERS_LIST}"
 
 tmpfile=$(mktemp .${ONLINE_RESOLVERS_LIST}.XXXXXXXXXXXX) || exit 1
 trap "rm -f ${tmpfile}" EXIT
@@ -31,7 +31,14 @@ echo "$header" | egrep -q '^Name,' || echo "*** Invalid CSV file ***" >&2
 
 echo "$header"
 
+res=0
 while read line; do
+  if [ "x${IPV4_ONLY}" != "x" ]; then
+    n=$(echo "$line" | egrep -c ',\[[0-9a-fA-F:]+\](:[0-9]+)?,')
+    if [ $n -ne 0 ]; then
+      continue
+    fi
+  fi
   resolver_name=$(echo "$line" | cut -d, -f1)
   eval "${DNSCRYPT_PROXY} -L ${CSV_FILE} -R ${resolver_name} -t ${MARGIN} -m 1"
   if [ $? -eq 0 ]; then
@@ -39,7 +46,10 @@ while read line; do
     echo "+ ${resolver_name} - OK" >&2
   else
     echo "- ${resolver_name} - Failed" >&2
+    res=1
   fi
 done
 
 mv -f "$tmpfile" "$ONLINE_RESOLVERS_LIST"
+
+exit $res

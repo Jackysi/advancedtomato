@@ -1,3 +1,511 @@
+* Sat Jan 21 09:09:07 2017 +0100
+
+    "make clean" is not super interesting to log
+
+* Sat Jan 21 08:55:34 2017 +0100
+
+    Revert "New resolver in Tokyo, Japan: LifeTyper"
+    
+
+* Sat Jan 21 08:55:16 2017 +0100
+
+    Trusty is old
+
+* Sat Jan 21 08:49:23 2017 +0100
+
+    Travis doesn't support IPv6 yet
+
+* Sat Jan 21 08:48:56 2017 +0100
+
+    Travis: attempt install/uninstall + ./contrib/resolvers-check.sh
+
+* Sat Jan 21 08:45:58 2017 +0100
+
+    resolvers-check.sh: IPV4_ONLY can be set to probe only IPv4 resolvers
+
+* Sat Jan 21 08:12:53 2017 +0100
+
+    Move dnscrypt-update-resolvers.sh.in and resolvers-check.sh to contrib/
+
+* Sat Jan 21 08:11:41 2017 +0100
+
+    Update .gitignore
+
+* Sat Jan 21 08:05:08 2017 +0100
+
+    Use printunl/archlinux for the Windows builds
+
+* Sat Jan 21 02:59:46 2017 +0100
+
+    New resolver in Tokyo, Japan: LifeTyper
+
+* Sat Jan 21 02:54:08 2017 +0100
+
+    Use a random resolver in the tests
+
+* Sat Jan 21 02:48:59 2017 +0100
+
+    Indent
+
+* Sat Jan 21 02:45:03 2017 +0100
+
+    win32-win64-xcompile.sh: always compile from the script's directory
+
+* Sat Jan 21 01:52:27 2017 +0100
+
+    In the Windows dist, remove the sample conf, add WINDOWS doc
+
+* Sat Jan 21 00:00:55 2017 +0100
+
+    Update NEWS
+
+* Sat Jan 21 00:00:10 2017 +0100
+
+    Update ChangeLog
+
+* Fri Jan 20 23:58:24 2017 +0100
+
+    Fix libsodium warning
+
+* Fri Jan 20 23:45:33 2017 +0100
+
+    CLEANFILES += dnscrypt-update-resolvers.sh
+
+* Fri Jan 20 23:43:58 2017 +0100
+
+    Do not install the systemd files
+    
+    Package maintainers will do a way better job with these
+
+* Fri Jan 20 23:40:21 2017 +0100
+
+    Generate org.dnscrypt.osx.DNSCryptProxy.plist from a template
+
+* Fri Jan 20 23:29:26 2017 +0100
+
+    Reduce the difference between Android and iOS builds
+
+* Fri Jan 20 23:13:18 2017 +0100
+
+    Always include stdlib.h in evutil_rand.c
+
+* Fri Jan 20 23:09:26 2017 +0100
+
+    Make the builds a little bit more silent
+
+* Fri Jan 20 22:57:16 2017 +0100
+
+    Split
+
+* Fri Jan 20 22:40:54 2017 +0100
+
+    Regen the man page
+
+* Fri Jan 20 22:39:50 2017 +0100
+
+    Update ChangeLog
+
+* Fri Jan 20 22:37:01 2017 +0100
+
+    Support "random" as a resolver name to pick a random resolver
+
+* Fri Jan 20 21:32:03 2017 +0100
+
+    Install examples in @docdir@, create systemd files from templates
+
+* Fri Jan 20 21:31:42 2017 +0100
+
+    Pay attention to @datarootdir@ in dnscrypt-update-resolvers.sh.in
+
+* Fri Jan 20 13:58:37 2017 +0100
+
+    Print when the configuration file did not change
+
+* Fri Jan 20 13:30:42 2017 +0100
+
+    1.9.4
+
+* Fri Jan 20 13:30:57 2017 +0100
+
+    soltysiak down :( cs-lt up, cs-ua down.
+
+* Fri Jan 20 13:08:02 2017 +0100
+
+    Overwrite conf if the installed one is the vanilla example
+
+* Fri Jan 20 12:52:21 2017 +0100
+
+    Fix inverted logic in the installation of the example config file
+
+* Wed Jan 18 10:52:53 2017 +0100
+
+    cs-lt and d0wn-us-ns3 are temporarily unresponsive
+
+* Wed Jan 18 08:59:36 2017 +0100
+
+    Update ChangeLog
+
+* Wed Jan 18 08:46:40 2017 +0100
+
+    On Linux, warn when we are running low on entropy
+
+* Wed Jan 18 08:18:57 2017 +0100
+
+    Print even more details in test mode
+
+* Wed Jan 18 08:15:48 2017 +0100
+
+    Improve the test mode output and print the validity period
+
+* Wed Jan 18 03:15:58 2017 +0100
+
+    Travis: increase the margin for the certificate check
+
+* Wed Jan 18 03:15:46 2017 +0100
+
+    Recommend installing pkg-config and libsystemd-dev for systemd
+
+* Wed Jan 18 01:59:11 2017 +0100
+
+    Mention that NO_REUSEPORT is not required any more
+
+* Tue Jan 17 22:48:18 2017 +0100
+
+    build-base should be enough to build the package
+
+* Tue Jan 17 22:40:38 2017 +0100
+
+    d0wn-us-ns3 and soltysiak-ipv6 are temporarily down
+
+* Tue Jan 17 22:37:45 2017 +0100
+
+    1.9.3
+
+* Tue Jan 17 22:34:53 2017 +0100
+
+    Update ChangeLog
+
+* Tue Jan 17 21:50:02 2017 +0100
+
+    Travis: actually try to install the proxy
+
+* Tue Jan 17 21:41:29 2017 +0100
+
+    Fix the Plugin directive in config files; add a CI test for it as well
+
+* Tue Jan 17 20:00:22 2017 +0100
+
+    Ignore ldconfig errors
+
+* Tue Jan 17 19:52:50 2017 +0100
+
+    Restore -e, ignore make install errors
+
+* Tue Jan 17 15:33:24 2017 +0100
+
+    Switch Travis builds to multiarch/alpine
+
+* Tue Jan 17 15:30:38 2017 +0100
+
+    Update NEWS
+
+* Tue Jan 17 15:27:01 2017 +0100
+
+    apt is not present on Travis
+
+* Tue Jan 17 15:22:04 2017 +0100
+
+    Travis: try to compile for multiple Linux architectures
+
+* Tue Jan 17 12:34:37 2017 +0100
+
+    If binding a TCP socket with SO_REUSEPORT fails, retry without it
+    
+    This is required at least on alpine/armhf
+
+* Tue Jan 17 12:09:45 2017 +0100
+
+    Check for linux/filter.h presence -- Allows compilation on musl libc
+
+* Tue Jan 17 01:37:11 2017 +0100
+
+    Mention that the Include path does not require quotes
+
+* Tue Jan 17 01:18:10 2017 +0100
+
+    --with-ttl was renamed --min-ttl
+
+* Tue Jan 17 00:38:42 2017 +0100
+
+    Fix casing
+
+* Mon Jan 16 23:52:20 2017 +0100
+
+    Do not print the plugins root directory on Windows
+
+* Mon Jan 16 20:01:34 2017 +0100
+
+    It's called "tracker.debian.org", but it's not a tracker
+
+* Mon Jan 16 14:10:30 2017 +0100
+
+    Do not install dnscrypt-proxy.conf.example if no dnscrypt-proxy.conf file exists
+
+* Sun Jan 15 18:56:07 2017 +0100
+
+    Update ChangeLog
+
+* Sun Jan 15 18:55:28 2017 +0100
+
+    Do not include <sys/socket.h> on WIN32
+
+* Sun Jan 15 18:23:42 2017 +0100
+
+    --version now reports useful information about how the server was compiled
+
+* Sun Jan 15 18:11:08 2017 +0100
+
+    Update ChangeLog
+
+* Sun Jan 15 17:51:10 2017 +0100
+
+    Remove the fpm package
+    
+    fpm is awesome, but apparently, nobody's using this script.
+
+* Sun Jan 15 17:42:07 2017 +0100
+
+    Prepare for version 1.9.2
+
+* Sun Jan 15 17:19:09 2017 +0100
+
+    Fix KX when using xchacha20poly1305 and non-ephemeral keys
+
+* Sun Jan 15 16:27:38 2017 +0100
+
+    Warn when an obsolete libsodium version is found
+
+* Sun Jan 15 15:45:02 2017 +0100
+
+    Log the system error message when the TCP listener cannot be created
+
+* Sun Jan 15 15:12:19 2017 +0100
+
+    Update simpleconf
+
+* Sun Jan 15 10:03:17 2017 +0100
+
+    Indent
+
+* Sun Jan 15 09:58:32 2017 +0100
+
+    Move the !Include definition down
+
+* Sun Jan 15 01:56:38 2017 +0100
+
+    Document that recursive configuration files are now supported
+
+* Sun Jan 15 01:48:58 2017 +0100
+
+    Comment marktron's list in the sample domains-blacklist configuration
+
+* Sun Jan 15 01:40:56 2017 +0100
+
+    Shorten
+
+* Sun Jan 15 01:37:13 2017 +0100
+
+    simpleconf: support a handler for "special" keywords
+
+* Sun Jan 15 00:11:39 2017 +0100
+
+    Preliminary support for recursive configuration files
+
+* Sat Jan 14 23:59:25 2017 +0100
+
+    Improve the domains-blacklist.conf header
+
+* Sat Jan 14 23:55:22 2017 +0100
+
+    simpleconf: detach the code responsible for loading a config file
+
+* Fri Jan 13 22:13:54 2017 +0100
+
+    Improve the ProviderName example
+
+* Fri Jan 13 02:54:07 2017 +0100
+
+    Nits
+
+* Thu Jan 12 20:38:35 2017 +0100
+
+    Remove Quidsup Notrack by default -- too many FPs such as pusher
+
+* Thu Jan 12 20:31:15 2017 +0100
+
+    Do not block elasticbeanstalk.com
+
+* Wed Jan 11 10:04:25 2017 -0800
+
+    Add Dan Pollock's list
+
+* Wed Jan 11 00:48:36 2017 -0800
+
+    Use bounce buffers for crypto_box_detached_afternm emulation
+    
+    Required for ancient libsodium versions (stock Debian Jessie, Raspbian)
+
+* Tue Jan 10 13:26:52 2017 -0800
+
+    Include \0 in the key equality test
+
+* Tue Jan 10 10:48:50 2017 -0800
+
+    Iterate over the \0 terminator when inserting a new key
+
+* Tue Jan 10 00:28:34 2017 -0800
+
+    Mention how to run the python script
+
+* Sat Jan 7 15:24:35 2017 +0100
+
+    Unfortunately, blocking *.spotify.com breaks the app :/
+
+* Sat Jan 7 10:53:44 2017 +0100
+
+    Nits
+
+* Sat Jan 7 10:37:56 2017 +0100
+
+    IgnoreTimeStamps weakens security -- do not enable blindly
+
+* Sat Jan 7 16:33:28 2017 +0700
+
+    Add Windows service properties IgnoreTimestamps and LogLevel
+    
+    Add "IgnoreTimestamps (--ignore-timestamps)" and "LogLevel (--loglevel)" for windows service parameter registry.
+    So windows service parameter registry had the same option with the main program option.
+
+* Sat Jan 7 16:32:45 2017 +0700
+
+    Update README-WINDOWS.markdown (#548)
+    
+    * Update README-WINDOWS.markdown
+    
+    Fixed.
+    Documentation for `windows_service.c` change.
+    
+    * Update README-WINDOWS.markdown
+
+* Sat Jan 7 10:30:14 2017 +0100
+
+    Redirect log messages whose level is < LOG_NOTICE to stderr
+
+* Fri Jan 6 18:14:18 2017 +0100
+
+    Attach a BPF filter to the client-side UDP socket
+
+* Fri Jan 6 16:02:10 2017 +0100
+
+    Typo
+
+* Fri Jan 6 15:18:09 2017 +0100
+
+    Do not enable SO_REUSEPORT is NO_REUSEPORT is defined
+    
+    `SO_REUSEPORT` is apparently buggy on older linux-sunxi kernels
+
+* Thu Jan 5 23:46:37 2017 +0100
+
+    Avoid the redefinition of the FPST type
+    
+    This fixes compilation on Debian 6
+
+* Tue Jan 3 15:29:04 2017 +0100
+
+    Blocking tagcommander.com causes popular mobile apps to freeze :(
+
+* Tue Jan 3 15:17:40 2017 +0100
+
+    Whitelist some entries
+
+* Tue Jan 3 15:11:17 2017 +0100
+
+    Print the number of entries ignored because of the whitelist
+
+* Tue Jan 3 15:08:13 2017 +0100
+
+    Support a whitelist
+
+* Tue Jan 3 14:09:23 2017 +0100
+
+    Add TXT records
+
+* Tue Jan 3 07:21:08 2017 +0100
+
+    Don't assume that ## or #@ is an inline comment
+
+* Mon Jan 2 22:39:03 2017 +0100
+
+    Read the domains-blacklist.conf file from the command line if supplied
+
+* Mon Jan 2 22:10:10 2017 +0100
+
+    Refine the inline-comments macro
+
+* Mon Jan 2 21:56:17 2017 +0100
+
+    Add a few optional categories to domains-blacklist.conf
+
+* Mon Jan 2 21:35:02 2017 +0100
+
+    Add more spam/fraud/ads sources
+
+* Mon Jan 2 21:23:27 2017 +0100
+
+    Remove inline comments from blacklist entries
+
+* Mon Jan 2 13:41:00 2017 +0100
+
+    Keep daemonize uncommented
+
+* Mon Jan 2 13:40:17 2017 +0100
+
+    Mention that Daemonize is not for Windows
+
+* Mon Jan 2 12:35:30 2017 +0100
+
+    Re-remove resolvers that are still down:
+    
+    - cs-uswest - Failed
+    - d0wn-dk-ns1 - Failed
+    - d0wn-dk-ns1 - Failed
+    - d0wn-fr-ns1 - Failed
+    - d0wn-fr-ns1-ipv6 - Failed
+    - d0wn-nl-ns2 - Failed
+
+* Mon Jan 2 06:29:50 2017 -0500
+
+    Update dnscrypt-resolvers.csv (#540)
+    
+    Removed original listing of Cryptostorm's DNS resolvers and added Cryptostorm's updated DNS resolvers from their github
+    https://github.com/cryptostorm/cstorm_deepDNS/blob/master/dnscrypt-resolvers.csv
+    
+    Updated D0wn's list of DNS resolvers
+    - According to https://dns.d0wn.biz/ "All servers are supporting DNSSEC." Updated d0wn's DNS resolvers to yes under DNSSEC column.
+    - Added Austria, Bulgaria, Canada, Czech Republic, Denmark, France, Germany, Greece, Hong Kong, Lithuania, Moldova, Netherlands, Romania, Singapore, South Korea, Switzerland, Tanzania, United States of America
+    - Rearranged Germany, Moldova, Spain, Sweden to coincide better Alphabetically
+    
+    Added Tumabox IPv6 DNS Resolver
+
+* Sun Jan 1 17:49:10 2017 +0100
+
+    Remove some d0wn resolver that are temporarily down
+
+* Sun Jan 1 17:31:55 2017 +0100
+
+    Update ChangeLog
+
 * Sun Jan 1 17:30:16 2017 +0100
 
     generate-domains-blacklist.py: remove overlapping names
