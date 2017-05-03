@@ -17,6 +17,7 @@
 #define _ISOC99_SOURCE
 #define _XOPEN_SOURCE
 #define _BSD_SOURCE
+#define _DEFAULT_SOURCE
 #define _XOPEN_SOURCE_EXTENDED
 
 #include <stdlib.h>
@@ -41,7 +42,7 @@
 #define PTY01 "0123456789abcdef"
 #endif
 
-#ifdef FREEBSD
+#if defined(FREEBSD) || defined(NETBSD)
 #define PTY00 "/dev/ptyXX"
 #define PTY10 "p"
 #define PTY01 "0123456789abcdefghijklmnopqrstuv"
@@ -87,14 +88,7 @@ int getPtyMaster_ptmx(char *ttybuf, int ttybuflen)
 	return -EINVAL;
     }
 
-    /* change the onwership */
-    if (grantpt(fd))
-    {
-	l2tp_log (LOG_WARNING, "%s: unable to grantpt() on pty\n",
-		  __FUNCTION__);
-	close(fd);
-	return -EINVAL;
-    }
+    /* No need to call grantpt */
 
     if (unlockpt(fd))
     {
@@ -122,7 +116,7 @@ int getPtyMaster_ptmx(char *ttybuf, int ttybuflen)
 int getPtyMaster_ptm(char *ttybuf, int ttybuflen)
 {
     int amaster, aslave;
-    char *tty = (char*) malloc(64);
+    char *tty = malloc(64);
 
     if((openpty(&amaster, &aslave, tty, NULL, NULL)) == -1)
     {

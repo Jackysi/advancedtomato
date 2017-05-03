@@ -50,13 +50,13 @@ struct host
 #define SENSE_DENY 0
 
 #ifndef DEFAULT_AUTH_FILE
-#define DEFAULT_AUTH_FILE "/etc/l2tp-secrets"
+#define DEFAULT_AUTH_FILE "/etc/xl2tpd/l2tp-secrets"
 #endif
 #ifndef DEFAULT_CONFIG_FILE
-#define DEFAULT_CONFIG_FILE "/etc/xl2tpd.conf"
+#define DEFAULT_CONFIG_FILE "/etc/xl2tpd/xl2tpd.conf"
 #endif
-#define ALT_DEFAULT_AUTH_FILE ""
-#define ALT_DEFAULT_CONFIG_FILE ""
+#define ALT_DEFAULT_AUTH_FILE "/etc/l2tpd/l2tp-secrets"
+#define ALT_DEFAULT_CONFIG_FILE "/etc/l2tp/l2tpd.conf"
 #define DEFAULT_PID_FILE "/var/run/xl2tpd.pid"
 
 /* Definition of an LNS */
@@ -81,6 +81,7 @@ struct lns
     char entname[STRLEN];       /* Name of this entry */
     struct iprange *lacs;       /* Hosts permitted to connect */
     struct iprange *range;      /* Range of IP's we provide */
+    struct iprange *localrange; /* Range of local IP's we provide */
     int assign_ip;              /* Do we actually provide IP addresses? */
     int passwdauth;             /* Authenticate by passwd file? (or PAM) */
     int pap_require;            /* Require PAP auth for PPP */
@@ -95,6 +96,7 @@ struct lns
     int proxyarp;               /* Use proxy-arp? */
     int proxyauth;              /* Allow proxy authentication? */
     int debug;                  /* Debug PPP? */
+    int pass_peer;              /* Pass peer IP to pppd as ipparam? */
     char pppoptfile[STRLEN];    /* File containing PPP options */
     struct tunnel *t;           /* Tunnel of this, if it's ready */
 };
@@ -132,6 +134,7 @@ struct lac
     int rmax;                   /* Maximum # of consecutive redials */
     int rtries;                 /* # of tries so far */
     int rtimeout;               /* Redial every this many # of seconds */
+    int pass_peer;              /* Pass peer IP to pppd as ipparam? */
     char pppoptfile[STRLEN];    /* File containing PPP options */
     int debug;
     struct tunnel *t;           /* Our tunnel */
@@ -149,6 +152,7 @@ struct global
     char pidfile[STRLEN];       /* File containing the pid number*/
     char controlfile[STRLEN];   /* Control file name (named pipe) */
     int daemon;                 /* Use daemon mode? */
+    int syslog;                 /* Use syslog for logging? */
     int accesscontrol;          /* Use access control? */
     int forceuserspace;         /* Force userspace? */
     int packet_dump;		/* Dump (print) all packets? */
@@ -174,4 +178,5 @@ extern int init_config ();      /* Read in the config file */
 extern int parse_one_option (char *word, char *value, int context, void *item);
 /* Allocate memory and filled up new lac */
 extern struct lac *new_lac ();
+extern struct lns *new_lns ();
 #endif
