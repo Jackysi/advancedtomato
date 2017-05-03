@@ -76,30 +76,30 @@ void k_set_rcvbuf(int bufsize, int minsize) {
 void k_hdr_include(int hdrincl) {
     if (setsockopt(MRouterFD, IPPROTO_IP, IP_HDRINCL,
                    (char *)&hdrincl, sizeof(hdrincl)) < 0)
-        my_log(LOG_WARNING, errno, "setsockopt IP_HDRINCL %u", hdrincl);
+        my_log(LOG_ERR, errno, "setsockopt IP_HDRINCL %u", hdrincl);
 }
 
 
 void k_set_ttl(int t) {
 #ifndef RAW_OUTPUT_IS_RAW
-    unsigned char ttl;
+    u_char ttl;
 
     ttl = t;
     if (setsockopt(MRouterFD, IPPROTO_IP, IP_MULTICAST_TTL,
                    (char *)&ttl, sizeof(ttl)) < 0)
-        my_log(LOG_WARNING, errno, "setsockopt IP_MULTICAST_TTL %u", ttl);
+        my_log(LOG_ERR, errno, "setsockopt IP_MULTICAST_TTL %u", ttl);
 #endif
     curttl = t;
 }
 
 
 void k_set_loop(int l) {
-    unsigned char loop;
+    u_char loop;
 
     loop = l;
     if (setsockopt(MRouterFD, IPPROTO_IP, IP_MULTICAST_LOOP,
                    (char *)&loop, sizeof(loop)) < 0)
-        my_log(LOG_WARNING, errno, "setsockopt IP_MULTICAST_LOOP %u", loop);
+        my_log(LOG_ERR, errno, "setsockopt IP_MULTICAST_LOOP %u", loop);
 }
 
 void k_set_if(uint32_t ifa) {
@@ -108,7 +108,7 @@ void k_set_if(uint32_t ifa) {
     adr.s_addr = ifa;
     if (setsockopt(MRouterFD, IPPROTO_IP, IP_MULTICAST_IF,
                    (char *)&adr, sizeof(adr)) < 0)
-        my_log(LOG_WARNING, errno, "setsockopt IP_MULTICAST_IF %s",
+        my_log(LOG_ERR, errno, "setsockopt IP_MULTICAST_IF %s",
             inetFmt(ifa, s1));
 }
 
