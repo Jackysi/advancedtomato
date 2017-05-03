@@ -33,8 +33,15 @@
 
 #ifndef DISABLE_NANORC
 
+#ifndef RCFILE_NAME
+#define RCFILE_NAME ".nanorc"
+#endif
+
 static const rcoption rcopts[] = {
     {"boldtext", BOLD_TEXT},
+#ifdef ENABLE_LINENUMBERS
+    {"linenumbers", LINE_NUMBERS},
+#endif
 #ifndef DISABLE_JUSTIFY
     {"brackets", 0},
 #endif
@@ -96,6 +103,7 @@ static const rcoption rcopts[] = {
     {"noconvert", NO_CONVERT},
     {"quickblank", QUICK_BLANK},
     {"quiet", QUIET},
+    {"showcursor", SHOW_CURSOR},
     {"smarthome", SMART_HOME},
     {"smooth", SMOOTH_SCROLL},
     {"softwrap", SOFTWRAP},
@@ -107,6 +115,7 @@ static const rcoption rcopts[] = {
 #endif
 #ifndef DISABLE_COLOR
     {"titlecolor", 0},
+    {"numbercolor", 0},
     {"statuscolor", 0},
     {"keycolor", 0},
     {"functioncolor", 0},
@@ -343,9 +352,7 @@ bool is_universal(void (*func))
 {
     if (func == do_left || func == do_right ||
 	func == do_home || func == do_end ||
-#ifndef NANO_TINY
 	func == do_prev_word_void || func == do_next_word_void ||
-#endif
 	func == do_verbatim_input || func == do_cut_text_void ||
 	func == do_delete || func == do_backspace ||
 	func == do_tab || func == do_enter)
@@ -400,7 +407,12 @@ void parse_binding(char *ptr, bool dobind)
     else if (keycopy[0] != '^' && keycopy[0] != 'M' && keycopy[0] != 'F') {
 	rcfile_error(N_("Key name must begin with \"^\", \"M\", or \"F\""));
 	goto free_copy;
-    } else if (keycopy[0] == '^' && (keycopy[1] < 64 || keycopy[1] > 127)) {
+    } else if ((keycopy[0] == 'M' && keycopy[1] != '-') ||
+		(keycopy[0] == '^' && ((keycopy[1] < 'A' || keycopy[1] > 'z') ||
+		keycopy[1] == '[' || keycopy[1] == '`' ||
+		(strlen(keycopy) > 2 && strcmp(keycopy, "^Space") != 0))) ||
+		(strlen(keycopy) > 3 && strcmp(keycopy, "^Space") != 0 &&
+		strcmp(keycopy, "M-Space") != 0)) {
 	rcfile_error(N_("Key name %s is invalid"), keycopy);
 	goto free_copy;
     }
@@ -455,9 +467,11 @@ void parse_binding(char *ptr, bool dobind)
 	    if (f->scfunc == newsc->scfunc)
 		mask = mask | f->menus;
 
+#ifndef NANO_TINY
 	/* Handle the special case of the toggles. */
 	if (newsc->scfunc == do_toggle_void)
 	    mask = MMAIN;
+#endif
 
 	/* Now limit the given menu to those where the function exists. */
 	if (is_universal(newsc->scfunc))
@@ -472,7 +486,7 @@ void parse_binding(char *ptr, bool dobind)
 	}
 
 	newsc->menus = menu;
-	assign_keyinfo(newsc, keycopy);
+	assign_keyinfo(newsc, keycopy, 0);
 
 	/* Do not allow rebinding a frequent escape-sequence starter: Esc [. */
 	if (newsc->meta && newsc->keycode == 91) {
@@ -497,6 +511,7 @@ void parse_binding(char *ptr, bool dobind)
     }
 
     if (dobind) {
+#ifndef NANO_TINY
 	/* If this is a toggle, copy its sequence number. */
 	if (newsc->scfunc == do_toggle_void) {
 	    for (s = sclist; s != NULL; s = s->next)
@@ -504,6 +519,7 @@ void parse_binding(char *ptr, bool dobind)
 		    newsc->ordinal = s->ordinal;
 	} else
 	    newsc->ordinal = 0;
+#endif
 	/* Add the new shortcut at the start of the list. */
 	newsc->next = sclist;
 	sclist = newsc;
@@ -514,35 +530,40 @@ void parse_binding(char *ptr, bool dobind)
     free(keycopy);
 }
 
+/* Verify that the given file is not a folder nor a device. */
+bool is_good_file(char *file)
+{
+    struct stat rcinfo;
+
+    /* If the thing exists, it may not be a directory nor a device. */
+    if (stat(file, &rcinfo) != -1 && (S_ISDIR(rcinfo.st_mode) ||
+		S_ISCHR(rcinfo.st_mode) || S_ISBLK(rcinfo.st_mode))) {
+	rcfile_error(S_ISDIR(rcinfo.st_mode) ? _("\"%s\" is a directory") :
+					_("\"%s\" is a device file"), file);
+	return FALSE;
+    } else
+	return TRUE;
+}
+
 #ifndef DISABLE_COLOR
 /* Read and parse one included syntax file. */
 static void parse_one_include(char *file)
 {
-    struct stat rcinfo;
     FILE *rcstream;
 
-    /* Can't get the specified file's full path because it may screw up
-     * our cwd depending on the parent directories' permissions (see
-     * Savannah bug #25297). */
-
     /* Don't open directories, character files, or block files. */
-    if (stat(file, &rcinfo) != -1) {
-	if (S_ISDIR(rcinfo.st_mode) || S_ISCHR(rcinfo.st_mode) ||
-		S_ISBLK(rcinfo.st_mode)) {
-	    rcfile_error(S_ISDIR(rcinfo.st_mode) ?
-		_("\"%s\" is a directory") :
-		_("\"%s\" is a device file"), file);
-	}
-    }
+    if (!is_good_file(file))
+	return;
 
-    /* Open the new syntax file. */
-    if ((rcstream = fopen(file, "rb")) == NULL) {
-	rcfile_error(_("Error reading %s: %s"), file,
-		strerror(errno));
+    /* Open the included syntax file. */
+    rcstream = fopen(file, "rb");
+
+    if (rcstream == NULL) {
+	rcfile_error(_("Error reading %s: %s"), file, strerror(errno));
 	return;
     }
 
-    /* Use the name and line number position of the new syntax file
+    /* Use the name and line number position of the included syntax file
      * while parsing it, so we can know where any errors in it are. */
     nanorc = file;
     lineno = 0;
@@ -573,8 +594,7 @@ void parse_includes(char *ptr)
 	for (i = 0; i < files.gl_pathc; ++i)
 	    parse_one_include(files.gl_pathv[i]);
     } else
-	rcfile_error(_("Error expanding %s: %s"), option,
-		strerror(errno));
+	rcfile_error(_("Error expanding %s: %s"), option, strerror(errno));
 
     globfree(&files);
     free(expanded);
@@ -892,8 +912,8 @@ void pick_up_name(const char *kind, char *ptr, char **storage)
 }
 #endif /* !DISABLE_COLOR */
 
-/* Check whether the user has unmapped every shortcut for a
- * sequence we consider 'vital', like the exit function. */
+/* Verify that the user has not unmapped every shortcut for a
+ * function that we consider 'vital' (such as "Exit"). */
 static void check_vitals_mapped(void)
 {
     subnfunc *f;
@@ -920,13 +940,9 @@ static void check_vitals_mapped(void)
 }
 
 /* Parse the rcfile, once it has been opened successfully at rcstream,
- * and close it afterwards.  If syntax_only is TRUE, only allow the file
- * to contain color syntax commands. */
-void parse_rcfile(FILE *rcstream
-#ifndef DISABLE_COLOR
-	, bool syntax_only
-#endif
-	)
+ * and close it afterwards.  If syntax_only is TRUE, allow the file to
+ * to contain only color syntax commands. */
+void parse_rcfile(FILE *rcstream, bool syntax_only)
 {
     char *buf = NULL;
     ssize_t len;
@@ -1103,13 +1119,15 @@ void parse_rcfile(FILE *rcstream
 #endif
 	/* Make sure the option argument is a valid multibyte string. */
 	if (!is_valid_mbstring(option)) {
-	    rcfile_error(N_("Option is not a valid multibyte string"));
+	    rcfile_error(N_("Argument is not a valid multibyte string"));
 	    continue;
 	}
 
 #ifndef DISABLE_COLOR
 	if (strcasecmp(rcopts[i].name, "titlecolor") == 0)
 	    specified_color_combo[TITLE_BAR] = option;
+	else if (strcasecmp(rcopts[i].name, "numbercolor") == 0)
+	    specified_color_combo[LINE_NUMBER] = option;
 	else if (strcasecmp(rcopts[i].name, "statuscolor") == 0)
 	    specified_color_combo[STATUS_BAR] = option;
 	else if (strcasecmp(rcopts[i].name, "keycolor") == 0)
@@ -1129,8 +1147,10 @@ void parse_rcfile(FILE *rcstream
 		rcfile_error(N_("Requested fill size \"%s\" is invalid"),
 				option);
 		wrap_at = -CHARS_FROM_EOL;
-	    } else
+	    } else {
+		UNSET(NO_WRAP);
 		free(option);
+	    }
 	} else
 #endif
 #ifndef NANO_TINY
@@ -1209,45 +1229,43 @@ void parse_rcfile(FILE *rcstream
     fclose(rcstream);
     lineno = 0;
 
-    check_vitals_mapped();
     return;
 }
 
-/* The main rcfile function.  It tries to open the system-wide rcfile,
- * followed by the current user's rcfile. */
-void do_rcfile(void)
+/* Read and interpret one of the two nanorc files. */
+void parse_one_nanorc(void)
 {
-    struct stat rcinfo;
     FILE *rcstream;
 
-    nanorc = mallocstrcpy(nanorc, SYSCONFDIR "/nanorc");
-
-    /* Don't open directories, character files, or block files. */
-    if (stat(nanorc, &rcinfo) != -1) {
-	if (S_ISDIR(rcinfo.st_mode) || S_ISCHR(rcinfo.st_mode) ||
-		S_ISBLK(rcinfo.st_mode))
-	    rcfile_error(S_ISDIR(rcinfo.st_mode) ?
-		_("\"%s\" is a directory") :
-		_("\"%s\" is a device file"), nanorc);
-    }
+    /* Don't try to open directories nor devices. */
+    if (!is_good_file(nanorc))
+	return;
 
 #ifdef DEBUG
-    fprintf(stderr, "Parsing file \"%s\"\n", nanorc);
+    fprintf(stderr, "Going to parse file \"%s\"\n", nanorc);
 #endif
 
-    /* Try to open the system-wide nanorc. */
     rcstream = fopen(nanorc, "rb");
-    if (rcstream != NULL)
-	parse_rcfile(rcstream
-#ifndef DISABLE_COLOR
-		, FALSE
-#endif
-		);
 
+    /* If opening the file succeeded, parse it.  Otherwise, only
+     * complain if the file actually exists. */
+    if (rcstream != NULL)
+	parse_rcfile(rcstream, FALSE);
+    else if (errno != ENOENT)
+	rcfile_error(N_("Error reading %s: %s"), nanorc, strerror(errno));
+}
+
+/* First read the system-wide rcfile, then the user's rcfile. */
+void do_rcfiles(void)
+{
+    nanorc = mallocstrcpy(nanorc, SYSCONFDIR "/nanorc");
+
+    /* Process the system-wide nanorc. */
+    parse_one_nanorc();
+
+    /* When configured with --disable-wrapping-as-root, turn wrapping off
+     * for root, so that only root's .nanorc or --fill can turn it on. */
 #ifdef DISABLE_ROOTWRAPPING
-    /* We've already read SYSCONFDIR/nanorc, if it's there.  If we're
-     * root, and --disable-wrapping-as-root is used, turn wrapping off
-     * now. */
     if (geteuid() == NANO_ROOT_UID)
 	SET(NO_WRAP);
 #endif
@@ -1257,38 +1275,16 @@ void do_rcfile(void)
     if (homedir == NULL)
 	rcfile_error(N_("I can't find my home directory!  Wah!"));
     else {
-#ifndef RCFILE_NAME
-#define RCFILE_NAME ".nanorc"
-#endif
 	nanorc = charealloc(nanorc, strlen(homedir) + strlen(RCFILE_NAME) + 2);
 	sprintf(nanorc, "%s/%s", homedir, RCFILE_NAME);
 
-	/* Don't open directories, character files, or block files. */
-	if (stat(nanorc, &rcinfo) != -1) {
-	    if (S_ISDIR(rcinfo.st_mode) || S_ISCHR(rcinfo.st_mode) ||
-			S_ISBLK(rcinfo.st_mode))
-		rcfile_error(S_ISDIR(rcinfo.st_mode) ?
-			_("\"%s\" is a directory") :
-			_("\"%s\" is a device file"), nanorc);
-	}
-
-	/* Try to open the current user's nanorc. */
-	rcstream = fopen(nanorc, "rb");
-	if (rcstream == NULL) {
-	    /* Don't complain about the file's not existing. */
-	    if (errno != ENOENT)
-		rcfile_error(N_("Error reading %s: %s"), nanorc,
-				strerror(errno));
-	} else
-	    parse_rcfile(rcstream
-#ifndef DISABLE_COLOR
-		, FALSE
-#endif
-		);
+	/* Process the current user's nanorc. */
+	parse_one_nanorc();
     }
 
+    check_vitals_mapped();
+
     free(nanorc);
-    nanorc = NULL;
 
     if (errors && !ISSET(QUIET)) {
 	errors = FALSE;

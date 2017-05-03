@@ -6,6 +6,7 @@
  *   Copyright (C) 2014, 2015 Mark Majeres                                *
  *   Copyright (C) 2016 Mike Scalora                                      *
  *   Copyright (C) 2015, 2016 Benno Schulenberg                           *
+ *   Copyright (C) 2016 Sumedh Pendurkar                                  *
  *                                                                        *
  *   GNU nano is free software: you can redistribute it and/or modify     *
  *   it under the terms of the GNU General Public License as published    *
@@ -42,8 +43,17 @@ static bool prepend_wrap = FALSE;
 	/* Should we prepend wrapped text to the next line? */
 #endif
 #ifndef DISABLE_JUSTIFY
+static filestruct *jusbuffer = NULL;
+	/* The buffer where we store unjustified text. */
 static filestruct *jusbottom = NULL;
-	/* Pointer to the end of the justify buffer. */
+	/* A pointer to the end of the buffer with unjustified text. */
+#endif
+
+#ifdef ENABLE_WORDCOMPLETION
+static int pletion_x = 0;
+	/* The x position in pletion_line of the last found completion. */
+static completion_word *list_of_completions;
+	/* A linked list of the completions that have been attepmted. */
 #endif
 
 #ifndef NANO_TINY
@@ -61,8 +71,8 @@ void do_mark(void)
 	statusbar(_("Mark Unset"));
 	openfile->mark_begin = NULL;
 	openfile->mark_begin_x = 0;
+	refresh_needed = TRUE;
     }
-    edit_refresh();
 }
 #endif /* !NANO_TINY */
 
@@ -92,7 +102,7 @@ void do_deletion(undo_type action)
 
     if (openfile->current->data[openfile->current_x] != '\0') {
 	/* We're in the middle of a line: delete the current character. */
-	int char_buf_len = parse_mbchar(openfile->current->data +
+	int char_len = parse_mbchar(openfile->current->data +
 					openfile->current_x, NULL, NULL);
 	size_t line_len = strlen(openfile->current->data +
 					openfile->current_x);
@@ -108,16 +118,16 @@ void do_deletion(undo_type action)
 
 	/* Move the remainder of the line "in", over the current character. */
 	charmove(&openfile->current->data[openfile->current_x],
-		&openfile->current->data[openfile->current_x + char_buf_len],
-		line_len - char_buf_len + 1);
+		&openfile->current->data[openfile->current_x + char_len],
+		line_len - char_len + 1);
 	null_at(&openfile->current->data, openfile->current_x +
-		line_len - char_buf_len);
+		line_len - char_len);
 
 #ifndef NANO_TINY
 	/* Adjust the mark if it is after the cursor on the current line. */
 	if (openfile->mark_set && openfile->mark_begin == openfile->current &&
 				openfile->mark_begin_x > openfile->current_x)
-	    openfile->mark_begin_x -= char_buf_len;
+	    openfile->mark_begin_x -= char_len;
 #endif
 	/* Adjust the file size. */
 	openfile->totsize--;
@@ -169,8 +179,12 @@ void do_deletion(undo_type action)
 	return;
 
 #ifndef NANO_TINY
+    ensure_line_is_visible();
+
+    /* If the number of screen rows that a softwrapped line occupies
+     * has changed, we need a full refresh. */
     if (ISSET(SOFTWRAP) && refresh_needed == FALSE)
-	if (strlenpt(openfile->current->data) / COLS != orig_lenpt / COLS)
+	if (strlenpt(openfile->current->data) / editwincols != orig_lenpt / editwincols)
 	    refresh_needed = TRUE;
 #endif
 
@@ -410,7 +424,6 @@ void do_indent(ssize_t cols)
 	/* Throw away the undo stack, to prevent making mistakes when
 	 * the user tries to undo something in the reindented text. */
 	discard_until(NULL, openfile);
-	openfile->current_undo = NULL;
 
 	/* Mark the file as modified. */
 	set_modified();
@@ -435,7 +448,6 @@ void do_unindent(void)
 }
 #endif /* !NANO_TINY */
 
-#ifdef ENABLE_COMMENT
 /* Test whether the string is empty or consists of only blanks. */
 bool white_string(const char *s)
 {
@@ -445,6 +457,7 @@ bool white_string(const char *s)
     return !*s;
 }
 
+#ifdef ENABLE_COMMENT
 /* Comment or uncomment the current line or the marked lines. */
 void do_comment()
 {
@@ -785,7 +798,7 @@ void do_undo(void)
 	openfile->mark_begin_x = u->mark_begin_x;
 	openfile->mark_set = TRUE;
 	goto_line_posx(u->lineno, u->begin);
-	cut_marked();
+	cut_marked(NULL);
 	free_filestruct(u->cutbuffer);
 	u->cutbuffer = cutbuffer;
 	u->cutbottom = cutbottom;
@@ -806,14 +819,16 @@ void do_undo(void)
 	break;
     }
 
-    if (undidmsg)
+    if (undidmsg && !pletion_line)
 	statusline(HUSH, _("Undid action (%s)"), undidmsg);
 
     renumber(f);
+
     openfile->current_undo = openfile->current_undo->next;
     openfile->last_action = OTHER;
     openfile->mark_set = FALSE;
     openfile->placewewant = xplustabs();
+
     openfile->totsize = u->wassize;
     set_modified();
 }
@@ -961,13 +976,14 @@ void do_redo(void)
     openfile->last_action = OTHER;
     openfile->mark_set = FALSE;
     openfile->placewewant = xplustabs();
+
     openfile->totsize = u->newsize;
     set_modified();
 }
 #endif /* !NANO_TINY */
 
-/* Someone hits Enter *gasp!* */
-void do_enter()
+/* Break the current line at the cursor position. */
+void do_enter(void)
 {
     filestruct *newnode = make_new_node(openfile->current);
     size_t extra = 0;
@@ -977,44 +993,47 @@ void do_enter()
 #ifndef NANO_TINY
     add_undo(ENTER);
 
-    /* Do auto-indenting, like the neolithic Turbo Pascal editor. */
     if (ISSET(AUTOINDENT)) {
-	/* If we are breaking the line in the indentation, the new
-	 * indentation should have only current_x characters, and
-	 * current_x should not change. */
 	extra = indent_length(openfile->current->data);
+
+	/* If we are breaking the line in the indentation, limit the new
+	 * indentation to the current x position. */
 	if (extra > openfile->current_x)
 	    extra = openfile->current_x;
     }
 #endif
     newnode->data = charalloc(strlen(openfile->current->data +
-	openfile->current_x) + extra + 1);
+					openfile->current_x) + extra + 1);
     strcpy(&newnode->data[extra], openfile->current->data +
-	openfile->current_x);
+					openfile->current_x);
 #ifndef NANO_TINY
     if (ISSET(AUTOINDENT)) {
+	/* Copy the whitespace from the current line to the new one. */
 	strncpy(newnode->data, openfile->current->data, extra);
 	openfile->totsize += extra;
     }
 #endif
+
     null_at(&openfile->current->data, openfile->current_x);
+
 #ifndef NANO_TINY
+    /* Adjust the mark if it was on the current line after the cursor. */
     if (openfile->mark_set && openfile->current == openfile->mark_begin &&
 		openfile->current_x < openfile->mark_begin_x) {
 	openfile->mark_begin = newnode;
 	openfile->mark_begin_x += extra - openfile->current_x;
     }
 #endif
-    openfile->current_x = extra;
 
     splice_node(openfile->current, newnode);
-    openfile->current = newnode;
     renumber(newnode);
+
+    openfile->current = newnode;
+    openfile->current_x = extra;
+    openfile->placewewant = xplustabs();
 
     openfile->totsize++;
     set_modified();
-
-    openfile->placewewant = xplustabs();
 
 #ifndef NANO_TINY
     update_undo(ENTER);
@@ -1138,6 +1157,9 @@ void discard_until(const undo *thisitem, openfilestruct *thefile)
 	dropit = thefile->undotop;
     }
 
+    /* Adjust the pointer to the top of the undo stack. */
+    thefile->current_undo = (undo *)thisitem;
+
     /* Prevent a chain of editing actions from continuing. */
     thefile->last_action = OTHER;
 }
@@ -1199,16 +1221,18 @@ void add_undo(undo_type action)
     case BACK:
 	/* If the next line is the magic line, don't ever undo this
 	 * backspace, as it won't actually have deleted anything. */
-	if (openfile->current->next == openfile->filebot && openfile->current->data[0] != '\0')
+	if (openfile->current->next == openfile->filebot &&
+			openfile->current->data[0] != '\0')
 	    u->xflags = WAS_FINAL_BACKSPACE;
     case DEL:
-	if (u->begin != strlen(openfile->current->data)) {
+	if (openfile->current->data[openfile->current_x] != '\0') {
 	    char *char_buf = charalloc(mb_cur_max() + 1);
-	    int char_buf_len = parse_mbchar(&openfile->current->data[u->begin], char_buf, NULL);
-	    null_at(&char_buf, char_buf_len);
+	    int char_len = parse_mbchar(&openfile->current->data[u->begin],
+						char_buf, NULL);
+	    null_at(&char_buf, char_len);
 	    u->strdata = char_buf;
 	    if (u->type == BACK)
-		u->mark_begin_x += char_buf_len;
+		u->mark_begin_x += char_len;
 	    break;
 	}
 	/* Else purposely fall into the line-joining code. */
@@ -1336,8 +1360,8 @@ fprintf(stderr, "  >> Updating... action = %d, openfile->last_action = %d, openf
 			openfile->current->data, (unsigned long)openfile->current_x, (unsigned long)u->begin);
 #endif
 	char *char_buf = charalloc(mb_cur_max());
-	size_t char_buf_len = parse_mbchar(&openfile->current->data[u->mark_begin_x], char_buf, NULL);
-	u->strdata = addstrings(u->strdata, u->strdata ? strlen(u->strdata) : 0, char_buf, char_buf_len);
+	int char_len = parse_mbchar(&openfile->current->data[u->mark_begin_x], char_buf, NULL);
+	u->strdata = addstrings(u->strdata, u->strdata ? strlen(u->strdata) : 0, char_buf, char_len);
 #ifdef DEBUG
 	fprintf(stderr, "  >> current undo data is \"%s\"\n", u->strdata);
 #endif
@@ -1348,17 +1372,17 @@ fprintf(stderr, "  >> Updating... action = %d, openfile->last_action = %d, openf
     case BACK:
     case DEL: {
 	char *char_buf = charalloc(mb_cur_max());
-	size_t char_buf_len = parse_mbchar(&openfile->current->data[openfile->current_x], char_buf, NULL);
+	int char_len = parse_mbchar(&openfile->current->data[openfile->current_x], char_buf, NULL);
 	if (openfile->current_x == u->begin) {
-	    /* They're deleting. */
-	    u->strdata = addstrings(u->strdata, strlen(u->strdata), char_buf, char_buf_len);
+	    /* They deleted more: add removed character after earlier stuff. */
+	    u->strdata = addstrings(u->strdata, strlen(u->strdata), char_buf, char_len);
 	    u->mark_begin_x = openfile->current_x;
-	} else if (openfile->current_x == u->begin - char_buf_len) {
-	    /* They're backspacing. */
-	    u->strdata = addstrings(char_buf, char_buf_len, u->strdata, strlen(u->strdata));
+	} else if (openfile->current_x == u->begin - char_len) {
+	    /* They backspaced further: add removed character before earlier. */
+	    u->strdata = addstrings(char_buf, char_len, u->strdata, strlen(u->strdata));
 	    u->begin = openfile->current_x;
 	} else {
-	    /* They deleted something else on the line. */
+	    /* They deleted *elsewhere* on the line: start a new undo item. */
 	    free(char_buf);
 	    add_undo(u->type);
 	    return;
@@ -1978,12 +2002,9 @@ bool begpar(const filestruct *const foo)
 
     /* Case 2) or 5) or 4). */
     if (foo->prev->data[quote_len + temp_id_len] == '\0' ||
-	(quote_len == 0 && indent_len > 0
-#ifndef NANO_TINY
-	&& !ISSET(AUTOINDENT)
-#endif
-	) || !indents_match(foo->prev->data + quote_len, temp_id_len,
-	foo->data + quote_len, indent_len))
+		(quote_len == 0 && indent_len > 0 && !ISSET(AUTOINDENT)) ||
+		!indents_match(foo->prev->data + quote_len, temp_id_len,
+				foo->data + quote_len, indent_len))
 	return TRUE;
 
     return FALSE;
@@ -2105,9 +2126,6 @@ bool find_paragraph(size_t *const quote, size_t *const par)
 	/* Number of lines in the paragraph we search for. */
     filestruct *current_save;
 	/* The line at the beginning of the paragraph we search for. */
-    ssize_t current_y_save;
-	/* The y-coordinate at the beginning of the paragraph we search
-	 * for. */
 
 #ifdef HAVE_REGEX_H
     if (quoterc != 0) {
@@ -2156,7 +2174,6 @@ bool find_paragraph(size_t *const quote, size_t *const par)
      * of lines in this paragraph. */
     quote_len = quote_length(openfile->current->data);
     current_save = openfile->current;
-    current_y_save = openfile->current_y;
     do_para_end(FALSE);
     par_len = openfile->current->lineno - current_save->lineno;
 
@@ -2167,7 +2184,6 @@ bool find_paragraph(size_t *const quote, size_t *const par)
     if (openfile->current_x > 0)
 	par_len++;
     openfile->current = current_save;
-    openfile->current_y = current_y_save;
 
     /* Save the values of quote_len and par_len. */
     assert(quote != NULL && par != NULL);
@@ -2278,8 +2294,7 @@ void do_justify(bool full_justify)
 	if (first_par_line == NULL) {
 	    backup_lines(openfile->current, full_justify ?
 		openfile->filebot->lineno - openfile->current->lineno +
-		((openfile->filebot->data[0] != '\0') ? 1 : 0) :
-		par_len);
+		((openfile->filebot->data[0] != '\0') ? 1 : 0) : par_len);
 	    first_par_line = openfile->current;
 	}
 
@@ -2333,8 +2348,7 @@ void do_justify(bool full_justify)
 
 	    /* We're just about to tack the next line onto this one.  If
 	     * this line isn't empty, make sure it ends in a space. */
-	    if (line_len > 0 &&
-			openfile->current->data[line_len - 1] != ' ') {
+	    if (line_len > 0 && openfile->current->data[line_len - 1] != ' ') {
 		line_len++;
 		openfile->current->data =
 			charealloc(openfile->current->data, line_len + 1);
@@ -2349,8 +2363,7 @@ void do_justify(bool full_justify)
 
 #ifndef NANO_TINY
 	    /* If needed, adjust the coordinates of the mark. */
-	    if (openfile->mark_set &&
-			openfile->mark_begin == next_line) {
+	    if (openfile->mark_set && openfile->mark_begin == next_line) {
 		openfile->mark_begin = openfile->current;
 		openfile->mark_begin_x += line_len - indent_len;
 	    }
@@ -2402,11 +2415,7 @@ void do_justify(bool full_justify)
 	    /* If this paragraph is non-quoted, and autoindent isn't
 	     * turned on, set the indentation length to zero so that the
 	     * indentation is treated as part of the line. */
-	    if (quote_len == 0
-#ifndef NANO_TINY
-		&& !ISSET(AUTOINDENT)
-#endif
-		)
+	    if (quote_len == 0 && !ISSET(AUTOINDENT))
 		indent_len = 0;
 
 	    /* Insert a new line after the current one. */
@@ -2446,7 +2455,6 @@ void do_justify(bool full_justify)
 
 	    /* Go to the next line. */
 	    par_len--;
-	    openfile->current_y++;
 	    openfile->current = openfile->current->next;
 	}
 
@@ -2457,14 +2465,12 @@ void do_justify(bool full_justify)
 	/* Go to the next line, if possible.  If there is no next line,
 	 * move to the end of the current line. */
 	if (openfile->current != openfile->filebot) {
-	    openfile->current_y++;
 	    openfile->current = openfile->current->next;
 	} else
 	    openfile->current_x = strlen(openfile->current->data);
 
-	/* Renumber the lines of the now-justified current paragraph,
-	 * since both find_paragraph() and edit_refresh() need the line
-	 * numbers to be right. */
+	/* Renumber the now-justified paragraph, since both refreshing the
+	 * edit window and finding a paragraph need correct line numbers. */
 	renumber(curr_first_par_line);
 
 	/* We've just finished justifying the paragraph.  If we're not
@@ -2476,9 +2482,8 @@ void do_justify(bool full_justify)
     }
 
     /* We are now done justifying the paragraph or the file, so clean
-     * up.  current_y and totsize have been maintained above.  If we
-     * actually justified something, set last_par_line to the new end of
-     * the paragraph. */
+     * up.  totsize has been maintained above.  If we actually justified
+     * something, set last_par_line to the new end of the paragraph. */
     if (first_par_line != NULL)
 	last_par_line = openfile->current;
 
@@ -2513,35 +2518,28 @@ void do_justify(bool full_justify)
 			|| func == do_undo
 #endif
 		) {
-	/* Splice the justify buffer back into the file, but only if we
-	 * actually justified something. */
+	/* If we actually justified something, then splice the preserved
+	 * unjustified text back into the file, */
 	if (first_par_line != NULL) {
-	    filestruct *top_save;
-
 	    /* Partition the filestruct so that it contains only the
 	     * text of the justified paragraph. */
 	    filepart = partition_filestruct(first_par_line, 0,
 				last_par_line, filebot_inpar ?
 				strlen(last_par_line->data) : 0);
 
-	    /* Remove the text of the justified paragraph, and
-	     * replace it with the text in the justify buffer. */
+	    /* Throw away the justified paragraph, and replace it with
+	     * the preserved unjustified text. */
 	    free_filestruct(openfile->fileage);
 	    openfile->fileage = jusbuffer;
 	    openfile->filebot = jusbottom;
 
-	    top_save = openfile->fileage;
-
-	    /* Unpartition the filestruct so that it contains all the
-	     * text again.  Note that the justified paragraph has been
-	     * replaced with the unjustified paragraph. */
+	    /* Unpartition the filestruct, to contain the entire text again. */
 	    unpartition_filestruct(&filepart);
 
-	    /* Renumber, starting with the beginning line of the old
-	     * partition. */
-	    renumber(top_save);
+	    /* Renumber, from the beginning of the unjustified part. */
+	    renumber(jusbuffer);
 
-	    /* Restore the justify we just did (ungrateful user!). */
+	    /* Restore the old position, the size, and the mark. */
 	    openfile->edittop = edittop_save;
 	    openfile->current = current_save;
 	    openfile->current_x = current_x_save;
@@ -2553,12 +2551,9 @@ void do_justify(bool full_justify)
 	    }
 #endif
 	    openfile->modified = modified_save;
-
-	    /* Clear the justify buffer. */
-	    jusbuffer = NULL;
-
 	    if (!openfile->modified)
 		titlebar(NULL);
+
 	    refresh_needed = TRUE;
 	}
     } else {
@@ -2572,12 +2567,13 @@ void do_justify(bool full_justify)
 	/* Throw away the entire undo stack, to prevent a crash when
 	 * the user tries to undo something in the justified text. */
 	discard_until(NULL, openfile);
-	openfile->current_undo = NULL;
 #endif
-	/* Blow away the text in the justify buffer. */
+	/* Blow away the unjustified text. */
 	free_filestruct(jusbuffer);
-	jusbuffer = NULL;
     }
+
+    /* Mark the buffer for unjustified text as empty. */
+    jusbuffer = NULL;
 
     blank_statusbar();
 
@@ -2627,17 +2623,10 @@ bool do_int_spell_fix(const char *word)
     /* Save the settings of the global flags. */
     memcpy(stash, flags, sizeof(flags));
 
-    /* Make sure spell-check is case sensitive. */
+    /* Do the spell checking case sensitive, forward, and without regexes. */
     SET(CASE_SENSITIVE);
-
-#ifndef NANO_TINY
-    /* Make sure spell-check goes forward only. */
     UNSET(BACKWARDS_SEARCH);
-#endif
-#ifdef HAVE_REGEX_H
-    /* Make sure spell-check doesn't use regular expressions. */
     UNSET(USE_REGEXP);
-#endif
 
     /* Save the current search string, then set it to the misspelled word. */
     save_search = last_search;
@@ -2668,7 +2657,7 @@ bool do_int_spell_fix(const char *word)
     }
 
     /* Find the first whole occurrence of word. */
-    result = findnextstr(TRUE, NULL, 0, word, NULL);
+    result = findnextstr(word, TRUE, NULL, NULL, 0);
 
     /* If the word isn't found, alert the user; if it is, allow correction. */
     if (result == 0) {
@@ -2684,11 +2673,7 @@ bool do_int_spell_fix(const char *word)
 	spotlight(TRUE, exp_word);
 
 	/* Let the user supply a correctly spelled alternative. */
-	proceed = (do_prompt(FALSE,
-#ifndef DISABLE_TABCOMP
-				TRUE,
-#endif
-				MSPELL, word,
+	proceed = (do_prompt(FALSE, FALSE, MSPELL, word,
 #ifndef DISABLE_HISTORIES
 				NULL,
 #endif
@@ -2705,7 +2690,7 @@ bool do_int_spell_fix(const char *word)
 	    /* Replacements should happen only in the marked region. */
 	    openfile->mark_set = old_mark_set;
 #endif
-	    do_replace_loop(TRUE, current_save, &current_x_save, word);
+	    do_replace_loop(word, TRUE, current_save, &current_x_save);
 
 	    /* TRANSLATORS: Shown after fixing misspellings in one word. */
 	    statusbar(_("Next word..."));
@@ -2932,7 +2917,6 @@ const char *do_alt_speller(char *tempfile_name)
     int alt_spell_status;
     size_t current_x_save = openfile->current_x;
     size_t pww_save = openfile->placewewant;
-    ssize_t current_y_save = openfile->current_y;
     ssize_t lineno_save = openfile->current->lineno;
     struct stat spellfileinfo;
     time_t timestamp;
@@ -3048,16 +3032,17 @@ const char *do_alt_speller(char *tempfile_name)
 #ifndef NANO_TINY
     if (old_mark_set) {
 	filestruct *top_save = openfile->fileage;
+
+	/* If a magicline was added, remove it again. */
+	if (added_magicline)
+	    remove_magicline();
+
 	/* Adjust the end point of the marked region for any change in
 	 * length of the region's last line. */
 	if (right_side_up)
 	    current_x_save = strlen(openfile->filebot->data);
 	else
 	    openfile->mark_begin_x = strlen(openfile->filebot->data);
-
-	/* If a magicline was added, remove it again. */
-	if (added_magicline)
-	    remove_magicline();
 
 	/* Unpartition the filestruct so that it contains all the text
 	 * again.  Note that we've replaced the marked text originally
@@ -3079,16 +3064,22 @@ const char *do_alt_speller(char *tempfile_name)
 
     /* Go back to the old position. */
     goto_line_posx(lineno_save, current_x_save);
-    openfile->current_y = current_y_save;
+    if (openfile->current_x > strlen(openfile->current->data))
+	openfile->current_x = strlen(openfile->current->data);
     openfile->placewewant = pww_save;
-    edit_update(STATIONARY);
+    adjust_viewport(STATIONARY);
 
     /* Stat the temporary file again, and mark the buffer as modified only
      * if this file was changed since it was written. */
     stat(tempfile_name, &spellfileinfo);
-    if (spellfileinfo.st_mtime != timestamp)
+    if (spellfileinfo.st_mtime != timestamp) {
 	set_modified();
-
+#ifndef NANO_TINY
+	/* Flush the undo stack, to avoid making a mess when the user
+	 * tries to undo things in spell-corrected lines. */
+	discard_until(NULL, openfile);
+#endif
+    }
 #ifndef NANO_TINY
     /* Unblock SIGWINCHes again. */
     allow_sigwinch(TRUE);
@@ -3386,8 +3377,6 @@ void do_linter(void)
 			sprintf(msg, _("This message is for unopened file %s,"
 					" open it in a new buffer?"),
 				curlint->filename);
-			/* Show a cursor after the question. */
-			curs_set(1);
 			i = do_yesno_prompt(FALSE, msg);
 			free(msg);
 			if (i == -1) {
@@ -3475,7 +3464,6 @@ void do_formatter(void)
     FILE *temp_file;
     int format_status;
     ssize_t lineno_save = openfile->current->lineno;
-    ssize_t current_y_save = openfile->current_y;
     size_t current_x_save = openfile->current_x;
     size_t pww_save = openfile->placewewant;
     pid_t pid_format;
@@ -3553,13 +3541,18 @@ void do_formatter(void)
 	/* Replace the text of the current buffer with the formatted text. */
 	replace_buffer(temp);
 
-	/* Restore the cursor position, and mark the file as modified. */
+	/* Restore the cursor position. */
 	goto_line_posx(lineno_save, current_x_save);
-	openfile->current_y = current_y_save;
+	if (openfile->current_x > strlen(openfile->current->data))
+	    openfile->current_x = strlen(openfile->current->data);
 	openfile->placewewant = pww_save;
-	edit_update(STATIONARY);
+	adjust_viewport(STATIONARY);
 
 	set_modified();
+
+	/* Flush the undo stack, to avoid a mess or crash when
+	 * the user tries to undo things in reformatted lines. */
+	discard_until(NULL, openfile);
 
 	finalstatus = _("Finished formatting");
     }
@@ -3689,3 +3682,179 @@ void do_verbatim_input(void)
 
     free(output);
 }
+
+#ifdef ENABLE_WORDCOMPLETION
+/* Copy the found completion candidate. */
+char *copy_completion(char *check_line, int start)
+{
+    char *word;
+    int position = start, len_of_word = 0, index = 0;
+
+    /* Find the length of the word by travelling to its end. */
+    while (is_word_mbchar(&check_line[position], FALSE)) {
+	int next = move_mbright(check_line, position);
+	len_of_word += next - position;
+	position = next;
+    }
+
+    word = (char *)nmalloc((len_of_word + 1) * sizeof(char));
+
+    /* Simply copy the word. */
+    while (index < len_of_word)
+	word[index++] = check_line[start++];
+
+    word[index] = '\0';
+    return word;
+}
+
+/* Look at the fragment the user has typed, then search the current buffer for
+ * the first word that starts with this fragment, and tentatively complete the
+ * fragment.  If the user types 'Complete' again, search and paste the next
+ * possible completion. */
+void complete_a_word(void)
+{
+    char *shard, *completion = NULL;
+    int start_of_shard, shard_length = 0;
+    int i = 0, j = 0;
+    completion_word *some_word;
+#ifndef DISABLE_WRAPPING
+    bool was_set_wrapping = !ISSET(NO_WRAP);
+#endif
+
+    /* If this is a fresh completion attempt... */
+    if (pletion_line == NULL) {
+	/* Clear the list of words of a previous completion run. */
+	while (list_of_completions != NULL) {
+	    completion_word *dropit = list_of_completions;
+	    list_of_completions = list_of_completions->next;
+	    free(dropit->word);
+	    free(dropit);
+	}
+
+	/* Prevent a completion from being merged with typed text. */
+	openfile->last_action = OTHER;
+
+	/* Initialize the starting point for searching. */
+	pletion_line = openfile->fileage;
+	pletion_x = 0;
+
+	/* Wipe the "No further matches" message. */
+	blank_statusbar();
+	wnoutrefresh(bottomwin);
+    } else {
+	/* Remove the attempted completion from the buffer. */
+	do_undo();
+    }
+
+    /* Find the start of the fragment that the user typed. */
+    start_of_shard = openfile->current_x;
+    while (start_of_shard > 0) {
+	int step_left = move_mbleft(openfile->current->data, start_of_shard);
+
+	if (!is_word_mbchar(&openfile->current->data[step_left], FALSE))
+	    break;
+	start_of_shard = step_left;
+    }
+
+    /* If there is no word fragment before the cursor, do nothing. */
+    if (start_of_shard == openfile->current_x) {
+	pletion_line = NULL;
+	return;
+    }
+
+    shard = (char *)nmalloc((openfile->current_x - start_of_shard + 1) * sizeof(char));
+
+    /* Copy the fragment that has to be searched for. */
+    while (start_of_shard < openfile->current_x)
+	shard[shard_length++] = openfile->current->data[start_of_shard++];
+    shard[shard_length] = '\0';
+
+    /* Run through all of the lines in the buffer, looking for shard. */
+    while (pletion_line != NULL) {
+	int threshold = strlen(pletion_line->data) - shard_length - 1;
+		/* The point where we can stop searching for shard. */
+
+	/* Traverse the whole line, looking for shard. */
+	for (i = pletion_x; i < threshold; i++) {
+	    /* If the first byte doesn't match, run on. */
+	    if (pletion_line->data[i] != shard[0])
+		continue;
+
+	    /* Compare the rest of the bytes in shard. */
+	    for (j = 1; j < shard_length; j++)
+		if (pletion_line->data[i + j] != shard[j])
+		    break;
+
+	    /* If not all of the bytes matched, continue searching. */
+	    if (j < shard_length)
+		continue;
+
+	    /* If the found match is not /longer/ than shard, skip it. */
+	    if (!is_word_mbchar(&pletion_line->data[i + j], FALSE))
+		continue;
+
+	    /* If the match is not a separate word, skip it. */
+	    if (i > 0 && is_word_mbchar(&pletion_line->data[
+				move_mbleft(pletion_line->data, i)], FALSE))
+		continue;
+
+	    /* If this match is the shard itself, ignore it. */
+	    if (pletion_line == openfile->current &&
+			i == openfile->current_x - shard_length)
+		continue;
+
+	    completion = copy_completion(pletion_line->data, i);
+
+	    /* Look among earlier attempted completions for a duplicate. */
+	    some_word = list_of_completions;
+	    while (some_word && strcmp(some_word->word, completion) != 0)
+		some_word = some_word->next;
+
+	    /* If we've already tried this word, skip it. */
+	    if (some_word != NULL) {
+		free(completion);
+		continue;
+	    }
+
+	    /* Add the found word to the list of completions. */
+	    some_word = (completion_word *)nmalloc(sizeof(completion_word));
+	    some_word->word = completion;
+	    some_word->next = list_of_completions;
+	    list_of_completions = some_word;
+
+#ifndef DISABLE_WRAPPING
+	    /* Temporarily disable wrapping so only one undo item is added. */
+	    SET(NO_WRAP);
+#endif
+	    /* Inject the completion into the buffer. */
+	    do_output(&completion[shard_length],
+			strlen(completion) - shard_length, FALSE);
+#ifndef DISABLE_WRAPPING
+	    /* If needed, reenable wrapping and wrap the current line. */
+	    if (was_set_wrapping) {
+		UNSET(NO_WRAP);
+		do_wrap(openfile->current);
+	    }
+#endif
+	    /* Set the position for a possible next search attempt. */
+	    pletion_x = ++i;
+
+	    free(shard);
+	    return;
+	}
+
+	pletion_line = pletion_line->next;
+	pletion_x = 0;
+    }
+
+    /* The search has reached the end of the file. */
+    if (list_of_completions != NULL) {
+	statusline(ALERT, _("No further matches"));
+	refresh_needed = TRUE;
+    } else
+	/* TRANSLATORS: Shown when there are zero possible completions. */
+	statusline(ALERT, _("No matches"));
+
+    free(shard);
+}
+#endif /* ENABLE_WORDCOMPLETION */
