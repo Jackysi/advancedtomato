@@ -56,8 +56,8 @@ if [ $WAN2PDHCP == "1" ] && [ "$WAN2PROTO" == "pppoe" ] || [ "$WAN2PROTO" == "pp
 else
     WAN2IP="ipaddr"
 fi
-WAN1=`/bin/nvram get wan_$WANIP | /bin/grep -v "0.0.0.0" | /usr/bin/wc -w`
-WAN2=`/bin/nvram get wan2_$WANIP | /bin/grep -v "0.0.0.0" | /usr/bin/wc -w`
+[ ! "$WANPROTO" == "disabled" ] && WAN1=`/bin/nvram get wan_$WANIP | /bin/grep -v "0.0.0.0" | /usr/bin/wc -w`
+[ ! "$WAN2PROTO" == "disabled" ] && WAN2=`/bin/nvram get wan2_$WANIP | /bin/grep -v "0.0.0.0" | /usr/bin/wc -w`
 
 MULTI=`/bin/nvram show | /bin/grep 'wan3_' | /usr/bin/wc -l`
 if [ "$MULTI" -gt "0" ]; then
@@ -76,8 +76,8 @@ if [ "$MULTI" -gt "0" ]; then
     else
         WAN4IP="ipaddr"
     fi
-    WAN3=`/bin/nvram get wan3_$WAN3IP | /bin/grep -v "0.0.0.0" | /usr/bin/wc -w`
-    WAN4=`/bin/nvram get wan4_$WAN4IP | /bin/grep -v "0.0.0.0" | /usr/bin/wc -w`
+    [ ! "$WAN3PROTO" == "disabled" ] && WAN3=`/bin/nvram get wan3_$WAN3IP | /bin/grep -v "0.0.0.0" | /usr/bin/wc -w`
+    [ ! "$WAN4PROTO" == "disabled" ] && WAN4=`/bin/nvram get wan4_$WAN4IP | /bin/grep -v "0.0.0.0" | /usr/bin/wc -w`
 else
     MULTIWAN=0
 fi
@@ -163,21 +163,21 @@ if /usr/bin/[ "$MULTIWAN" == "1" ]; then
         /bin/echo " WAN4: `/bin/nvram get wan4_$WAN4IP`/$WAN4_NUMBITS @ `/bin/nvram get wan4_hwaddr`"
     fi
 fi
-/bin/echo " LAN : `/bin/nvram get lan_ipaddr`/$LAN_NUMBITS @ DHCP: `/bin/nvram get dhcpd_startip` - `/bin/nvram get dhcpd_endip`"
+/bin/echo " LAN1 : `/bin/nvram get lan_ipaddr`/$LAN_NUMBITS @ DHCP: `/bin/nvram get dhcpd_startip` - `/bin/nvram get dhcpd_endip`"
 if /usr/bin/[ "$LAN1" == "1" ]; then 
     LAN1_MASK=`/bin/nvram get lan1_netmask`
     LAN1_NUMBITS=$(mask2cidr $LAN1_MASK)
-    /bin/echo " LAN1: `/bin/nvram get lan1_ipaddr`/$LAN1_NUMBITS @ DHCP: `/bin/nvram get dhcpd1_startip` - `/bin/nvram get dhcpd1_endip`";
+    /bin/echo " LAN2: `/bin/nvram get lan1_ipaddr`/$LAN1_NUMBITS @ DHCP: `/bin/nvram get dhcpd1_startip` - `/bin/nvram get dhcpd1_endip`";
 fi
 if /usr/bin/[ "$LAN2" == "1" ]; then 
     LAN2_MASK=`/bin/nvram get lan2_netmask`
     LAN2_NUMBITS=$(mask2cidr $LAN2_MASK)
-    /bin/echo " LAN2: `/bin/nvram get lan2_ipaddr`/$LAN2_NUMBITS @ DHCP: `/bin/nvram get dhcpd2_startip` - `/bin/nvram get dhcpd2_endip`";
+    /bin/echo " LAN3: `/bin/nvram get lan2_ipaddr`/$LAN2_NUMBITS @ DHCP: `/bin/nvram get dhcpd2_startip` - `/bin/nvram get dhcpd2_endip`";
 fi
 if /usr/bin/[ "$LAN3" == "1" ]; then 
     LAN3_MASK=`/bin/nvram get lan3_netmask`
     LAN3_NUMBITS=$(mask2cidr $LAN3_MASK)
-    /bin/echo " LAN3: `/bin/nvram get lan3_ipaddr`/$LAN3_NUMBITS @ DHCP: `/bin/nvram get dhcpd3_startip` - `/bin/nvram get dhcpd3_endip`";
+    /bin/echo " LAN4: `/bin/nvram get lan3_ipaddr`/$LAN3_NUMBITS @ DHCP: `/bin/nvram get dhcpd3_startip` - `/bin/nvram get dhcpd3_endip`";
 fi
 GETCH=`/bin/nvram get wl0_channel`
 if /usr/bin/[ "$GETCH" == 0 ]; then CH="auto"; else CH=$GETCH; fi
