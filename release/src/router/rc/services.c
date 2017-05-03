@@ -1932,6 +1932,7 @@ static void start_samba(void)
 	char nlsmod[15];
 	int mode;
 	char *nv;
+	char *si;
 
 	if (getpid() != 1) {
 		start_service("smbd");
@@ -1944,6 +1945,8 @@ static void start_samba(void)
 
 	if ((fp = fopen("/etc/smb.conf", "w")) == NULL)
 		return;
+
+	si = nvram_safe_get("smbd_ifnames");
 
 	fprintf(fp, "[global]\n"
 		" interfaces = %s\n"
@@ -1963,7 +1966,7 @@ static void start_samba(void)
 		" encrypt passwords = yes\n"
 		" preserve case = yes\n"
 		" short preserve case = yes\n",
-		nvram_safe_get("lan_ifname"),
+		strlen(si) ? si : nvram_safe_get("lan_ifname"),
 		nvram_get("smbd_wgroup") ? : "WORKGROUP",
 		nvram_safe_get("lan_hostname"),
 		nvram_get("router_name") ? : "Tomato",
