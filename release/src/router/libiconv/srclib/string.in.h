@@ -1,6 +1,6 @@
 /* A GNU-like <string.h>.
 
-   Copyright (C) 1995-1996, 2001-2011 Free Software Foundation, Inc.
+   Copyright (C) 1995-1996, 2001-2017 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -13,18 +13,33 @@
    GNU General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with this program; if not, write to the Free Software Foundation,
-   Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
-
-#ifndef _@GUARD_PREFIX@_STRING_H
+   along with this program; if not, see <http://www.gnu.org/licenses/>.  */
 
 #if __GNUC__ >= 3
 @PRAGMA_SYSTEM_HEADER@
 #endif
 @PRAGMA_COLUMNS@
 
+#if defined _GL_ALREADY_INCLUDING_STRING_H
+/* Special invocation convention:
+   - On OS X/NetBSD we have a sequence of nested includes
+       <string.h> -> <strings.h> -> "string.h"
+     In this situation system _chk variants due to -D_FORTIFY_SOURCE
+     might be used after any replacements defined here.  */
+
+#@INCLUDE_NEXT@ @NEXT_STRING_H@
+
+#else
+/* Normal invocation convention.  */
+
+#ifndef _@GUARD_PREFIX@_STRING_H
+
+#define _GL_ALREADY_INCLUDING_STRING_H
+
 /* The include_next requires a split double-inclusion guard.  */
 #@INCLUDE_NEXT@ @NEXT_STRING_H@
+
+#undef _GL_ALREADY_INCLUDING_STRING_H
 
 #ifndef _@GUARD_PREFIX@_STRING_H
 #define _@GUARD_PREFIX@_STRING_H
@@ -401,15 +416,15 @@ _GL_WARN_ON_USE (strncat, "strncat is unportable - "
 #   undef strndup
 #   define strndup rpl_strndup
 #  endif
-_GL_FUNCDECL_RPL (strndup, char *, (char const *__string, size_t __n)
+_GL_FUNCDECL_RPL (strndup, char *, (char const *__s, size_t __n)
                                    _GL_ARG_NONNULL ((1)));
-_GL_CXXALIAS_RPL (strndup, char *, (char const *__string, size_t __n));
+_GL_CXXALIAS_RPL (strndup, char *, (char const *__s, size_t __n));
 # else
 #  if ! @HAVE_DECL_STRNDUP@
-_GL_FUNCDECL_SYS (strndup, char *, (char const *__string, size_t __n)
+_GL_FUNCDECL_SYS (strndup, char *, (char const *__s, size_t __n)
                                    _GL_ARG_NONNULL ((1)));
 #  endif
-_GL_CXXALIAS_SYS (strndup, char *, (char const *__string, size_t __n));
+_GL_CXXALIAS_SYS (strndup, char *, (char const *__s, size_t __n));
 # endif
 _GL_CXXALIASWARN (strndup);
 #elif defined GNULIB_POSIXCHECK
@@ -429,17 +444,17 @@ _GL_WARN_ON_USE (strndup, "strndup is unportable - "
 #   undef strnlen
 #   define strnlen rpl_strnlen
 #  endif
-_GL_FUNCDECL_RPL (strnlen, size_t, (char const *__string, size_t __maxlen)
+_GL_FUNCDECL_RPL (strnlen, size_t, (char const *__s, size_t __maxlen)
                                    _GL_ATTRIBUTE_PURE
                                    _GL_ARG_NONNULL ((1)));
-_GL_CXXALIAS_RPL (strnlen, size_t, (char const *__string, size_t __maxlen));
+_GL_CXXALIAS_RPL (strnlen, size_t, (char const *__s, size_t __maxlen));
 # else
 #  if ! @HAVE_DECL_STRNLEN@
-_GL_FUNCDECL_SYS (strnlen, size_t, (char const *__string, size_t __maxlen)
+_GL_FUNCDECL_SYS (strnlen, size_t, (char const *__s, size_t __maxlen)
                                    _GL_ATTRIBUTE_PURE
                                    _GL_ARG_NONNULL ((1)));
 #  endif
-_GL_CXXALIAS_SYS (strnlen, size_t, (char const *__string, size_t __maxlen));
+_GL_CXXALIAS_SYS (strnlen, size_t, (char const *__s, size_t __maxlen));
 # endif
 _GL_CXXALIASWARN (strnlen);
 #elif defined GNULIB_POSIXCHECK
@@ -725,10 +740,14 @@ _GL_WARN_ON_USE (strtok_r, "strtok_r is unportable - "
 #  if !(defined __cplusplus && defined GNULIB_NAMESPACE)
 #   define mbslen rpl_mbslen
 #  endif
-_GL_FUNCDECL_RPL (mbslen, size_t, (const char *string) _GL_ARG_NONNULL ((1)));
+_GL_FUNCDECL_RPL (mbslen, size_t, (const char *string)
+                                  _GL_ATTRIBUTE_PURE
+                                  _GL_ARG_NONNULL ((1)));
 _GL_CXXALIAS_RPL (mbslen, size_t, (const char *string));
 # else
-_GL_FUNCDECL_SYS (mbslen, size_t, (const char *string) _GL_ARG_NONNULL ((1)));
+_GL_FUNCDECL_SYS (mbslen, size_t, (const char *string)
+                                  _GL_ATTRIBUTE_PURE
+                                  _GL_ARG_NONNULL ((1)));
 _GL_CXXALIAS_SYS (mbslen, size_t, (const char *string));
 # endif
 _GL_CXXALIASWARN (mbslen);
@@ -738,6 +757,7 @@ _GL_CXXALIASWARN (mbslen);
 /* Return the number of multibyte characters in the character string starting
    at STRING and ending at STRING + LEN.  */
 _GL_EXTERN_C size_t mbsnlen (const char *string, size_t len)
+     _GL_ATTRIBUTE_PURE
      _GL_ARG_NONNULL ((1));
 #endif
 
@@ -751,10 +771,12 @@ _GL_EXTERN_C size_t mbsnlen (const char *string, size_t len)
 #   define mbschr rpl_mbschr /* avoid collision with HP-UX function */
 #  endif
 _GL_FUNCDECL_RPL (mbschr, char *, (const char *string, int c)
+                                  _GL_ATTRIBUTE_PURE
                                   _GL_ARG_NONNULL ((1)));
 _GL_CXXALIAS_RPL (mbschr, char *, (const char *string, int c));
 # else
 _GL_FUNCDECL_SYS (mbschr, char *, (const char *string, int c)
+                                  _GL_ATTRIBUTE_PURE
                                   _GL_ARG_NONNULL ((1)));
 _GL_CXXALIAS_SYS (mbschr, char *, (const char *string, int c));
 # endif
@@ -771,10 +793,12 @@ _GL_CXXALIASWARN (mbschr);
 #   define mbsrchr rpl_mbsrchr /* avoid collision with system function */
 #  endif
 _GL_FUNCDECL_RPL (mbsrchr, char *, (const char *string, int c)
+                                   _GL_ATTRIBUTE_PURE
                                    _GL_ARG_NONNULL ((1)));
 _GL_CXXALIAS_RPL (mbsrchr, char *, (const char *string, int c));
 # else
 _GL_FUNCDECL_SYS (mbsrchr, char *, (const char *string, int c)
+                                   _GL_ATTRIBUTE_PURE
                                    _GL_ARG_NONNULL ((1)));
 _GL_CXXALIAS_SYS (mbsrchr, char *, (const char *string, int c));
 # endif
@@ -787,6 +811,7 @@ _GL_CXXALIASWARN (mbsrchr);
    Unlike strstr(), this function works correctly in multibyte locales with
    encodings different from UTF-8.  */
 _GL_EXTERN_C char * mbsstr (const char *haystack, const char *needle)
+     _GL_ATTRIBUTE_PURE
      _GL_ARG_NONNULL ((1, 2));
 #endif
 
@@ -798,6 +823,7 @@ _GL_EXTERN_C char * mbsstr (const char *haystack, const char *needle)
    different lengths!
    Unlike strcasecmp(), this function works correctly in multibyte locales.  */
 _GL_EXTERN_C int mbscasecmp (const char *s1, const char *s2)
+     _GL_ATTRIBUTE_PURE
      _GL_ARG_NONNULL ((1, 2));
 #endif
 
@@ -812,6 +838,7 @@ _GL_EXTERN_C int mbscasecmp (const char *s1, const char *s2)
    Unlike strncasecmp(), this function works correctly in multibyte locales.
    But beware that N is not a byte count but a character count!  */
 _GL_EXTERN_C int mbsncasecmp (const char *s1, const char *s2, size_t n)
+     _GL_ATTRIBUTE_PURE
      _GL_ARG_NONNULL ((1, 2));
 #endif
 
@@ -825,6 +852,7 @@ _GL_EXTERN_C int mbsncasecmp (const char *s1, const char *s2, size_t n)
    Unlike strncasecmp(), this function works correctly in multibyte
    locales.  */
 _GL_EXTERN_C char * mbspcasecmp (const char *string, const char *prefix)
+     _GL_ATTRIBUTE_PURE
      _GL_ARG_NONNULL ((1, 2));
 #endif
 
@@ -835,6 +863,7 @@ _GL_EXTERN_C char * mbspcasecmp (const char *string, const char *prefix)
    strlen (haystack) < strlen (needle) !
    Unlike strcasestr(), this function works correctly in multibyte locales.  */
 _GL_EXTERN_C char * mbscasestr (const char *haystack, const char *needle)
+     _GL_ATTRIBUTE_PURE
      _GL_ARG_NONNULL ((1, 2));
 #endif
 
@@ -845,6 +874,7 @@ _GL_EXTERN_C char * mbscasestr (const char *haystack, const char *needle)
    if none exists.
    Unlike strcspn(), this function works correctly in multibyte locales.  */
 _GL_EXTERN_C size_t mbscspn (const char *string, const char *accept)
+     _GL_ATTRIBUTE_PURE
      _GL_ARG_NONNULL ((1, 2));
 #endif
 
@@ -858,10 +888,12 @@ _GL_EXTERN_C size_t mbscspn (const char *string, const char *accept)
 #   define mbspbrk rpl_mbspbrk /* avoid collision with HP-UX function */
 #  endif
 _GL_FUNCDECL_RPL (mbspbrk, char *, (const char *string, const char *accept)
+                                   _GL_ATTRIBUTE_PURE
                                    _GL_ARG_NONNULL ((1, 2)));
 _GL_CXXALIAS_RPL (mbspbrk, char *, (const char *string, const char *accept));
 # else
 _GL_FUNCDECL_SYS (mbspbrk, char *, (const char *string, const char *accept)
+                                   _GL_ATTRIBUTE_PURE
                                    _GL_ARG_NONNULL ((1, 2)));
 _GL_CXXALIAS_SYS (mbspbrk, char *, (const char *string, const char *accept));
 # endif
@@ -875,6 +907,7 @@ _GL_CXXALIASWARN (mbspbrk);
    if none exists.
    Unlike strspn(), this function works correctly in multibyte locales.  */
 _GL_EXTERN_C size_t mbsspn (const char *string, const char *reject)
+     _GL_ATTRIBUTE_PURE
      _GL_ARG_NONNULL ((1, 2));
 #endif
 
@@ -994,6 +1027,7 @@ _GL_WARN_ON_USE (strsignal, "strsignal is unportable - "
 #if @GNULIB_STRVERSCMP@
 # if !@HAVE_STRVERSCMP@
 _GL_FUNCDECL_SYS (strverscmp, int, (const char *, const char *)
+                                   _GL_ATTRIBUTE_PURE
                                    _GL_ARG_NONNULL ((1, 2)));
 # endif
 _GL_CXXALIAS_SYS (strverscmp, int, (const char *, const char *));
@@ -1009,3 +1043,4 @@ _GL_WARN_ON_USE (strverscmp, "strverscmp is unportable - "
 
 #endif /* _@GUARD_PREFIX@_STRING_H */
 #endif /* _@GUARD_PREFIX@_STRING_H */
+#endif

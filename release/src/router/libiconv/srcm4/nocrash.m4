@@ -1,5 +1,5 @@
-# nocrash.m4 serial 2
-dnl Copyright (C) 2005, 2009-2011 Free Software Foundation, Inc.
+# nocrash.m4 serial 4
+dnl Copyright (C) 2005, 2009-2017 Free Software Foundation, Inc.
 dnl This file is free software; the Free Software Foundation
 dnl gives unlimited permission to copy and/or distribute it,
 dnl with or without modifications, as long as this notice is preserved.
@@ -18,7 +18,7 @@ dnl          int main() { nocrash_init(); ... }
 AC_DEFUN([GL_NOCRASH],[[
 #include <stdlib.h>
 #if defined __MACH__ && defined __APPLE__
-/* Avoid a crash on MacOS X.  */
+/* Avoid a crash on Mac OS X.  */
 #include <mach/mach.h>
 #include <mach/mach_error.h>
 #include <mach/thread_status.h>
@@ -79,14 +79,43 @@ nocrash_init (void)
     }
   }
 }
+#elif (defined _WIN32 || defined __WIN32__) && ! defined __CYGWIN__
+/* Avoid a crash on native Windows.  */
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <winerror.h>
+static LONG WINAPI
+exception_filter (EXCEPTION_POINTERS *ExceptionInfo)
+{
+  switch (ExceptionInfo->ExceptionRecord->ExceptionCode)
+    {
+    case EXCEPTION_ACCESS_VIOLATION:
+    case EXCEPTION_IN_PAGE_ERROR:
+    case EXCEPTION_STACK_OVERFLOW:
+    case EXCEPTION_GUARD_PAGE:
+    case EXCEPTION_PRIV_INSTRUCTION:
+    case EXCEPTION_ILLEGAL_INSTRUCTION:
+    case EXCEPTION_DATATYPE_MISALIGNMENT:
+    case EXCEPTION_ARRAY_BOUNDS_EXCEEDED:
+    case EXCEPTION_NONCONTINUABLE_EXCEPTION:
+      exit (1);
+    }
+  return EXCEPTION_CONTINUE_SEARCH;
+}
+static void
+nocrash_init (void)
+{
+  SetUnhandledExceptionFilter ((LPTOP_LEVEL_EXCEPTION_FILTER) exception_filter);
+}
 #else
 /* Avoid a crash on POSIX systems.  */
 #include <signal.h>
+#include <unistd.h>
 /* A POSIX signal handler.  */
 static void
 exception_handler (int sig)
 {
-  exit (1);
+  _exit (1);
 }
 static void
 nocrash_init (void)

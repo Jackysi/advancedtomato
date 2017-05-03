@@ -35,7 +35,7 @@ void
 xalloc_die ()
 {
   error (xmalloc_exit_failure, 0, _("memory exhausted"));
-  /* The `noreturn' cannot be given to error, since it may return if
+  /* _Noreturn cannot be given to error, since it may return if
      its first argument is 0.  To help compilers understand the
      xalloc_die does terminate, call exit. */
   exit (EXIT_FAILURE);

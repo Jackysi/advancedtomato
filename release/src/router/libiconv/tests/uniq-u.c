@@ -1,5 +1,5 @@
 /* uniq -- remove duplicate lines from a sorted file
-   Copyright (C) 86, 91, 1995-1998, 1999 Free Software Foundation, Inc.
+   Copyright (C) 86, 91, 1995-1998, 1999, 2012 Free Software Foundation, Inc.
 
    This program is free software: you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -58,7 +58,7 @@ xrealloc (void *p, size_t n)
   return p;
 }
 
-/* A `struct linebuffer' holds a line of text. */
+/* A 'struct linebuffer' holds a line of text. */
 
 struct linebuffer
 {

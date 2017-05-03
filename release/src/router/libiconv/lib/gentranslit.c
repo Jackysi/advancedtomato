@@ -1,4 +1,4 @@
-/* Copyright (C) 1999-2003, 2005, 2011 Free Software Foundation, Inc.
+/* Copyright (C) 1999-2003, 2005, 2011-2012, 2016 Free Software Foundation, Inc.
    This file is part of the GNU LIBICONV Library.
 
    The GNU LIBICONV Library is free software; you can redistribute it
@@ -13,8 +13,7 @@
 
    You should have received a copy of the GNU Library General Public
    License along with the GNU LIBICONV Library; see the file COPYING.LIB.
-   If not, write to the Free Software Foundation, Inc., 51 Franklin Street,
-   Fifth Floor, Boston, MA 02110-1301, USA.  */
+   If not, see <http://www.gnu.org/licenses/>.  */
 
 /*
  * Generates a table of small strings, used for transliteration, from a table
@@ -28,12 +27,19 @@
 
 int main (int argc, char *argv[])
 {
-  unsigned int data[0x100000];
-  int uni2index[0x110000];
+  unsigned int *data;
+  int *uni2index;
   int index;
 
   if (argc != 1)
     exit(1);
+
+  data = malloc(0x100000 * sizeof(*data));
+  uni2index = malloc(0x110000 * sizeof(*uni2index));
+  if (data == NULL || uni2index == NULL) {
+    fprintf(stderr, "out of memory\n");
+    exit(1);
+  }
 
   printf("/*\n");
   printf(" * Copyright (C) 1999-2003 Free Software Foundation, Inc.\n");
@@ -51,8 +57,7 @@ int main (int argc, char *argv[])
   printf(" *\n");
   printf(" * You should have received a copy of the GNU Library General Public\n");
   printf(" * License along with the GNU LIBICONV Library; see the file COPYING.LIB.\n");
-  printf(" * If not, write to the Free Software Foundation, Inc., 51 Franklin Street,\n");
-  printf(" * Fifth Floor, Boston, MA 02110-1301, USA.\n");
+  printf(" * If not, see <http://www.gnu.org/licenses/>.\n");
   printf(" */\n");
   printf("\n");
   printf("/*\n");
@@ -132,17 +137,11 @@ int main (int argc, char *argv[])
   }
   printf("\n");
   {
-    bool pages[0x1100];
     int line[0x22000];
     int tableno;
     struct { int minline; int maxline; int usecount; const char* suffix; } tables[0x2000];
     int i, j, p, j1, j2, t;
 
-    for (p = 0; p < 0x1100; p++)
-      pages[p] = false;
-    for (j = 0; j < 0x110000; j++)
-      if (uni2index[j] >= 0)
-        pages[j>>8] = true;
     for (j1 = 0; j1 < 0x22000; j1++) {
       bool all_invalid = true;
       for (j2 = 0; j2 < 8; j2++) {

@@ -1,6 +1,6 @@
 /* A GNU-like <signal.h>.
 
-   Copyright (C) 2006-2011 Free Software Foundation, Inc.
+   Copyright (C) 2006-2017 Free Software Foundation, Inc.
 
    This program is free software: you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -55,11 +55,13 @@
 #ifndef _@GUARD_PREFIX@_SIGNAL_H
 #define _@GUARD_PREFIX@_SIGNAL_H
 
-/* MacOS X 10.3, FreeBSD 6.4, OpenBSD 3.8, OSF/1 4.0, Solaris 2.6 declare
-   pthread_sigmask in <pthread.h>, not in <signal.h>.
+/* Mac OS X 10.3, FreeBSD 6.4, OpenBSD 3.8, OSF/1 4.0, Solaris 2.6, Android
+   declare pthread_sigmask in <pthread.h>, not in <signal.h>.
    But avoid namespace pollution on glibc systems.*/
 #if (@GNULIB_PTHREAD_SIGMASK@ || defined GNULIB_POSIXCHECK) \
-    && ((defined __APPLE__ && defined __MACH__) || defined __FreeBSD__ || defined __OpenBSD__ || defined __osf__ || defined __sun) \
+    && ((defined __APPLE__ && defined __MACH__) \
+        || defined __FreeBSD__ || defined __OpenBSD__ || defined __osf__ \
+        || defined __sun || defined __ANDROID__) \
     && ! defined __GLIBC__
 # include <pthread.h>
 #endif
@@ -152,8 +154,35 @@ _GL_WARN_ON_USE (pthread_sigmask, "pthread_sigmask is not portable - "
 #endif
 
 
+#if @GNULIB_RAISE@
+# if @REPLACE_RAISE@
+#  if !(defined __cplusplus && defined GNULIB_NAMESPACE)
+#   undef raise
+#   define raise rpl_raise
+#  endif
+_GL_FUNCDECL_RPL (raise, int, (int sig));
+_GL_CXXALIAS_RPL (raise, int, (int sig));
+# else
+#  if !@HAVE_RAISE@
+_GL_FUNCDECL_SYS (raise, int, (int sig));
+#  endif
+_GL_CXXALIAS_SYS (raise, int, (int sig));
+# endif
+_GL_CXXALIASWARN (raise);
+#elif defined GNULIB_POSIXCHECK
+# undef raise
+/* Assume raise is always declared.  */
+_GL_WARN_ON_USE (raise, "raise can crash on native Windows - "
+                 "use gnulib module raise for portability");
+#endif
+
+
 #if @GNULIB_SIGPROCMASK@
 # if !@HAVE_POSIX_SIGNALBLOCKING@
+
+#  ifndef GNULIB_defined_signal_blocking
+#   define GNULIB_defined_signal_blocking 1
+#  endif
 
 /* Maximum signal number + 1.  */
 #  ifndef NSIG
@@ -168,9 +197,23 @@ typedef int verify_NSIG_constraint[NSIG <= 32 ? 1 : -1];
 
 # endif
 
+/* When also using extern inline, suppress the use of static inline in
+   standard headers of problematic Apple configurations, as Libc at
+   least through Libc-825.26 (2013-04-09) mishandles it; see, e.g.,
+   <http://lists.gnu.org/archive/html/bug-gnulib/2012-12/msg00023.html>.
+   Perhaps Apple will fix this some day.  */
+#if (defined _GL_EXTERN_INLINE_IN_USE && defined __APPLE__ \
+     && (defined __i386__ || defined __x86_64__))
+# undef sigaddset
+# undef sigdelset
+# undef sigemptyset
+# undef sigfillset
+# undef sigismember
+#endif
+
 /* Test whether a given signal is contained in a signal set.  */
 # if @HAVE_POSIX_SIGNALBLOCKING@
-/* This function is defined as a macro on MacOS X.  */
+/* This function is defined as a macro on Mac OS X.  */
 #  if defined __cplusplus && defined GNULIB_NAMESPACE
 #   undef sigismember
 #  endif
@@ -183,7 +226,7 @@ _GL_CXXALIASWARN (sigismember);
 
 /* Initialize a signal set to the empty set.  */
 # if @HAVE_POSIX_SIGNALBLOCKING@
-/* This function is defined as a macro on MacOS X.  */
+/* This function is defined as a macro on Mac OS X.  */
 #  if defined __cplusplus && defined GNULIB_NAMESPACE
 #   undef sigemptyset
 #  endif
@@ -195,7 +238,7 @@ _GL_CXXALIASWARN (sigemptyset);
 
 /* Add a signal to a signal set.  */
 # if @HAVE_POSIX_SIGNALBLOCKING@
-/* This function is defined as a macro on MacOS X.  */
+/* This function is defined as a macro on Mac OS X.  */
 #  if defined __cplusplus && defined GNULIB_NAMESPACE
 #   undef sigaddset
 #  endif
@@ -208,7 +251,7 @@ _GL_CXXALIASWARN (sigaddset);
 
 /* Remove a signal from a signal set.  */
 # if @HAVE_POSIX_SIGNALBLOCKING@
-/* This function is defined as a macro on MacOS X.  */
+/* This function is defined as a macro on Mac OS X.  */
 #  if defined __cplusplus && defined GNULIB_NAMESPACE
 #   undef sigdelset
 #  endif
@@ -221,7 +264,7 @@ _GL_CXXALIASWARN (sigdelset);
 
 /* Fill a signal set with all possible signals.  */
 # if @HAVE_POSIX_SIGNALBLOCKING@
-/* This function is defined as a macro on MacOS X.  */
+/* This function is defined as a macro on Mac OS X.  */
 #  if defined __cplusplus && defined GNULIB_NAMESPACE
 #   undef sigfillset
 #  endif
@@ -280,18 +323,10 @@ _GL_CXXALIAS_SYS (signal, _gl_function_taking_int_returning_void_t,
 # endif
 _GL_CXXALIASWARN (signal);
 
-/* Raise signal SIG.  */
 # if !@HAVE_POSIX_SIGNALBLOCKING@ && GNULIB_defined_SIGPIPE
-#  if !(defined __cplusplus && defined GNULIB_NAMESPACE)
-#   undef raise
-#   define raise rpl_raise
-#  endif
-_GL_FUNCDECL_RPL (raise, int, (int sig));
-_GL_CXXALIAS_RPL (raise, int, (int sig));
-# else
-_GL_CXXALIAS_SYS (raise, int, (int sig));
+/* Raise signal SIGPIPE.  */
+_GL_EXTERN_C int _gl_raise_SIGPIPE (void);
 # endif
-_GL_CXXALIASWARN (raise);
 
 #elif defined GNULIB_POSIXCHECK
 # undef sigaddset

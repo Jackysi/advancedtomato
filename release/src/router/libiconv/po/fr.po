@@ -1,20 +1,23 @@
 # Messages français pour GNU concernant libiconv.
+# This file is distributed under the same license as the libiconv package.
 # Copyright © 2004, 2008 Free Software Foundation, Inc.
 # Michel Robitaille <robitail@IRO.UMontreal.CA>, traducteur depuis/since 1996.
 # François-Xavier Coudert <fxcoudert@gmail.com>, 2008.
+# Stéphane Aulery <lkppo@free.fr>, 2016.
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: GNU libiconv 1.12\n"
+"Project-Id-Version: GNU libiconv 1.15-pre1\n"
 "Report-Msgid-Bugs-To: bug-gnu-libiconv@gnu.org\n"
-"POT-Creation-Date: 2011-08-07 15:24+0200\n"
-"PO-Revision-Date: 2008-03-30 11:21+0000\n"
-"Last-Translator: François-Xavier Coudert <fxcoudert@gmail.com>\n"
+"POT-Creation-Date: 2016-12-04 17:16+0100\n"
+"PO-Revision-Date: 2016-12-23 20:58+0100\n"
+"Last-Translator: Stéphane Aulery <lkppo@free.fr>\n"
 "Language-Team: French <traduc@traduc.org>\n"
 "Language: fr\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8-bit\n"
+"X-Bugs: Report translation errors to the Language-Team address.\n"
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
 
 #. TRANSLATORS: The first line of the short usage message.
@@ -30,7 +33,7 @@ msgstr "ou:    iconv -l"
 
 #: src/iconv.c:110
 #, c-format
-msgid "Try `%s --help' for more information.\n"
+msgid "Try '%s --help' for more information.\n"
 msgstr "Essayez « %s --help » pour plus d'informations.\n"
 
 #. TRANSLATORS: The first line of the long usage message.
@@ -149,13 +152,13 @@ msgid "Report bugs to <bug-gnu-libiconv@gnu.org>.\n"
 msgstr "Soumettre les rapports d'anomalies à <bug-gnu-libiconv@gnu.org>.\n"
 
 #: src/iconv.c:196
-#, fuzzy, no-wrap
+#, no-wrap
 msgid ""
 "License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>\n"
 "This is free software: you are free to change and redistribute it.\n"
 "There is NO WARRANTY, to the extent permitted by law.\n"
 msgstr ""
-"Licence GPLv2+: GNU GPL version 2 ou ultérieure <http://gnu.org/licenses/gpl.html>\n"
+"Licence GPLv3+: GNU GPL version 4 ou ultérieure <http://gnu.org/licenses/gpl.html>\n"
 "Ce logiciel est libre: vous pouvez le modifier et le redistribuer.\n"
 "Il n'y a PAS DE GARANTIE, selon les limites permises par la loi..\n"
 
@@ -308,66 +311,47 @@ msgstr "%s: erreur E/S"
 
 #. TRANSLATORS: An error message.
 #. The placeholder expands to the encoding name, specified through --from-code.
-#: src/iconv.c:1014
+#: src/iconv.c:1015
 #, c-format
 msgid "conversion from %s unsupported"
 msgstr "conversion à partir de %s non supportée"
 
 #. TRANSLATORS: An error message.
 #. The placeholder expands to the encoding name, specified through --to-code.
-#: src/iconv.c:1020
+#: src/iconv.c:1021
 #, c-format
 msgid "conversion to %s unsupported"
 msgstr "conversion vers %s non supportée"
 
 #. TRANSLATORS: An error message.
 #. The placeholders expand to the encoding names, specified through --from-code and --to-code, respectively.
-#: src/iconv.c:1026
+#: src/iconv.c:1027
 #, c-format
 msgid "conversion from %s to %s unsupported"
 msgstr "conversion à partir de %s vers %s non supportée"
 
 #. TRANSLATORS: Additional advice after an error message.
 #. The %s placeholder expands to the program name.
-#: src/iconv.c:1031
+#: src/iconv.c:1032
 #, c-format
 msgid "try '%s -l' to get the list of supported encodings"
 msgstr "essayez « %s -l » pour obtenir la liste des codages supportés"
 
 #. TRANSLATORS: A filename substitute denoting standard input.
-#: src/iconv.c:1088
+#: src/iconv.c:1089
 msgid "(stdin)"
 msgstr "(stdin)"
 
 #. TRANSLATORS: The first part of an error message.
 #. It is followed by a colon and a detail message.
 #. The %s placeholder expands to the input file name.
-#: src/iconv.c:1100
+#: src/iconv.c:1101
 #, c-format
 msgid "%s"
 msgstr "%s"
 
 #. TRANSLATORS: An error message.
-#: src/iconv.c:1114
+#: src/iconv.c:1115
 #, c-format
 msgid "I/O error"
 msgstr "erreur E/S"
-
-#~ msgid ""
-#~ "Usage: iconv [--binary] [-c] [-s] [-f fromcode] [-t tocode] [file ...]"
-#~ msgstr ""
-#~ "Usage: iconv [--binary] [-c] [-s] [-f code_source] [-t code_cible] "
-#~ "[fichier ...]"
-
-#~ msgid ""
-#~ "This is free software; see the source for copying conditions.  There is "
-#~ "NO\n"
-#~ "warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR "
-#~ "PURPOSE.\n"
-#~ msgstr ""
-#~ "Ce logiciel est libre; voir les sources pour les conditions de\n"
-#~ "reproduction. AUCUNE garantie n'est donnée; tant pour des raisons\n"
-#~ "COMMERCIALES que pour RÉPONDRE À UN BESOIN PARTICULIER.\n"
-
-#~ msgid "iconv: %s: "
-#~ msgstr "iconv: %s: "

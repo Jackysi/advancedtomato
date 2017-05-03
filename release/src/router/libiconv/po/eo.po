@@ -1,25 +1,29 @@
 # Mesaĝoj por la biblioteko "libiconv".
-# Copyright © 2002 Free Software Foundation, Inc.
+# Copyright © 2002, 2006, 2007, 2017 Free Software Foundation, Inc.
+# This file is distributed under the same license as the libiconv package.
 # Edmund GRIMLEY EVANS <edmundo@rano.org>, 2002, 2006-2007.
+# Felipe Castro <fefcas@gmail.com>, 2017.
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: libiconv 1.12\n"
+"Project-Id-Version: libiconv 1.15-pre1\n"
 "Report-Msgid-Bugs-To: bug-gnu-libiconv@gnu.org\n"
-"POT-Creation-Date: 2011-08-07 15:24+0200\n"
-"PO-Revision-Date: 2007-12-27 21:22+0000\n"
-"Last-Translator: Edmund GRIMLEY EVANS <edmundo@rano.org>\n"
+"POT-Creation-Date: 2016-12-04 17:16+0100\n"
+"PO-Revision-Date: 2017-01-27 23:17-0300\n"
+"Last-Translator: Felipe Castro <fefcas@gmail.com>\n"
 "Language-Team: Esperanto <translation-team-eo@lists.sourceforge.net>\n"
 "Language: eo\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"X-Bugs: Report translation errors to the Language-Team address.\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"X-Generator: Poedit 1.5.4\n"
 
 #. TRANSLATORS: The first line of the short usage message.
 #: src/iconv.c:104
 msgid "Usage: iconv [-c] [-s] [-f fromcode] [-t tocode] [file ...]"
-msgstr "Uzado: iconv [-c] [-s] [-f fontkodo] [-t celkodo] [dosiero ...]"
+msgstr "Uzmaniero: iconv [-c] [-s] [-f fontkodo] [-t celkodo] [dosiero ...]"
 
 #. TRANSLATORS: The second line of the short usage message.
 #. Align it correctly against the first line.
@@ -29,7 +33,7 @@ msgstr "aŭ:    iconv -l"
 
 #: src/iconv.c:110
 #, c-format
-msgid "Try `%s --help' for more information.\n"
+msgid "Try '%s --help' for more information.\n"
 msgstr "Provu '%s --help' por pli da informoj.\n"
 
 #. TRANSLATORS: The first line of the long usage message.
@@ -37,7 +41,7 @@ msgstr "Provu '%s --help' por pli da informoj.\n"
 #: src/iconv.c:115
 #, c-format, no-wrap
 msgid "Usage: %s [OPTION...] [-f ENCODING] [-t ENCODING] [INPUTFILE...]\n"
-msgstr "Uzado: %s [OPCIO...] [-f KODO] [-t KODO] [ENIGDOSIERO...]\n"
+msgstr "Uzmaniero: %s [OPCIO...] [-f KODO] [-t KODO] [ENIGDOSIERO...]\n"
 
 #. TRANSLATORS: The second line of the long usage message.
 #. Align it correctly against the first line.
@@ -148,13 +152,13 @@ msgid "Report bugs to <bug-gnu-libiconv@gnu.org>.\n"
 msgstr "Raportu cimojn al <bug-gnu-libiconv@gnu.org>.\n"
 
 #: src/iconv.c:196
-#, fuzzy, no-wrap
+#, no-wrap
 msgid ""
 "License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>\n"
 "This is free software: you are free to change and redistribute it.\n"
 "There is NO WARRANTY, to the extent permitted by law.\n"
 msgstr ""
-"Rajtigilo GPLv2+: GNU-GPL versio 2 aŭ posta <http://gnu.org/licenses/gpl.html>\n"
+"Permeso GPLv3+: GNU-GPL versio 3 aŭ posta <http://gnu.org/licenses/gpl.html>\n"
 "Ĉi tio estas libera programo: vi rajtas ŝanĝi ĝin kaj pludoni kopiojn.\n"
 "Estas NENIA GARANTIO, laŭ la grado leĝe permesata.\n"
 
@@ -170,7 +174,8 @@ msgstr "Verkita de %s.\n"
 #, c-format
 msgid ""
 "%s argument: A format directive with a variable width is not allowed here."
-msgstr "%s argumento: Formatdirektivo kun variabla larĝo ne eblas ĉi tie."
+msgstr ""
+"%s argumento: formodirektivo kun variabla larĝo ne estas permesata ĉi tie."
 
 #. TRANSLATORS: An error message.
 #. The %s placeholder expands to a command-line option.
@@ -179,21 +184,22 @@ msgstr "%s argumento: Formatdirektivo kun variabla larĝo ne eblas ĉi tie."
 msgid ""
 "%s argument: A format directive with a variable precision is not allowed "
 "here."
-msgstr "%s argumento: Formatdirektivo kun variabla precizo ne eblas ĉi tie."
+msgstr ""
+"%s argumento: formodirektivo kun variabla precizo ne estas permesata ĉi tie."
 
 #. TRANSLATORS: An error message.
 #. The %s placeholder expands to a command-line option.
 #: src/iconv.c:327
 #, c-format
 msgid "%s argument: A format directive with a size is not allowed here."
-msgstr "%s argumento: Formatdirektivo kun grando ne eblas ĉi tie."
+msgstr "%s argumento: formodirektivo kun grando ne estas permesata ĉi tie."
 
 #. TRANSLATORS: An error message.
 #. The %s placeholder expands to a command-line option.
 #: src/iconv.c:369
 #, c-format
 msgid "%s argument: The string ends in the middle of a directive."
-msgstr "%s argumento: La signoĉeno finiĝas meze de direktivo."
+msgstr "%s argumento: la signoĉeno finiĝas meze de direktivo."
 
 #. TRANSLATORS: An error message.
 #. The %s placeholder expands to a command-line option.
@@ -201,7 +207,7 @@ msgstr "%s argumento: La signoĉeno finiĝas meze de direktivo."
 #: src/iconv.c:376
 #, c-format
 msgid "%s argument: The character '%c' is not a valid conversion specifier."
-msgstr "%s argumento: La signo '%c' ne estas valida konvertospecifo."
+msgstr "%s argumento: la signo '%c' ne estas valida konvertospecifo."
 
 #. TRANSLATORS: An error message.
 #. The %s placeholder expands to a command-line option.
@@ -211,7 +217,7 @@ msgid ""
 "%s argument: The character that terminates the format directive is not a "
 "valid conversion specifier."
 msgstr ""
-"%s argumento: La signo, kiu finas la formatdirektivon ne estas valida "
+"%s argumento: la signo, kiu finas la formatdirektivon ne estas valida "
 "konvertospecifo."
 
 #. TRANSLATORS: An error message.
@@ -224,9 +230,9 @@ msgid ""
 msgid_plural ""
 "%s argument: The format string consumes more than one argument: %u arguments."
 msgstr[0] ""
-"%s argumento: La formatoĉeno konsumas pli ol unu argumenton: %u argumento."
+"%s argumento: la formatoĉeno konsumas pli ol unu argumenton: %u argumento."
 msgstr[1] ""
-"%s argumento: La formatoĉeno konsumas pli ol unu argumenton: %u argumentoj."
+"%s argumento: la formatoĉeno konsumas pli ol unu argumenton: %u argumentoj."
 
 #. TRANSLATORS: An error message.
 #. The %s placeholder expands to a piece of text, specified through --byte-subst.
@@ -296,47 +302,47 @@ msgstr "%s: leg/skrib-eraro"
 
 #. TRANSLATORS: An error message.
 #. The placeholder expands to the encoding name, specified through --from-code.
-#: src/iconv.c:1014
+#: src/iconv.c:1015
 #, c-format
 msgid "conversion from %s unsupported"
-msgstr "konvertado de %s ne disponata"
+msgstr "konvertado de %s ne estas subtenata"
 
 #. TRANSLATORS: An error message.
 #. The placeholder expands to the encoding name, specified through --to-code.
-#: src/iconv.c:1020
+#: src/iconv.c:1021
 #, c-format
 msgid "conversion to %s unsupported"
-msgstr "konvertado al %s ne disponata"
+msgstr "konvertado al %s ne estas subtenata"
 
 #. TRANSLATORS: An error message.
 #. The placeholders expand to the encoding names, specified through --from-code and --to-code, respectively.
-#: src/iconv.c:1026
+#: src/iconv.c:1027
 #, c-format
 msgid "conversion from %s to %s unsupported"
-msgstr "konvertado de %s al %s ne disponata"
+msgstr "konvertado de %s al %s ne estas subtenata"
 
 #. TRANSLATORS: Additional advice after an error message.
 #. The %s placeholder expands to the program name.
-#: src/iconv.c:1031
+#: src/iconv.c:1032
 #, c-format
 msgid "try '%s -l' to get the list of supported encodings"
 msgstr "provu '%s -l' por ricevi liston de konataj kodoj"
 
 #. TRANSLATORS: A filename substitute denoting standard input.
-#: src/iconv.c:1088
+#: src/iconv.c:1089
 msgid "(stdin)"
 msgstr "(normala enigo)"
 
 #. TRANSLATORS: The first part of an error message.
 #. It is followed by a colon and a detail message.
 #. The %s placeholder expands to the input file name.
-#: src/iconv.c:1100
+#: src/iconv.c:1101
 #, c-format
 msgid "%s"
 msgstr "%s"
 
 #. TRANSLATORS: An error message.
-#: src/iconv.c:1114
+#: src/iconv.c:1115
 #, c-format
 msgid "I/O error"
 msgstr "leg/skrib-eraro"

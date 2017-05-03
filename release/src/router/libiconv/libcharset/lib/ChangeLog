@@ -1,3 +1,80 @@
+2016-12-14  Bruno Haible  <bruno@clisp.org>
+
+	Cleanup useless removals.
+	* Makefile.in (distclean): No need to remove config.* and libtool.
+
+2016-12-03  Bruno Haible  <bruno@clisp.org>
+
+	Create tarballs through an Automake-like "make dist" command.
+	* Makefile.in (SOURCE_FILES, GNULIB_SYNCED_FILES, IMPORTED_FILES,
+	GENERATED_FILES, DISTRIBUTED_BUILT_FILES, DISTFILES): New macros.
+	(distdir): New target.
+
+2016-12-02  Bruno Haible  <bruno@clisp.org>
+
+	* config.charset: Update from gnulib.
+	2015-01-07  KO Myung-Hun  <komh@chollian.net>
+		* config.charset: Don't output aliases if "$os" is os2*.
+	2012-06-22  Bruno Haible  <bruno@clisp.org>
+		* connfig.charset: Write "Mac OS X" instead of "MacOS X".
+
+	* localcharset.c: Update from gnulib.
+	2016-12-02  Bruno Haible  <bruno@clisp.org>
+		* localcharset.c (locale_charset) [WINDOWS_NATIVE]: Don't use
+		the return value from setlocale if it would lead to a buffer
+		overrun.
+	2015-01-07  KO Myung-Hun  <komh@chollian.net>
+		* localcharset.c (get_charset_aliases) [OS2]: Hardcode the
+		result for OS/2.
+		(locale_charset) [OS2]: Use system codepage if codeset is
+		omitted from the locale name which is neither "C" nor "POSIX".
+	2014-07-15  Eli Zaretskii  <eliz@gnu.org>
+		* localcharset.c (locale_charset) [WINDOWS_NATIVE]: Before
+		falling back on the default system codepage, try extracting
+		the codepage from what 'setlocale' returns.  This allows to
+		take into account changes of the codeset due to non-default
+		locale set by a previous call to 'setlocale'.
+	2013-07-20  Daiki Ueno  <ueno@gnu.org>
+		* localcharset.c (locale_charset) [DARWIN7]: Use MB_CUR_MAX_L
+		instead of MB_CUR_MAX.
+	2012-09-16  Paul Eggert  <eggert@cs.ucla.edu>
+		* localcharset.c (locale_charset) [DARWIN7]:
+		Return "ASCII" if the system reports "UTF-8" and
+		MB_CUR_MAX <= 1, as these two values are incompatible.  Problem
+		reported by Max Horn. For more discussion, please see
+		<http://lists.gnu.org/archive/html/bug-gnulib/2012-09/msg00061.html>.
+	2012-06-22  Bruno Haible  <bruno@clisp.org>
+		* localcharset.c: Write "Mac OS X" instead of "MacOS X".
+
+	* relocatable.c: Update from gnulib.
+
+2016-11-22  Bruno Haible  <bruno@clisp.org>
+
+	Update support for building with MSVC.
+	* Makefile.in (install-lib, install): Install the .la file with
+	$(INSTALL), not $(INSTALL_DATA). Otherwise the native Windows DLL gets
+	installed without execution permissions, and programs linked to it fail:
+	in a Cygwin shell with exit code 127, or from a cmd.exe window with a
+	dialog "The application was unable to start correctly (0xc0000022)."
+
+2012-01-06  Bruno Haible  <bruno@clisp.org>
+
+	Talk about "native Windows API", not "Woe32".
+	* localcharset.c: Update comments to mention native Windows.
+	* relocatable.c: Likewise.
+	* config.charset: More comments.
+
+2012-01-04  Bruno Haible  <bruno@clisp.org>
+
+	Talk about "native Windows API", not "Win32".
+	* localcharset.c: Update comments to mention native Windows.
+	(WINDOWS_NATIVE): Renamed from WIN32_NATIVE.
+	* relocatable.c: Likewise.
+
+2011-10-03  Bruno Haible  <bruno@clisp.org>
+
+	* relocatable.c: Update from gnulib.
+
 2011-08-07  Bruno Haible  <bruno@clisp.org>
 
 	* relocatable.c: Update from gnulib.

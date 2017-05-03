@@ -15,7 +15,8 @@ It provides support for the encodings:
     Semitic languages
         ISO-8859-{6,8}, CP{1255,1256}, CP862, Mac{Hebrew,Arabic}
     Japanese
-        EUC-JP, SHIFT_JIS, CP932, ISO-2022-JP, ISO-2022-JP-2, ISO-2022-JP-1
+        EUC-JP, SHIFT_JIS, CP932, ISO-2022-JP, ISO-2022-JP-2, ISO-2022-JP-1,
+        ISO-2022-JP-MS
     Chinese
         EUC-CN, HZ, GBK, CP936, GB18030, EUC-TW, BIG5, CP950, BIG5-HKSCS,
         BIG5-HKSCS:2004, BIG5-HKSCS:2001, BIG5-HKSCS:1999, ISO-2022-CN,
@@ -46,10 +47,10 @@ It provides support for the encodings:
         UTF-32, UTF-32BE, UTF-32LE
         UTF-7
         C99, JAVA
-    Full Unicode, in terms of `uint16_t' or `uint32_t'
+    Full Unicode, in terms of 'uint16_t' or 'uint32_t'
         (with machine dependent endianness and alignment)
         UCS-2-INTERNAL, UCS-4-INTERNAL
-    Locale dependent, in terms of `char' or `wchar_t'
+    Locale dependent, in terms of 'char' or 'wchar_t'
         (with machine dependent endianness and alignment, and with OS and
         locale dependent semantics)
         char, wchar_t
@@ -111,7 +112,7 @@ the traces of the first build by running "make distclean".
 This library can be built and installed in two variants:
 
   - The library mode. This works on all systems, and uses a library
-    `libiconv.so' and a header file `<iconv.h>'. (Both are installed
+    'libiconv.so' and a header file '<iconv.h>'. (Both are installed
     through "make install".)
 
     To use it, simply #include <iconv.h> and use the functions.
@@ -130,7 +131,7 @@ This library can be built and installed in two variants:
   - The libc plug/override mode. This works on GNU/Linux, Solaris and OSF/1
     systems only. It is a way to get good iconv support without having
     glibc-2.1.
-    It installs a library `preloadable_libiconv.so'. This library can be used
+    It installs a library 'preloadable_libiconv.so'. This library can be used
     with LD_PRELOAD, to override the iconv* functions present in the C library.
 
     On GNU/Linux and Solaris:
@@ -155,7 +156,7 @@ The iconv _program_ and the documentation are under GPL, see file COPYING.
 Download
 --------
 
-    http://ftp.gnu.org/gnu/libiconv/libiconv-1.14.tar.gz
+    http://ftp.gnu.org/gnu/libiconv/libiconv-1.15.tar.gz
 
 Homepage
 --------

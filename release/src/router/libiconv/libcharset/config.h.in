@@ -1,6 +1,6 @@
 /* config.h.in.  Generated from configure.ac by autoheader.  */
 
-/* Define to 1 if the package shall run at any location in the filesystem. */
+/* Define to 1 if the package shall run at any location in the file system. */
 #undef ENABLE_RELOCATABLE
 
 /* Define to 1 if you have the <dlfcn.h> header file. */
@@ -30,6 +30,9 @@
 /* Define to 1 if you have the <string.h> header file. */
 #undef HAVE_STRING_H
 
+/* Define to 1 if you have the `symlink' function. */
+#undef HAVE_SYMLINK
+
 /* Define to 1 if you have the <sys/stat.h> header file. */
 #undef HAVE_SYS_STAT_H
 
@@ -52,8 +55,7 @@
 /* Define to the value of ${prefix}, as a string. */
 #undef INSTALLPREFIX
 
-/* Define to the sub-directory in which libtool stores uninstalled libraries.
-   */
+/* Define to the sub-directory where libtool stores uninstalled libraries. */
 #undef LT_OBJDIR
 
 /* Define to the address where bug reports for this package should be sent. */
