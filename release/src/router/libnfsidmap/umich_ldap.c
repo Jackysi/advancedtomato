@@ -32,8 +32,6 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef ENABLE_LDAP
-
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
@@ -1302,4 +1300,3 @@ struct trans_func *libnfsidmap_plugin_init()
 {
 	return (&umichldap_trans);
 }
-#endif
