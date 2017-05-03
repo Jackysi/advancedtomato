@@ -2684,7 +2684,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\..\lib\nonblock.c" />
-    <ClCompile Include="..\..\..\..\lib\rawstr.c" />
     <ClCompile Include="..\..\..\..\lib\strtoofft.c" />
     <ClCompile Include="..\..\..\..\lib\warnless.c" />
     <ClCompile Include="..\..\..\..\src\slist_wc.c" />
@@ -2732,7 +2731,6 @@
     <ClInclude Include="..\..\..\..\lib\config-win32.h" />
     <ClInclude Include="..\..\..\..\lib\curl_setup.h" />
     <ClInclude Include="..\..\..\..\lib\nonblock.h" />
-    <ClInclude Include="..\..\..\..\lib\rawstr.h" />
     <ClInclude Include="..\..\..\..\lib\strtoofft.h" />
     <ClInclude Include="..\..\..\..\lib\warnless.h" />
     <ClInclude Include="..\..\..\..\src\slist_wc.h" />

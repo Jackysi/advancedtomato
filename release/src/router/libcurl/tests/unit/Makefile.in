@@ -580,7 +580,7 @@ AUTOMAKE_OPTIONS = foreign nostdinc
 @USE_EMBEDDED_ARES_TRUE@	-I$(top_builddir)/ares \
 @USE_EMBEDDED_ARES_TRUE@	-I$(top_srcdir)/ares -DCURL_STATICLIB \
 @USE_EMBEDDED_ARES_TRUE@	-DUNITTESTS
-EXTRA_DIST = Makefile.inc
+EXTRA_DIST = Makefile.inc CMakeLists.txt
 LDADD = $(top_builddir)/src/libcurltool.la   \
         $(top_builddir)/lib/libcurlu.la      \
         @LDFLAGS@ @LIBCURL_LIBS@

@@ -69,16 +69,14 @@
 #include "http.h" /* for HTTP proxy tunnel stuff */
 #include "socks.h"
 #include "smtp.h"
-
 #include "strtoofft.h"
-#include "strequal.h"
+#include "strcase.h"
 #include "vtls/vtls.h"
 #include "connect.h"
 #include "strerror.h"
 #include "select.h"
 #include "multiif.h"
 #include "url.h"
-#include "rawstr.h"
 #include "curl_gethostname.h"
 #include "curl_sasl.h"
 #include "warnless.h"
@@ -105,7 +103,7 @@ static CURLcode smtp_parse_custom_request(struct connectdata *conn);
 static CURLcode smtp_perform_auth(struct connectdata *conn, const char *mech,
                                   const char *initresp);
 static CURLcode smtp_continue_auth(struct connectdata *conn, const char *resp);
-static void smtp_get_message(char *buffer, char** outptr);
+static void smtp_get_message(char *buffer, char **outptr);
 
 /*
  * SMTP protocol handler.
@@ -280,10 +278,10 @@ static bool smtp_endofresp(struct connectdata *conn, char *line, size_t len,
  *
  * Gets the authentication message from the response buffer.
  */
-static void smtp_get_message(char *buffer, char** outptr)
+static void smtp_get_message(char *buffer, char **outptr)
 {
   size_t len = 0;
-  char* message = NULL;
+  char *message = NULL;
 
   /* Find the start of the message */
   for(message = buffer + 4; *message == ' ' || *message == '\t'; message++)
@@ -1512,7 +1510,7 @@ static CURLcode smtp_parse_url_options(struct connectdata *conn)
     while(*ptr && *ptr != ';')
       ptr++;
 
-    if(strnequal(key, "AUTH=", 5))
+    if(strncasecompare(key, "AUTH=", 5))
       result = Curl_sasl_parse_url_auth_option(&smtpc->sasl,
                                                value, ptr - value);
     else

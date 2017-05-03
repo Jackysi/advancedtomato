@@ -172,7 +172,7 @@ Curl_printable_address(const Curl_addrinfo *ai, char *buf, size_t bufsize)
   const struct in6_addr *ipaddr6;
 #endif
 
-  switch (ai->ai_family) {
+  switch(ai->ai_family) {
     case AF_INET:
       sa4 = (const void *)ai->ai_addr;
       ipaddr4 = &sa4->sin_addr;
@@ -568,7 +568,7 @@ int Curl_resolv_timeout(struct connectdata *conn,
                         const char *hostname,
                         int port,
                         struct Curl_dns_entry **entry,
-                        long timeoutms)
+                        time_t timeoutms)
 {
 #ifdef USE_ALARM_TIMEOUT
 #ifdef HAVE_SIGACTION
@@ -603,11 +603,14 @@ int Curl_resolv_timeout(struct connectdata *conn,
     /* USE_ALARM_TIMEOUT defined, but no timeout actually requested */
     return Curl_resolv(conn, hostname, port, entry);
 
-  if(timeout < 1000)
+  if(timeout < 1000) {
     /* The alarm() function only provides integer second resolution, so if
        we want to wait less than one second we must bail out already now. */
+    failf(data,
+        "remaining timeout of %ld too small to resolve via SIGALRM method",
+        timeout);
     return CURLRESOLV_TIMEDOUT;
-
+  }
   /* This allows us to time-out from the name resolver, as the timeout
      will generate a signal and we will siglongjmp() from that here.
      This technique has problems (see alarmfunc).

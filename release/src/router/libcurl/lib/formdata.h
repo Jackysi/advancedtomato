@@ -23,6 +23,7 @@
  ***************************************************************************/
 
 enum formtype {
+  FORM_DATAMEM, /* already allocated FORM_DATA memory */
   FORM_DATA,    /* form metadata (convert to network encoding if necessary) */
   FORM_CONTENT, /* form content  (never convert) */
   FORM_CALLBACK, /* 'line' points to the custom pointer we pass to the callback
@@ -64,7 +65,7 @@ typedef struct FormInfo {
                          file name will be used */
   bool showfilename_alloc;
   char *userp;        /* pointer for the read callback */
-  struct curl_slist* contentheader;
+  struct curl_slist *contentheader;
   struct FormInfo *more;
 } FormInfo;
 

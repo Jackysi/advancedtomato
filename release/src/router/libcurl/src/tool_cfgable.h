@@ -78,6 +78,9 @@ struct OperationConfig {
   char *tls_username;
   char *tls_password;
   char *tls_authtype;
+  char *proxy_tls_username;
+  char *proxy_tls_password;
+  char *proxy_tls_authtype;
   char *proxyuserpwd;
   char *proxy;
   int proxyver;             /* set to CURLPROXY_HTTP* define */
@@ -106,15 +109,24 @@ struct OperationConfig {
   struct getout *url_get;   /* point to the node to fill in URL */
   struct getout *url_out;   /* point to the node to fill in outfile */
   char *cipher_list;
+  char *proxy_cipher_list;
   char *cert;
+  char *proxy_cert;
   char *cert_type;
+  char *proxy_cert_type;
   char *cacert;
+  char *proxy_cacert;
   char *capath;
+  char *proxy_capath;
   char *crlfile;
+  char *proxy_crlfile;
   char *pinnedpubkey;
   char *key;
+  char *proxy_key;
   char *key_type;
+  char *proxy_key_type;
   char *key_passwd;
+  char *proxy_key_passwd;
   char *pubkey;
   char *hostpubmd5;
   char *engine;
@@ -127,6 +139,8 @@ struct OperationConfig {
   bool globoff;
   bool use_httpget;
   bool insecure_ok;         /* set TRUE to allow insecure SSL connects */
+  bool proxy_insecure_ok;   /* set TRUE to allow insecure SSL connects
+                               for proxy */
   bool verifystatus;
   bool create_dirs;
   bool ftp_create_dirs;
@@ -142,6 +156,7 @@ struct OperationConfig {
   struct curl_slist *postquote;
   struct curl_slist *prequote;
   long ssl_version;
+  long proxy_ssl_version;
   long ip_version;
   curl_TimeCond timecond;
   time_t condtime;
@@ -163,9 +178,7 @@ struct OperationConfig {
   bool ftp_ssl_control;
   bool ftp_ssl_ccc;
   int ftp_ssl_ccc_mode;
-
-  char *socksproxy;         /* set to server string */
-  int socksver;             /* set to CURLPROXY_SOCKS* define */
+  char *preproxy;
   int socks5_gssapi_nec;    /* The NEC reference server does not protect the
                                encryption type exchange */
   char *proxy_service_name; /* set authentication service name for HTTP and
@@ -176,6 +189,7 @@ struct OperationConfig {
   bool tcp_nodelay;
   bool tcp_fastopen;
   long req_retry;           /* number of retries */
+  bool retry_connrefused;   /* set connection refused as a transient error */
   long retry_delay;         /* delay between retries (in seconds) */
   long retry_maxtime;       /* maximum time to keep retrying */
 
@@ -201,7 +215,10 @@ struct OperationConfig {
   bool xattr;               /* store metadata in extended attributes */
   long gssapi_delegation;
   bool ssl_allow_beast;     /* allow this SSL vulnerability */
+  bool proxy_ssl_allow_beast; /* allow this SSL vulnerability for proxy*/
+
   bool ssl_no_revoke;       /* disable SSL certificate revocation checks */
+  /*bool proxy_ssl_no_revoke; */
 
   bool use_metalink;        /* process given URLs as metalink XML file */
   metalinkfile *metalinkfile_list; /* point to the first node */
@@ -238,7 +255,7 @@ struct GlobalConfig {
   bool tracetime;                 /* include timestamp? */
   int progressmode;               /* CURL_PROGRESS_BAR / CURL_PROGRESS_STATS */
   char *libcurl;                  /* Output libcurl code to this file name */
-
+  bool fail_early;                /* exit on first transfer error */
   struct OperationConfig *first;
   struct OperationConfig *current;
   struct OperationConfig *last;   /* Always last in the struct */

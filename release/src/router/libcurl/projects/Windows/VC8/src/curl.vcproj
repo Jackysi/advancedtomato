@@ -4085,10 +4085,6 @@
 			>
 			</File>
 			<File
-				RelativePath="..\..\..\..\lib\rawstr.c"
-			>
-			</File>
-			<File
 				RelativePath="..\..\..\..\lib\strtoofft.c"
 			>
 			</File>
@@ -4270,10 +4266,6 @@
 			</File>
 			<File
 				RelativePath="..\..\..\..\lib\nonblock.h"
-			>
-			</File>
-			<File
-				RelativePath="..\..\..\..\lib\rawstr.h"
 			>
 			</File>
 			<File

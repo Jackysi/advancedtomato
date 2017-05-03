@@ -37,7 +37,7 @@
 #include "curl_multibyte.h"
 #include "sendf.h"
 #include "strdup.h"
-#include "rawstr.h"
+#include "strcase.h"
 
 /* The last #include files should be: */
 #include "curl_memory.h"
@@ -277,7 +277,7 @@ CURLcode Curl_override_sspi_http_realm(const char *chlg,
 
       /* Extract a value=content pair */
       if(Curl_auth_digest_get_pair(chlg, value, content, &chlg)) {
-        if(Curl_raw_equal(value, "realm")) {
+        if(strcasecompare(value, "realm")) {
 
           /* Setup identity's domain and length */
           domain.tchar_ptr = Curl_convert_UTF8_to_tchar((char *) content);
@@ -414,7 +414,7 @@ CURLcode Curl_auth_create_digest_http_message(struct Curl_easy *data,
       return CURLE_OUT_OF_MEMORY;
 
     /* Populate our identity domain */
-    if(Curl_override_sspi_http_realm((const char*) digest->input_token,
+    if(Curl_override_sspi_http_realm((const char *) digest->input_token,
                                      &identity))
       return CURLE_OUT_OF_MEMORY;
 

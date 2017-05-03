@@ -21,7 +21,7 @@
  ***************************************************************************/
 #include "tool_setup.h"
 
-#include "rawstr.h"
+#include "strcase.h"
 
 #define ENABLE_CURLX_PRINTF
 /* use our own printf() functions */
@@ -66,12 +66,15 @@ ParameterError file2string(char **bufp, FILE *file)
 
   if(file) {
     while(fgets(buffer, sizeof(buffer), file)) {
-      if((ptr = strchr(buffer, '\r')) != NULL)
+      ptr = strchr(buffer, '\r');
+      if(ptr)
         *ptr = '\0';
-      if((ptr = strchr(buffer, '\n')) != NULL)
+      ptr = strchr(buffer, '\n');
+      if(ptr)
         *ptr = '\0';
       buflen = strlen(buffer);
-      if((ptr = realloc(string, stringlen+buflen+1)) == NULL) {
+      ptr = realloc(string, stringlen+buflen+1);
+      if(!ptr) {
         Curl_safefree(string);
         return PARAM_NO_MEM;
       }
@@ -102,7 +105,8 @@ ParameterError file2memory(char **bufp, size_t *size, FILE *file)
         }
         alloc *= 2;
         /* allocate an extra char, reserved space, for null termination */
-        if((newbuf = realloc(buffer, alloc+1)) == NULL) {
+        newbuf = realloc(buffer, alloc+1);
+        if(!newbuf) {
           Curl_safefree(buffer);
           return PARAM_NO_MEM;
         }
@@ -115,7 +119,8 @@ ParameterError file2memory(char **bufp, size_t *size, FILE *file)
     buffer[nused] = '\0';
     /* free trailing slack space, if possible */
     if(alloc != nused) {
-      if((newbuf = realloc(buffer, nused+1)) == NULL) {
+      newbuf = realloc(buffer, nused+1);
+      if(!newbuf) {
         Curl_safefree(buffer);
         return PARAM_NO_MEM;
       }
@@ -312,8 +317,8 @@ long proto2num(struct OperationConfig *config, long *val, const char *str)
     }
 
     for(pp=protos; pp->name; pp++) {
-      if(curlx_raw_equal(token, pp->name)) {
-        switch (action) {
+      if(curl_strequal(token, pp->name)) {
+        switch(action) {
         case deny:
           *val &= ~(pp->bit);
           break;
@@ -355,7 +360,7 @@ int check_protocol(const char *str)
   if(!str)
     return PARAM_REQUIRES_PARAMETER;
   for(pp = curlinfo->protocols; *pp; pp++) {
-    if(curlx_raw_equal(*pp, str))
+    if(curl_strequal(*pp, str))
       return PARAM_OK;
   }
   return PARAM_LIBCURL_UNSUPPORTED_PROTOCOL;
@@ -466,11 +471,11 @@ ParameterError add2list(struct curl_slist **list, const char *ptr)
 
 int ftpfilemethod(struct OperationConfig *config, const char *str)
 {
-  if(curlx_raw_equal("singlecwd", str))
+  if(curl_strequal("singlecwd", str))
     return CURLFTPMETHOD_SINGLECWD;
-  if(curlx_raw_equal("nocwd", str))
+  if(curl_strequal("nocwd", str))
     return CURLFTPMETHOD_NOCWD;
-  if(curlx_raw_equal("multicwd", str))
+  if(curl_strequal("multicwd", str))
     return CURLFTPMETHOD_MULTICWD;
 
   warnf(config->global, "unrecognized ftp file method '%s', using default\n",
@@ -481,9 +486,9 @@ int ftpfilemethod(struct OperationConfig *config, const char *str)
 
 int ftpcccmethod(struct OperationConfig *config, const char *str)
 {
-  if(curlx_raw_equal("passive", str))
+  if(curl_strequal("passive", str))
     return CURLFTPSSL_CCC_PASSIVE;
-  if(curlx_raw_equal("active", str))
+  if(curl_strequal("active", str))
     return CURLFTPSSL_CCC_ACTIVE;
 
   warnf(config->global, "unrecognized ftp CCC method '%s', using default\n",
@@ -494,11 +499,11 @@ int ftpcccmethod(struct OperationConfig *config, const char *str)
 
 long delegation(struct OperationConfig *config, char *str)
 {
-  if(curlx_raw_equal("none", str))
+  if(curl_strequal("none", str))
     return CURLGSSAPI_DELEGATION_NONE;
-  if(curlx_raw_equal("policy", str))
+  if(curl_strequal("policy", str))
     return CURLGSSAPI_DELEGATION_POLICY_FLAG;
-  if(curlx_raw_equal("always", str))
+  if(curl_strequal("always", str))
     return CURLGSSAPI_DELEGATION_FLAG;
 
   warnf(config->global, "unrecognized delegation method '%s', using none\n",

@@ -70,16 +70,14 @@
 #include "http.h" /* for HTTP proxy tunnel stuff */
 #include "socks.h"
 #include "pop3.h"
-
 #include "strtoofft.h"
-#include "strequal.h"
+#include "strcase.h"
 #include "vtls/vtls.h"
 #include "connect.h"
 #include "strerror.h"
 #include "select.h"
 #include "multiif.h"
 #include "url.h"
-#include "rawstr.h"
 #include "curl_sasl.h"
 #include "curl_md5.h"
 #include "warnless.h"
@@ -106,7 +104,7 @@ static CURLcode pop3_parse_custom_request(struct connectdata *conn);
 static CURLcode pop3_perform_auth(struct connectdata *conn, const char *mech,
                                   const char *initresp);
 static CURLcode pop3_continue_auth(struct connectdata *conn, const char *resp);
-static void pop3_get_message(char *buffer, char** outptr);
+static void pop3_get_message(char *buffer, char **outptr);
 
 /*
  * POP3 protocol handler.
@@ -292,10 +290,10 @@ static bool pop3_endofresp(struct connectdata *conn, char *line, size_t len,
  *
  * Gets the authentication message from the response buffer.
  */
-static void pop3_get_message(char *buffer, char** outptr)
+static void pop3_get_message(char *buffer, char **outptr)
 {
   size_t len = 0;
-  char* message = NULL;
+  char *message = NULL;
 
   /* Find the start of the message */
   for(message = buffer + 2; *message == ' ' || *message == '\t'; message++)
@@ -1412,11 +1410,11 @@ static CURLcode pop3_parse_url_options(struct connectdata *conn)
     while(*ptr && *ptr != ';')
       ptr++;
 
-    if(strnequal(key, "AUTH=", 5)) {
+    if(strncasecompare(key, "AUTH=", 5)) {
       result = Curl_sasl_parse_url_auth_option(&pop3c->sasl,
                                                value, ptr - value);
 
-      if(result && strnequal(value, "+APOP", ptr - value)) {
+      if(result && strncasecompare(value, "+APOP", ptr - value)) {
         pop3c->preftype = POP3_TYPE_APOP;
         pop3c->sasl.prefmech = SASL_AUTH_NONE;
         result = CURLE_OK;
@@ -1574,7 +1572,7 @@ CURLcode Curl_pop3_write(struct connectdata *conn, char *str, size_t nread)
       if(prev) {
         /* If the partial match was the CRLF and dot then only write the CRLF
            as the server would have inserted the dot */
-        result = Curl_client_write(conn, CLIENTWRITE_BODY, (char*)POP3_EOB,
+        result = Curl_client_write(conn, CLIENTWRITE_BODY, (char *)POP3_EOB,
                                    strip_dot ? prev - 1 : prev);
 
         if(result)
