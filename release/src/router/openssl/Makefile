@@ -4,7 +4,7 @@
 ## Makefile for OpenSSL
 ##
 
-VERSION=1.0.2h
+VERSION=1.0.2j
 MAJOR=1
 MINOR=0.2
 SHLIB_VERSION_NUMBER=1.0.0
@@ -13,8 +13,8 @@ SHLIB_MAJOR=1
 SHLIB_MINOR=0.0
 SHLIB_EXT=.so.$(SHLIB_MAJOR).$(SHLIB_MINOR)
 PLATFORM=linux-armv4
-OPTIONS=--openssldir=/etc --cross-compile-prefix=  -ffunction-sections -fdata-sections -Wl,--gc-sections enable-shared enable-rc5 no-camellia no-capieng no-dtls1 no-ec_nistp_64_gcc_128 no-engines no-err no-gmp no-gms no-hw no-jpake no-krb5 no-libunbound no-md2 no-mdc2 no-psk no-rfc3779 no-ripemd no-rmd160 no-sctp no-seed no-sha0 no-smime no-sse2 no-ssl-trace no-ssl2 no-ssl3 no-store no-ts no-unit-test no-weak-ssl-ciphers no-zlib no-zlib-dynamic no-static-engine
-CONFIGURE_ARGS=linux-armv4 --openssldir=/etc --cross-compile-prefix=  -ffunction-sections -fdata-sections -Wl,--gc-sections shared enable-rc5 no-ssl2 no-ssl3 no-sha0 no-smime no-camellia no-krb5 no-rmd160 no-ripemd no-seed no-capieng no-gms no-gmp no-rfc3779 no-err no-hw no-jpake no-zlib no-engines no-sse2 no-libunbound no-ssl-trace no-dtls1 no-store no-psk no-md2 no-mdc2 no-ts
+OPTIONS=--openssldir=/etc --cross-compile-prefix=  -ffunction-sections -fdata-sections -Wl,--gc-sections enable-shared enable-rc5 no-camellia no-capieng no-dtls1 no-ec_nistp_64_gcc_128 no-engines no-err no-gmp no-gms no-hw no-jpake no-krb5 no-libunbound no-md2 no-mdc2 no-psk no-rfc3779 no-ripemd no-rmd160 no-sctp no-seed no-sha0 no-smime no-sse2 no-ssl-trace no-ssl2 no-store no-ts no-unit-test no-weak-ssl-ciphers no-zlib no-zlib-dynamic no-static-engine
+CONFIGURE_ARGS=linux-armv4 --openssldir=/etc --cross-compile-prefix=  -ffunction-sections -fdata-sections -Wl,--gc-sections shared enable-rc5 no-sha0 no-smime no-camellia no-krb5 no-rmd160 no-ripemd no-seed no-capieng no-gms no-gmp no-rfc3779 no-err no-hw no-jpake no-zlib no-engines no-sse2 no-libunbound no-ssl-trace no-dtls1 no-store no-psk no-md2 no-mdc2 no-ts
 SHLIB_TARGET=linux-shared
 
 # HERE indicates where this Makefile lives.  This can be used to indicate
@@ -62,13 +62,14 @@ OPENSSLDIR=/etc
 CROSS_COMPILE=  
 CC= $(CROSS_COMPILE)arm-brcm-linux-uclibcgnueabi-gcc
 CFLAG= -fPIC -DOPENSSL_PIC -DOPENSSL_THREADS -D_REENTRANT -DDSO_DLFCN -DHAVE_DLFCN_H -ffunction-sections -fdata-sections -DOPENSSL_NO_ERR -O3 -Wall -DOPENSSL_BN_ASM_MONT -DOPENSSL_BN_ASM_GF2m -DSHA1_ASM -DSHA256_ASM -DSHA512_ASM -DAES_ASM -DBSAES_ASM -DGHASH_ASM
-DEPFLAG= -DOPENSSL_NO_CAMELLIA -DOPENSSL_NO_CAPIENG -DOPENSSL_NO_DTLS1 -DOPENSSL_NO_EC_NISTP_64_GCC_128 -DOPENSSL_NO_ENGINES -DOPENSSL_NO_GMP -DOPENSSL_NO_GMS -DOPENSSL_NO_JPAKE -DOPENSSL_NO_LIBUNBOUND -DOPENSSL_NO_MD2 -DOPENSSL_NO_MDC2 -DOPENSSL_NO_PSK -DOPENSSL_NO_RFC3779 -DOPENSSL_NO_RIPEMD -DOPENSSL_NO_RMD160 -DOPENSSL_NO_SCTP -DOPENSSL_NO_SEED -DOPENSSL_NO_SHA0 -DOPENSSL_NO_SMIME -DOPENSSL_NO_SSL_TRACE -DOPENSSL_NO_SSL2 -DOPENSSL_NO_SSL3 -DOPENSSL_NO_STORE -DOPENSSL_NO_TS -DOPENSSL_NO_UNIT_TEST -DOPENSSL_NO_WEAK_SSL_CIPHERS
+DEPFLAG= -DOPENSSL_NO_CAMELLIA -DOPENSSL_NO_CAPIENG -DOPENSSL_NO_DTLS1 -DOPENSSL_NO_EC_NISTP_64_GCC_128 -DOPENSSL_NO_ENGINES -DOPENSSL_NO_GMP -DOPENSSL_NO_GMS -DOPENSSL_NO_JPAKE -DOPENSSL_NO_LIBUNBOUND -DOPENSSL_NO_MD2 -DOPENSSL_NO_MDC2 -DOPENSSL_NO_PSK -DOPENSSL_NO_RFC3779 -DOPENSSL_NO_RIPEMD -DOPENSSL_NO_RMD160 -DOPENSSL_NO_SCTP -DOPENSSL_NO_SEED -DOPENSSL_NO_SHA0 -DOPENSSL_NO_SMIME -DOPENSSL_NO_SSL_TRACE -DOPENSSL_NO_SSL2 -DOPENSSL_NO_STORE -DOPENSSL_NO_TS -DOPENSSL_NO_UNIT_TEST -DOPENSSL_NO_WEAK_SSL_CIPHERS
 PEX_LIBS= 
 EX_LIBS= -Wl,--gc-sections -ldl
 EXE_EXT= 
 ARFLAGS= 
 AR= $(CROSS_COMPILE)ar $(ARFLAGS) r
 RANLIB= $(CROSS_COMPILE)ranlib
+RC= $(CROSS_COMPILE)windres
 NM= $(CROSS_COMPILE)nm
 PERL= /usr/bin/perl
 TAR= tar
@@ -211,6 +212,7 @@ BUILDENV=	LC_ALL=C PLATFORM='$(PLATFORM)' PROCESSOR='$(PROCESSOR)'\
 		CC='$(CC)' CFLAG='$(CFLAG)' 			\
 		AS='$(CC)' ASFLAG='$(CFLAG) -c'			\
 		AR='$(AR)' NM='$(NM)' RANLIB='$(RANLIB)'	\
+		RC='$(RC)'              			\
 		CROSS_COMPILE='$(CROSS_COMPILE)'	\
 		PERL='$(PERL)' ENGDIRS='$(ENGDIRS)'		\
 		SDIRS='$(SDIRS)' LIBRPATH='$(INSTALLTOP)/$(LIBDIR)'	\
@@ -368,6 +370,7 @@ libcrypto.pc: Makefile
 	    echo 'exec_prefix=$${prefix}'; \
 	    echo 'libdir=$${exec_prefix}/$(LIBDIR)'; \
 	    echo 'includedir=$${prefix}/include'; \
+	    echo 'enginesdir=$${libdir}/engines'; \
 	    echo ''; \
 	    echo 'Name: OpenSSL-libcrypto'; \
 	    echo 'Description: OpenSSL cryptography library'; \
