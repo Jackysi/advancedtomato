@@ -930,6 +930,7 @@ USE_GNUTLS
 HAVE_OPENSSL_SRP
 RANDOM_FILE
 SSL_LIBS
+PKGCONFIG
 USE_DARWINSSL
 USE_WINDOWS_SSPI
 USE_SCHANNEL
@@ -938,7 +939,6 @@ ZLIB_LIBS
 HAVE_LIBZ_FALSE
 HAVE_LIBZ_TRUE
 HAVE_LIBZ
-PKGCONFIG
 CURL_DISABLE_GOPHER
 CURL_DISABLE_SMTP
 CURL_DISABLE_SMB
@@ -6078,15 +6078,12 @@ $as_echo "$cpp_p" >&6; }
       { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: failed to figure out cpp -P alternative" >&5
 $as_echo "$as_me: WARNING: failed to figure out cpp -P alternative" >&2;}
       # without -P
-      CPPPFLAG=""
+      CPPPFLAGS=$OLDCPPFLAGS
     else
       # with -P
-      CPPPFLAG="-P"
+      CPPPFLAGS=$CPPFLAGS
     fi
         CPPFLAGS=$OLDCPPFLAGS
-  else
-    # without -P
-    CPPPFLAG=""
   fi
 
 
@@ -6248,8 +6245,8 @@ if ac_fn_c_try_compile "$LINENO"; then :
       else
 
     OLDCPPFLAGS=$CPPFLAGS
-  # CPPPFLAG comes from CURL_CPP_P
-  CPPFLAGS="$CPPFLAGS $CPPPFLAG"
+  # CPPPFLAGS comes from CURL_CPP_P
+  CPPFLAGS="$CPPPFLAGS"
   as_ac_HaveDef=`$as_echo "curl_cv_have_def_$tmp_fmt" | $as_tr_sh`
   as_ac_Def=`$as_echo "curl_cv_def_$tmp_fmt" | $as_tr_sh`
   if test -z "$SED"; then
@@ -6366,8 +6363,8 @@ if ac_fn_c_try_compile "$LINENO"; then :
       else
 
     OLDCPPFLAGS=$CPPFLAGS
-  # CPPPFLAG comes from CURL_CPP_P
-  CPPFLAGS="$CPPFLAGS $CPPPFLAG"
+  # CPPPFLAGS comes from CURL_CPP_P
+  CPPFLAGS="$CPPPFLAGS"
   as_ac_HaveDef=`$as_echo "curl_cv_have_def_$tmp_fmt" | $as_tr_sh`
   as_ac_Def=`$as_echo "curl_cv_def_$tmp_fmt" | $as_tr_sh`
   if test -z "$SED"; then
@@ -16133,8 +16130,8 @@ esac
 $as_echo_n "checking if compiler is DEC/Compaq/HP C... " >&6; }
 
     OLDCPPFLAGS=$CPPFLAGS
-  # CPPPFLAG comes from CURL_CPP_P
-  CPPFLAGS="$CPPFLAGS $CPPPFLAG"
+  # CPPPFLAGS comes from CURL_CPP_P
+  CPPFLAGS="$CPPPFLAGS"
       if test -z "$SED"; then
     as_fn_error $? "SED not set. Cannot continue without SED being set." "$LINENO" 5
   fi
@@ -16177,8 +16174,8 @@ rm -f conftest.err conftest.i conftest.$ac_ext
 
 
     OLDCPPFLAGS=$CPPFLAGS
-  # CPPPFLAG comes from CURL_CPP_P
-  CPPFLAGS="$CPPFLAGS $CPPPFLAG"
+  # CPPPFLAGS comes from CURL_CPP_P
+  CPPFLAGS="$CPPPFLAGS"
       if test -z "$SED"; then
     as_fn_error $? "SED not set. Cannot continue without SED being set." "$LINENO" 5
   fi
@@ -16240,8 +16237,8 @@ $as_echo "no" >&6; }
 $as_echo_n "checking if compiler is HP-UX C... " >&6; }
 
     OLDCPPFLAGS=$CPPFLAGS
-  # CPPPFLAG comes from CURL_CPP_P
-  CPPFLAGS="$CPPFLAGS $CPPPFLAG"
+  # CPPPFLAGS comes from CURL_CPP_P
+  CPPFLAGS="$CPPPFLAGS"
       if test -z "$SED"; then
     as_fn_error $? "SED not set. Cannot continue without SED being set." "$LINENO" 5
   fi
@@ -16302,8 +16299,8 @@ $as_echo "no" >&6; }
 $as_echo_n "checking if compiler is IBM C... " >&6; }
 
     OLDCPPFLAGS=$CPPFLAGS
-  # CPPPFLAG comes from CURL_CPP_P
-  CPPFLAGS="$CPPFLAGS $CPPPFLAG"
+  # CPPPFLAGS comes from CURL_CPP_P
+  CPPFLAGS="$CPPPFLAGS"
       if test -z "$SED"; then
     as_fn_error $? "SED not set. Cannot continue without SED being set." "$LINENO" 5
   fi
@@ -16372,8 +16369,8 @@ $as_echo "no" >&6; }
 $as_echo_n "checking if compiler is Intel C... " >&6; }
 
     OLDCPPFLAGS=$CPPFLAGS
-  # CPPPFLAG comes from CURL_CPP_P
-  CPPFLAGS="$CPPFLAGS $CPPPFLAG"
+  # CPPPFLAGS comes from CURL_CPP_P
+  CPPFLAGS="$CPPPFLAGS"
       if test -z "$SED"; then
     as_fn_error $? "SED not set. Cannot continue without SED being set." "$LINENO" 5
   fi
@@ -16420,8 +16417,8 @@ $as_echo "yes" >&6; }
     compiler_num="$curl_cv_def___INTEL_COMPILER"
 
     OLDCPPFLAGS=$CPPFLAGS
-  # CPPPFLAG comes from CURL_CPP_P
-  CPPFLAGS="$CPPFLAGS $CPPPFLAG"
+  # CPPPFLAGS comes from CURL_CPP_P
+  CPPFLAGS="$CPPPFLAGS"
       if test -z "$SED"; then
     as_fn_error $? "SED not set. Cannot continue without SED being set." "$LINENO" 5
   fi
@@ -16496,8 +16493,8 @@ $as_echo "no" >&6; }
 $as_echo_n "checking if compiler is clang... " >&6; }
 
     OLDCPPFLAGS=$CPPFLAGS
-  # CPPPFLAG comes from CURL_CPP_P
-  CPPFLAGS="$CPPFLAGS $CPPPFLAG"
+  # CPPPFLAGS comes from CURL_CPP_P
+  CPPFLAGS="$CPPPFLAGS"
       if test -z "$SED"; then
     as_fn_error $? "SED not set. Cannot continue without SED being set." "$LINENO" 5
   fi
@@ -16569,8 +16566,8 @@ $as_echo "no" >&6; }
 $as_echo_n "checking if compiler is GNU C... " >&6; }
 
     OLDCPPFLAGS=$CPPFLAGS
-  # CPPPFLAG comes from CURL_CPP_P
-  CPPFLAGS="$CPPFLAGS $CPPPFLAG"
+  # CPPPFLAGS comes from CURL_CPP_P
+  CPPFLAGS="$CPPPFLAGS"
       if test -z "$SED"; then
     as_fn_error $? "SED not set. Cannot continue without SED being set." "$LINENO" 5
   fi
@@ -16635,8 +16632,8 @@ $as_echo "yes" >&6; }
     flags_opt_off="-O0"
 
     OLDCPPFLAGS=$CPPFLAGS
-  # CPPPFLAG comes from CURL_CPP_P
-  CPPFLAGS="$CPPFLAGS $CPPPFLAG"
+  # CPPPFLAGS comes from CURL_CPP_P
+  CPPFLAGS="$CPPPFLAGS"
       if test -z "$SED"; then
     as_fn_error $? "SED not set. Cannot continue without SED being set." "$LINENO" 5
   fi
@@ -16687,8 +16684,8 @@ $as_echo "no" >&6; }
 $as_echo_n "checking if compiler is LCC... " >&6; }
 
     OLDCPPFLAGS=$CPPFLAGS
-  # CPPPFLAG comes from CURL_CPP_P
-  CPPFLAGS="$CPPFLAGS $CPPPFLAG"
+  # CPPPFLAGS comes from CURL_CPP_P
+  CPPFLAGS="$CPPPFLAGS"
       if test -z "$SED"; then
     as_fn_error $? "SED not set. Cannot continue without SED being set." "$LINENO" 5
   fi
@@ -16749,8 +16746,8 @@ $as_echo "no" >&6; }
 $as_echo_n "checking if compiler is SGI MIPSpro C... " >&6; }
 
     OLDCPPFLAGS=$CPPFLAGS
-  # CPPPFLAG comes from CURL_CPP_P
-  CPPFLAGS="$CPPFLAGS $CPPPFLAG"
+  # CPPPFLAGS comes from CURL_CPP_P
+  CPPFLAGS="$CPPPFLAGS"
       if test -z "$SED"; then
     as_fn_error $? "SED not set. Cannot continue without SED being set." "$LINENO" 5
   fi
@@ -16793,8 +16790,8 @@ rm -f conftest.err conftest.i conftest.$ac_ext
 
 
     OLDCPPFLAGS=$CPPFLAGS
-  # CPPPFLAG comes from CURL_CPP_P
-  CPPFLAGS="$CPPFLAGS $CPPPFLAG"
+  # CPPPFLAGS comes from CURL_CPP_P
+  CPPFLAGS="$CPPPFLAGS"
       if test -z "$SED"; then
     as_fn_error $? "SED not set. Cannot continue without SED being set." "$LINENO" 5
   fi
@@ -16837,8 +16834,8 @@ rm -f conftest.err conftest.i conftest.$ac_ext
 
 
     OLDCPPFLAGS=$CPPFLAGS
-  # CPPPFLAG comes from CURL_CPP_P
-  CPPFLAGS="$CPPFLAGS $CPPPFLAG"
+  # CPPPFLAGS comes from CURL_CPP_P
+  CPPFLAGS="$CPPPFLAGS"
       if test -z "$SED"; then
     as_fn_error $? "SED not set. Cannot continue without SED being set." "$LINENO" 5
   fi
@@ -16901,8 +16898,8 @@ $as_echo "no" >&6; }
 $as_echo_n "checking if compiler is SGI MIPS C... " >&6; }
 
     OLDCPPFLAGS=$CPPFLAGS
-  # CPPPFLAG comes from CURL_CPP_P
-  CPPFLAGS="$CPPFLAGS $CPPPFLAG"
+  # CPPPFLAGS comes from CURL_CPP_P
+  CPPFLAGS="$CPPPFLAGS"
       if test -z "$SED"; then
     as_fn_error $? "SED not set. Cannot continue without SED being set." "$LINENO" 5
   fi
@@ -16945,8 +16942,8 @@ rm -f conftest.err conftest.i conftest.$ac_ext
 
 
     OLDCPPFLAGS=$CPPFLAGS
-  # CPPPFLAG comes from CURL_CPP_P
-  CPPFLAGS="$CPPFLAGS $CPPPFLAG"
+  # CPPPFLAGS comes from CURL_CPP_P
+  CPPFLAGS="$CPPPFLAGS"
       if test -z "$SED"; then
     as_fn_error $? "SED not set. Cannot continue without SED being set." "$LINENO" 5
   fi
@@ -17009,8 +17006,8 @@ $as_echo "no" >&6; }
 $as_echo_n "checking if compiler is SunPro C... " >&6; }
 
     OLDCPPFLAGS=$CPPFLAGS
-  # CPPPFLAG comes from CURL_CPP_P
-  CPPFLAGS="$CPPFLAGS $CPPPFLAG"
+  # CPPPFLAGS comes from CURL_CPP_P
+  CPPFLAGS="$CPPPFLAGS"
       if test -z "$SED"; then
     as_fn_error $? "SED not set. Cannot continue without SED being set." "$LINENO" 5
   fi
@@ -17071,8 +17068,8 @@ $as_echo "no" >&6; }
 $as_echo_n "checking if compiler is Tiny C... " >&6; }
 
     OLDCPPFLAGS=$CPPFLAGS
-  # CPPPFLAG comes from CURL_CPP_P
-  CPPFLAGS="$CPPFLAGS $CPPPFLAG"
+  # CPPPFLAGS comes from CURL_CPP_P
+  CPPFLAGS="$CPPPFLAGS"
       if test -z "$SED"; then
     as_fn_error $? "SED not set. Cannot continue without SED being set." "$LINENO" 5
   fi
@@ -17133,8 +17130,8 @@ $as_echo "no" >&6; }
 $as_echo_n "checking if compiler is Watcom C... " >&6; }
 
     OLDCPPFLAGS=$CPPFLAGS
-  # CPPPFLAG comes from CURL_CPP_P
-  CPPFLAGS="$CPPFLAGS $CPPPFLAG"
+  # CPPPFLAGS comes from CURL_CPP_P
+  CPPFLAGS="$CPPPFLAGS"
       if test -z "$SED"; then
     as_fn_error $? "SED not set. Cannot continue without SED being set." "$LINENO" 5
   fi
@@ -17180,8 +17177,8 @@ rm -f conftest.err conftest.i conftest.$ac_ext
 $as_echo "yes" >&6; }
 
     OLDCPPFLAGS=$CPPFLAGS
-  # CPPPFLAG comes from CURL_CPP_P
-  CPPFLAGS="$CPPFLAGS $CPPPFLAG"
+  # CPPPFLAGS comes from CURL_CPP_P
+  CPPFLAGS="$CPPPFLAGS"
       if test -z "$SED"; then
     as_fn_error $? "SED not set. Cannot continue without SED being set." "$LINENO" 5
   fi
@@ -20668,147 +20665,9 @@ else
     OPT_ZLIB=""
   fi
 
-
-    if test -n "$PKG_CONFIG"; then
-      PKGCONFIG="$PKG_CONFIG"
-    else
-      if test -n "$ac_tool_prefix"; then
-  # Extract the first word of "${ac_tool_prefix}pkg-config", so it can be a program name with args.
-set dummy ${ac_tool_prefix}pkg-config; ac_word=$2
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
-$as_echo_n "checking for $ac_word... " >&6; }
-if ${ac_cv_path_PKGCONFIG+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  case $PKGCONFIG in
-  [\\/]* | ?:[\\/]*)
-  ac_cv_path_PKGCONFIG="$PKGCONFIG" # Let the user override the test with a path.
-  ;;
-  *)
-  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-as_dummy="$PATH:/usr/bin:/usr/local/bin"
-for as_dir in $as_dummy
-do
-  IFS=$as_save_IFS
-  test -z "$as_dir" && as_dir=.
-    for ac_exec_ext in '' $ac_executable_extensions; do
-  if as_fn_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
-    ac_cv_path_PKGCONFIG="$as_dir/$ac_word$ac_exec_ext"
-    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
-    break 2
-  fi
-done
-  done
-IFS=$as_save_IFS
-
-  ;;
-esac
-fi
-PKGCONFIG=$ac_cv_path_PKGCONFIG
-if test -n "$PKGCONFIG"; then
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $PKGCONFIG" >&5
-$as_echo "$PKGCONFIG" >&6; }
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-fi
-
-
-fi
-if test -z "$ac_cv_path_PKGCONFIG"; then
-  ac_pt_PKGCONFIG=$PKGCONFIG
-  # Extract the first word of "pkg-config", so it can be a program name with args.
-set dummy pkg-config; ac_word=$2
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
-$as_echo_n "checking for $ac_word... " >&6; }
-if ${ac_cv_path_ac_pt_PKGCONFIG+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  case $ac_pt_PKGCONFIG in
-  [\\/]* | ?:[\\/]*)
-  ac_cv_path_ac_pt_PKGCONFIG="$ac_pt_PKGCONFIG" # Let the user override the test with a path.
-  ;;
-  *)
-  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-as_dummy="$PATH:/usr/bin:/usr/local/bin"
-for as_dir in $as_dummy
-do
-  IFS=$as_save_IFS
-  test -z "$as_dir" && as_dir=.
-    for ac_exec_ext in '' $ac_executable_extensions; do
-  if as_fn_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
-    ac_cv_path_ac_pt_PKGCONFIG="$as_dir/$ac_word$ac_exec_ext"
-    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
-    break 2
-  fi
-done
-  done
-IFS=$as_save_IFS
-
-  ;;
-esac
-fi
-ac_pt_PKGCONFIG=$ac_cv_path_ac_pt_PKGCONFIG
-if test -n "$ac_pt_PKGCONFIG"; then
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_pt_PKGCONFIG" >&5
-$as_echo "$ac_pt_PKGCONFIG" >&6; }
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-fi
-
-  if test "x$ac_pt_PKGCONFIG" = x; then
-    PKGCONFIG="no"
-  else
-    case $cross_compiling:$ac_tool_warned in
-yes:)
-{ $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: using cross tools not prefixed with host triplet" >&5
-$as_echo "$as_me: WARNING: using cross tools not prefixed with host triplet" >&2;}
-ac_tool_warned=yes ;;
-esac
-    PKGCONFIG=$ac_pt_PKGCONFIG
-  fi
-else
-  PKGCONFIG="$ac_cv_path_PKGCONFIG"
-fi
-
-    fi
-
-    if test "x$PKGCONFIG" != "xno"; then
-      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for zlib options with pkg-config" >&5
-$as_echo_n "checking for zlib options with pkg-config... " >&6; }
-            itexists=`
-    if test -n ""; then
-      PKG_CONFIG_LIBDIR=""
-      export PKG_CONFIG_LIBDIR
-    fi
-         $PKGCONFIG --exists zlib >/dev/null 2>&1 && echo 1`
-
-      if test -z "$itexists"; then
-                        PKGCONFIG="no"
-        { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-      else
-        { $as_echo "$as_me:${as_lineno-$LINENO}: result: found" >&5
-$as_echo "found" >&6; }
-      fi
-    fi
-
-
-  if test "$PKGCONFIG" != "no" ; then
-    LIBS="`$PKGCONFIG --libs-only-l zlib` $LIBS"
-    LDFLAGS="`$PKGCONFIG --libs-only-L zlib` $LDFLAGS"
-    CPPFLAGS="`$PKGCONFIG --cflags-only-I zlib` $CPPFLAGS"
-    OPT_ZLIB=""
-    HAVE_LIBZ="1"
-  fi
-
   if test -z "$OPT_ZLIB" ; then
 
-    if test -z "$HAVE_LIBZ"; then
-
-
-      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for inflateEnd in -lz" >&5
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for inflateEnd in -lz" >&5
 $as_echo_n "checking for inflateEnd in -lz... " >&6; }
 if ${ac_cv_lib_z_inflateEnd+:} false; then :
   $as_echo_n "(cached) " >&6
@@ -20848,7 +20707,7 @@ else
                      OPT_ZLIB="/usr/local"
 fi
 
-    fi
+
   fi
 
     if test -n "$OPT_ZLIB"; then
@@ -22766,8 +22625,8 @@ $as_echo "$as_me: Added $LIB_OPENSSL to LD_LIBRARY_PATH" >&6;}
 $as_echo_n "checking for OpenSSL headers version... " >&6; }
 
     OLDCPPFLAGS=$CPPFLAGS
-  # CPPPFLAG comes from CURL_CPP_P
-  CPPFLAGS="$CPPFLAGS $CPPPFLAG"
+  # CPPPFLAGS comes from CURL_CPP_P
+  CPPFLAGS="$CPPPFLAGS"
       if test -z "$SED"; then
     as_fn_error $? "SED not set. Cannot continue without SED being set." "$LINENO" 5
   fi
@@ -40637,8 +40496,8 @@ fi
 
 if test "x$CURL_DISABLE_CRYPTO_AUTH" != "x1"; then
   if test "x$OPENSSL_ENABLED" = "x1" -o "x$USE_WINDOWS_SSPI" = "x1" \
-      -o "x$GNUTLS_ENABLED" = "x1" -o "x$MBEDTLS_ENABLED" = "x1" \
-      -o "x$NSS_ENABLED" = "x1" -o "x$DARWINSSL_ENABLED" = "x1"; then
+      -o "x$GNUTLS_ENABLED" = "x1" -o "x$NSS_ENABLED" = "x1" \
+      -o "x$DARWINSSL_ENABLED" = "x1"; then
     SUPPORT_FEATURES="$SUPPORT_FEATURES NTLM"
 
     if test "x$CURL_DISABLE_HTTP" != "x1" -a \
@@ -40709,8 +40568,8 @@ fi
 if test "x$CURL_DISABLE_SMB" != "x1" \
     -a "x$CURL_DISABLE_CRYPTO_AUTH" != "x1" \
     -a \( "x$OPENSSL_ENABLED" = "x1" -o "x$USE_WINDOWS_SSPI" = "x1" \
-      -o "x$GNUTLS_ENABLED" = "x1" -o "x$MBEDTLS_ENABLED" = "x1" \
-      -o "x$NSS_ENABLED" = "x1" -o "x$DARWINSSL_ENABLED" = "x1" \); then
+      -o "x$GNUTLS_ENABLED" = "x1" -o "x$NSS_ENABLED" = "x1" \
+      -o "x$DARWINSSL_ENABLED" = "x1" \); then
   SUPPORT_PROTOCOLS="$SUPPORT_PROTOCOLS SMB"
   if test "x$SSL_ENABLED" = "x1"; then
     SUPPORT_PROTOCOLS="$SUPPORT_PROTOCOLS SMBS"
@@ -42741,6 +42600,7 @@ $as_echo X"$file" |
     cat <<_LT_EOF >> "$cfgfile"
 #! $SHELL
 # Generated automatically by $as_me ($PACKAGE) $VERSION
+# Libtool was configured on host `(hostname || uname -n) 2>/dev/null | sed 1q`:
 # NOTE: Changes made to this file will be lost: look at ltmain.sh.
 
 # Provide generalized library-building support services.
