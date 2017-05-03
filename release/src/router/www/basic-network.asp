@@ -1985,7 +1985,7 @@ for(var uidx = 1; uidx <= maxwan_num; ++uidx) {
 		{ title: 'Load Balance Weight', name: 'wan'+u+'_weight', type: 'text', maxlen: 3, size: 8, value: nvram['wan'+u+'_weight'], suffix: ' <i>(Failover: 0; Load balancing: 1 - 256)</i>' },
 		{ title: 'PIN Code', name: 'wan'+u+'_modem_pin', type: 'text', maxlen: 6, size: 8, value: nvram['wan'+u+'_modem_pin'], suffix: ' <i>Advised to turn off PIN Code</i>' },
 		{ title: 'Modem init string', name: 'wan'+u+'_modem_init', type: 'text', maxlen: 25, size: 32, value: nvram['wan'+u+'_modem_init'] },
-		{ title: 'APN', name: 'wan'+u+'_modem_apn', type: 'text', maxlen: 25, size: 32, suffix: ' <small>(if empty, AT+CGDCONT will not be sent)</small>', value: nvram['wan'+u+'_modem_apn'] },
+		{ title: 'APN', name: 'wan'+u+'_modem_apn', type: 'text', maxlen: 25, size: 32, suffix: ' <i>(if empty, AT+CGDCONT will not be sent)</i>', value: nvram['wan'+u+'_modem_apn'] },
 		{ title: 'Network Type', name: 'wan'+u+'_modem_speed', type: 'select', options: [['00', 'Auto'],['030201', '4G/3G/2G'],['0302', '4G/3G only'],['03', '4G only'],['02', '3G only']], value: nvram['wan'+u+'_modem_speed'], suffix: ' <i>works only with non-Hilink modems</i>' },
 		{ title: 'Username', name: 'wan'+u+'_ppp_username', type: 'text', maxlen: 60, size: 64, value: nvram['wan'+u+'_ppp_username'] },
 		{ title: 'Password', name: 'wan'+u+'_ppp_passwd', type: 'password', maxlen: 60, size: 64, peekaboo: 1, value: nvram['wan'+u+'_ppp_passwd'] },
