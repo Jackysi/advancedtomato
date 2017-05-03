@@ -204,21 +204,6 @@ static void wo_blank(char *url)
 	web_puts("\n\n\n\n");
 }
 
-static void wo_favicon(char *url)
-{
-	send_header(200, NULL, "image/vnd.microsoft.icon", 0);
-	do_file(url);
-/*
-	if (nvram_match("web_favicon", "1")) {
-		send_header(200, NULL, "image/vnd.microsoft.icon", 0);
-		do_file(url);
-	}
-	else {
-		send_error(404, NULL, NULL);
-	}
-*/
-}
-
 static void wo_cfe(char *url)
 {
 	do_file(MTD_DEV(0ro));
@@ -308,7 +293,7 @@ const struct mime_handler mime_handlers[] = {
 	{ "**.txt",			mime_plain,					2,	wi_generic_noid,	do_file,		1 },
 	{ "**.bin",			mime_binary,				0,	wi_generic_noid,	do_file,		1 },
 	{ "**.bino",		mime_octetstream,			0,	wi_generic_noid,	do_file,		1 },
-	{ "favicon.ico",	NULL,						24,	wi_generic_noid,	wo_favicon,		1 },
+	{ "favicon.ico",	"image/x-icon",				24,	wi_generic_noid,	do_file,		1 },
 // !!TB - CGI Support, enable downloading archives
 	{ "**/cgi-bin/**|**.sh",	NULL,					0,	wi_cgi_bin,		wo_cgi_bin,			1 },
 	{ "**.tar|**.gz",		mime_binary,				0,	wi_generic_noid,	do_file,		1 },
