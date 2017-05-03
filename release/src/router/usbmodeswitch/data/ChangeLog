@@ -1,3 +1,35 @@
+20160803:
+    Added devices: [03f0:521d] HP hs3110, [03f0:531d] HP hs3120,
+    [03f0:541d] HP hs3114, [03f0:581d] HP hs4112, [03f0:631d] HP lt4225,
+    [03f0:641d] HP lt4226, [03f0:681d] HP lt4227, [03f0:911d] HP lt4211,
+    [03f0:931d] HP lt4110, [03f0:9a1d] HP lt4114, [1004:610c] LG L-02A,
+    [12d1:1527] Vodafone/Huawei R206 Router , [12d1:1570] Huawei ME906E,
+    [12d1:1571] Huawei EM820W, [12d1:1572] Huawei MU733, [12d1:1580]
+    Vodafone/Huawei R210 Router, [12d1:1581] Vodafone/Huawei R208 Router,
+    [12d1:15bb] Huawei ME936, [12d1:15c0] Huawei ME906C, [12d1:15f0]
+    Huawei MU736, [12d1:1c25] Huawei MU709s-2 Module, [12d1:1f04]
+    Vodafone/Huawei R206_MR Router, [12d1:1f05] Vodafone/Huawei R207
+    Router, [12d1:1f06] Vodafone/Huawei R215_MR Router, [16d5:f000]
+    Anydata ADU-890WH, [1726:1900] Axesstel MV210, [1782:0023] Spreadtrum
+    SC7702 (Variant), [19d2:1019] Vodafone/ZTE R203 Router, [19d2:1020]
+    Vodafone/ZTE R203 Router, [19d2:1022] Vodafone/ZTE K4201-z, [19d2:1026]
+    Vodafone/ZTE R212 Router, [19d2:1034] Vodafone/ZTE R206-z Router,
+    [19d2:1042] Vodafone/ZTE R209-z Router, [19d2:1046] ZTE MF730,
+    [1c9e:f010] Micromax MMX400R/4G Systems XSBOXGO, [2001:7600] D-Link
+    DWM-157 C1, [2015:0001] Venus VT-18, [230d:000c] Zoom 3G, [6000:1000]
+    BlueLink BL-EV08C;
+    Corrected/amended configs: [0408:f000] MU-Q110, [0408:f000:uMa=Yota]
+    Yota Router (Quanta 1QDLZZZ0ST2), [057c:62ff] AVM Fritz!Wlan USB Stick
+    N v2, [057c:84ff] AVM Fritz!Wlan USB Stick N, [05c6:1000:uMa=CELOT]
+    Celot K-300 a.o., [07d1:a800] D-Link DWM-156 HSUPA 3.75G a.o.,
+    [1004:6190] LG AD600, [12d1:1c0b] Huawei E173s, [2020:f00e] SpeedUp
+    SU-8000 a.o., [2077:f000] Telenet 3G dongle a.o., [22f4:0021] Tata
+    Photon+, Olive VME102;
+    Removed devices (handled by kernel): [0bdb:190d] Ericsson F5521gw,
+    [0bdb:1910] Ericsson F5521gw (Variant); changes in Makefile to align
+    with Debian packaging requirements; small updates in "gen-rules.tcl";
+    "NoDriverLoading" parameter removed from all configs - this time for
+    real ...
 20160612:
     ATTENTION: requires usb-modeswitch version >= 2.4.0 due to appended
     StandardEject sequence (affects D-Link devices);

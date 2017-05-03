@@ -1,7 +1,7 @@
 Configuration File Reference for USB_ModeSwitch
 -----------------------------------------------
 
-Last modified: 2016-01-12
+Last modified: 2016-08-03
 
 
 
@@ -10,7 +10,7 @@ General Rules:
 Numbers can be decimal or hexadecimal, Bulk message strings must be
 hexadecimal without prepended "0x". Digits 9-16 (message tag) in
 mass storage messages (which start with "55534243") are random; I set
-them to "12345678". Not that you must make them unique if more than
+them to "12345678". Note that you must make them unique if more than
 one MessageContent is used.
 
 -> ALL MISTYPED PARAMETERS AND OTHER ENTRIES ARE SILENTLY IGNORED <-
@@ -97,7 +97,8 @@ switching, but still comes handy sometimes
 
 Sends a specific bulk message sequence representing the SCSI commands
 "ALLOW MEDIUM REMOVAL" and "START STOP UNIT", basically an eject
-action. Many modems are using this for mode switching
+action. Many modems are using this for mode switching.
+Can be combined with one additional 'MessageContent'
 
 
 * HuaweiMode <0/1>         -H
@@ -108,7 +109,7 @@ message. Don't use with recent devices
 
 * HuaweiNewMode <0/1>      -J
 
-The standard for all newer Huawei devices. Sends a specific bulk message,
+The standard for many newer Huawei devices. Sends a specific bulk message,
 but different target layouts may be reached with variants of that
 message; use MessageContent for these
 
@@ -149,7 +150,7 @@ all models were confirmed to support all modes. Possible values are:
     3 - forced CDC Ether mode (internal switch, no usb_modeswitch action)
     4 - forced MBIM mode
 
-Important: the -F parameter value for usb_modeswitch is directly used as
+Note: the -F parameter value for usb_modeswitch is directly used as
 wValue in the control message!
 
 
@@ -185,7 +186,7 @@ might have the same effect as a manual replug)
 * InquireDevice <0|1>      -I (enables inquiry)
 
 Formerly printed out SCSI device attributes. Obsolete and ignored since
-version 2.3.0.
+usb_modeswitch version 2.3.0.
 
 
 * CheckSuccess             -s <number>
@@ -202,6 +203,7 @@ usb_modeswitch where the success check is done by the wrapper script
 
 * NoDriverLoading <0|1>    (no command line parameter)
 
+(Obsolete, ignored since usb_modeswitch 2.4.0)
 The binary tells the wrapper script NOT to check for and initiate
 binding of the serial driver after switching.
 Mostly useful for non-modem devices and newer modems which do not use
@@ -223,3 +225,4 @@ according to the MBIM standard. If so, it will search for the matching
 kernel driver. It it's available, the device will be configured for
 MBIM usage which is preferable to other modes and configurations
 
+--
