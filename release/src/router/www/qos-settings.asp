@@ -222,7 +222,7 @@ createFieldTable('', [
 		{ suffix: ' RST &nbsp;', name: 'f_qos_rst', type: 'checkbox', value: nvram.qos_rst == '1' }
 	] },
 	{ title: 'Prioritize ICMP', name: 'f_qos_icmp', type: 'checkbox', value: nvram.qos_icmp == '1' },
-	{ title: 'No Ingress QOS for UDP', name: 'f_qos_udp', type: 'checkbox', value: nvram.qos_udp == '1' },
+	{ title: 'No Ingress QoS for UDP', name: 'f_qos_udp', type: 'checkbox', value: nvram.qos_udp == '1' },
 	{ title: 'Reset class when changing settings', name: 'f_qos_reset', type: 'checkbox', value: nvram.qos_reset == '1' },
 	{ title: 'Default class', name: 'qos_default', type: 'select', options: classList, value: nvram.qos_default },
 /* REMOVE-BEGIN
@@ -313,7 +313,7 @@ createFieldTable('', f);
 
 
 
-<div class='section-title'>QOS Class Names <small><i><a href='javascript:toggleFiltersVisibility();'>(Toggle Visibility)</a></i></small></div>
+<div class='section-title'>QoS Class Names <small><i><a href='javascript:toggleFiltersVisibility();'>(Toggle Visibility)</a></i></small></div>
 <div class='section' id='qosclassnames' style='display:none'>
 <script type='text/javascript'>
 
