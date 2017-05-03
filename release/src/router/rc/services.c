@@ -890,7 +890,8 @@ void start_6rd_tunnel(void)
 
 	// adding default route via the border relay
 	snprintf(tmp_ipv6, sizeof(tmp_ipv6), "::%s", relay);
-	eval("ip", "-6", "route", "add", "default", "via", tmp_ipv6, "dev", (char *)tun_dev);
+//	eval("ip", "-6", "route", "add", "default", "via", tmp_ipv6, "dev", (char *)tun_dev);
+	eval("ip", "-6", "route", "add", "::/0", "via", tmp_ipv6, "dev", (char *)tun_dev);
 
 	nvram_set("ipv6_ifname", (char *)tun_dev);
 
