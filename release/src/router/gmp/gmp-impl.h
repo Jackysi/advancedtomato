@@ -1273,7 +1273,9 @@ __GMP_DECLSPEC extern gmp_randstate_t  __gmp_rands;
 #endif
 #define BELOW_THRESHOLD(size,thresh)  (! ABOVE_THRESHOLD (size, thresh))
 
-#define MPN_TOOM22_MUL_MINSIZE    4
+/* The minimal supported value for Toom22 depends also on Toom32 and
+   Toom42 implementations. */
+#define MPN_TOOM22_MUL_MINSIZE    6
 #define MPN_TOOM2_SQR_MINSIZE     4
 
 #define MPN_TOOM33_MUL_MINSIZE   17
@@ -2293,8 +2295,8 @@ __GMP_DECLSPEC mp_limb_t gmp_primesieve (mp_ptr, mp_limb_t);
 
 struct fft_table_nk
 {
-  unsigned int n:27;
-  unsigned int k:5;
+  gmp_uint_least32_t n:27;
+  gmp_uint_least32_t k:5;
 };
 
 #ifndef FFT_TABLE_ATTRS
@@ -2685,7 +2687,7 @@ __GMP_DECLSPEC mp_bitcnt_t mpn_remove (mp_ptr, mp_size_t *, mp_srcptr, mp_size_t
 	   ASM_L(done) ":\n"						\
 	   : "=r" (__ptr_dummy)						\
 	   : "0"  (ptr),						\
-	     "ri" ((mp_limb_t) (incr)), "n" (sizeof(mp_limb_t))		\
+	     "re" ((mp_limb_t) (incr)), "n" (sizeof(mp_limb_t))		\
 	   : "memory");							\
       }									\
   } while (0)

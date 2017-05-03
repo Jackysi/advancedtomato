@@ -110,7 +110,7 @@ void checkz (){
   CHECK_ALL(mpz_class,6,3,^);
   CHECK(mpz_class,unsigned long,6,2,<<);
   CHECK(mpz_class,unsigned long,6,2,>>);
-  CHECK(mpz_class,unsigned long,-13,2,<<);
+  ASSERT_ALWAYS(mpz_class(-13)<<(unsigned long)2 == (-13)*4);
   CHECK(mpz_class,unsigned long,-13,2,>>);
   ASSERT_ALWAYS(++mpz_class(7)==8);
   ASSERT_ALWAYS(++mpz_class(-8)==-7);

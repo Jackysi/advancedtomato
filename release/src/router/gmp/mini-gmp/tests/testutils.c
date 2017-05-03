@@ -1,6 +1,6 @@
 /*
 
-Copyright 2013, 2014, Free Software Foundation, Inc.
+Copyright 2013-2015, Free Software Foundation, Inc.
 
 This file is part of the GNU MP Library test suite.
 
@@ -35,7 +35,7 @@ static size_t total_alloc = 0;
    which shouldn't have stricter alignment requirements than
    size_t. */
 
-static char block_end[8] =
+static unsigned char block_end[8] =
   { 0x7c, 0x37, 0xd6, 0x12, 0xa8, 0x6c, 0x01, 0xd1 };
 
 static void *
