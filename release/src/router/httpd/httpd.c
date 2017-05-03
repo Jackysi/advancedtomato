@@ -144,7 +144,7 @@ void send_header(int status, const char* header, const char* mime, int cache)
 
 	if (mime) web_printf("Content-Type: %s\r\n", mime);
 	if (cache > 0) {
-		web_printf("Cache-Control: max-age=%d\r\n", cache * 60);
+		web_printf("Cache-Control: max-age=%d\r\n", cache * 3600);
 	}
 	else {
 		web_puts("Cache-Control: no-cache, no-store, must-revalidate, private\r\n"
