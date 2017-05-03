@@ -106,7 +106,7 @@ cronAdd() {
     ISSET=`cru l | grep adblockJob | wc -l`
     if [ "$ISSET" == "0" ]; then
         $LOGS add cron job
-        cru a adblockJob "00 1 * * * /usr/sbin/adblock"
+        cru a adblockJob "00 2 * * * /usr/sbin/adblock"
     fi
 }
 
