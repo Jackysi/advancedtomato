@@ -35,9 +35,7 @@ void start_tor(void)
             fprintf(fp, "RunAsDaemon 1\n");
             fprintf(fp, "Log notice syslog\n");
             fprintf(fp, "DataDirectory %s\n", nvram_safe_get( "tor_datadir" ) );
-            fprintf(fp, "TransPort %s\n", nvram_safe_get( "tor_transport" ) );
             fprintf(fp, "TransPort %s:%s\n", ip, nvram_safe_get( "tor_transport" ) );
-            fprintf(fp, "DNSPort %s\n", nvram_safe_get( "tor_dnsport" ) );
             fprintf(fp, "DNSPort %s:%s\n", ip, nvram_safe_get( "tor_dnsport" ) );
             fprintf(fp, "User nobody\n");
             fprintf(fp, "%s\n", nvram_safe_get("tor_custom"));
