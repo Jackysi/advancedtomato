@@ -4,18 +4,18 @@
 ## Makefile for OpenSSL
 ##
 
-VERSION=1.0.2j
+VERSION=1.0.2k
 MAJOR=1
 MINOR=0.2
 SHLIB_VERSION_NUMBER=1.0.0
 SHLIB_VERSION_HISTORY=
 SHLIB_MAJOR=1
 SHLIB_MINOR=0.0
-SHLIB_EXT=.so.$(SHLIB_MAJOR).$(SHLIB_MINOR)
-PLATFORM=linux-armv4
-OPTIONS=--openssldir=/etc --cross-compile-prefix=  -ffunction-sections -fdata-sections -Wl,--gc-sections enable-shared enable-rc5 no-camellia no-capieng no-dtls1 no-ec_nistp_64_gcc_128 no-engines no-err no-gmp no-gms no-hw no-jpake no-krb5 no-libunbound no-md2 no-mdc2 no-psk no-rfc3779 no-ripemd no-rmd160 no-sctp no-seed no-sha0 no-smime no-sse2 no-ssl-trace no-ssl2 no-store no-ts no-unit-test no-weak-ssl-ciphers no-zlib no-zlib-dynamic no-static-engine
-CONFIGURE_ARGS=linux-armv4 --openssldir=/etc --cross-compile-prefix=  -ffunction-sections -fdata-sections -Wl,--gc-sections shared enable-rc5 no-sha0 no-smime no-camellia no-krb5 no-rmd160 no-ripemd no-seed no-capieng no-gms no-gmp no-rfc3779 no-err no-hw no-jpake no-zlib no-engines no-sse2 no-libunbound no-ssl-trace no-dtls1 no-store no-psk no-md2 no-mdc2 no-ts
-SHLIB_TARGET=linux-shared
+SHLIB_EXT=
+PLATFORM=dist
+OPTIONS= no-ec_nistp_64_gcc_128 no-gmp no-jpake no-krb5 no-libunbound no-md2 no-rc5 no-rfc3779 no-sctp no-shared no-ssl-trace no-ssl2 no-store no-unit-test no-weak-ssl-ciphers no-zlib no-zlib-dynamic static-engine
+CONFIGURE_ARGS=dist
+SHLIB_TARGET=
 
 # HERE indicates where this Makefile lives.  This can be used to indicate
 # where sub-Makefiles are expected to be.  Currently has very limited usage,
@@ -26,10 +26,10 @@ HERE=.
 # for, say, /usr/ and yet have everything installed to /tmp/somedir/usr/.
 # Normally it is left empty.
 INSTALL_PREFIX=
-INSTALLTOP=/etc
+INSTALLTOP=/usr/local/ssl
 
 # Do not edit this manually. Use Configure --openssldir=DIR do change this!
-OPENSSLDIR=/etc
+OPENSSLDIR=/usr/local/ssl
 
 # NO_IDEA - Define to build without the IDEA algorithm
 # NO_RC4  - Define to build without the RC4 algorithm
@@ -59,18 +59,17 @@ OPENSSLDIR=/etc
 # equal 4.
 # PKCS1_CHECK - pkcs1 tests.
 
-CROSS_COMPILE=  
-CC= $(CROSS_COMPILE)arm-brcm-linux-uclibcgnueabi-gcc
-CFLAG= -fPIC -DOPENSSL_PIC -DOPENSSL_THREADS -D_REENTRANT -DDSO_DLFCN -DHAVE_DLFCN_H -ffunction-sections -fdata-sections -DOPENSSL_NO_ERR -O3 -Wall -DOPENSSL_BN_ASM_MONT -DOPENSSL_BN_ASM_GF2m -DSHA1_ASM -DSHA256_ASM -DSHA512_ASM -DAES_ASM -DBSAES_ASM -DGHASH_ASM
-DEPFLAG= -DOPENSSL_NO_CAMELLIA -DOPENSSL_NO_CAPIENG -DOPENSSL_NO_DTLS1 -DOPENSSL_NO_EC_NISTP_64_GCC_128 -DOPENSSL_NO_ENGINES -DOPENSSL_NO_GMP -DOPENSSL_NO_GMS -DOPENSSL_NO_JPAKE -DOPENSSL_NO_LIBUNBOUND -DOPENSSL_NO_MD2 -DOPENSSL_NO_MDC2 -DOPENSSL_NO_PSK -DOPENSSL_NO_RFC3779 -DOPENSSL_NO_RIPEMD -DOPENSSL_NO_RMD160 -DOPENSSL_NO_SCTP -DOPENSSL_NO_SEED -DOPENSSL_NO_SHA0 -DOPENSSL_NO_SMIME -DOPENSSL_NO_SSL_TRACE -DOPENSSL_NO_SSL2 -DOPENSSL_NO_STORE -DOPENSSL_NO_TS -DOPENSSL_NO_UNIT_TEST -DOPENSSL_NO_WEAK_SSL_CIPHERS
+CC= cc
+CFLAG= -O
+DEPFLAG= -DOPENSSL_NO_EC_NISTP_64_GCC_128 -DOPENSSL_NO_GMP -DOPENSSL_NO_JPAKE -DOPENSSL_NO_LIBUNBOUND -DOPENSSL_NO_MD2 -DOPENSSL_NO_RC5 -DOPENSSL_NO_RFC3779 -DOPENSSL_NO_SCTP -DOPENSSL_NO_SSL_TRACE -DOPENSSL_NO_SSL2 -DOPENSSL_NO_STORE -DOPENSSL_NO_UNIT_TEST -DOPENSSL_NO_WEAK_SSL_CIPHERS
 PEX_LIBS= 
-EX_LIBS= -Wl,--gc-sections -ldl
+EX_LIBS= 
 EXE_EXT= 
 ARFLAGS= 
-AR= $(CROSS_COMPILE)ar $(ARFLAGS) r
-RANLIB= $(CROSS_COMPILE)ranlib
-RC= $(CROSS_COMPILE)windres
-NM= $(CROSS_COMPILE)nm
+AR= ar $(ARFLAGS) r
+RANLIB= /usr/bin/ranlib
+RC= windres
+NM= nm
 PERL= /usr/bin/perl
 TAR= tar
 TARFLAGS= --no-recursion
@@ -90,23 +89,23 @@ ASFLAG=$(CFLAG)
 PROCESSOR= 
 
 # CPUID module collects small commonly used assembler snippets
-CPUID_OBJ= armcap.o armv4cpuid.o
-BN_ASM= bn_asm.o armv4-mont.o armv4-gf2m.o
+CPUID_OBJ= mem_clr.o
+BN_ASM= bn_asm.o
 EC_ASM= 
 DES_ENC= des_enc.o fcrypt_b.o
-AES_ENC= aes_cbc.o aes-armv4.o bsaes-armv7.o aesv8-armx.o
+AES_ENC= aes_core.o aes_cbc.o
 BF_ENC= bf_enc.o
 CAST_ENC= c_enc.o
 RC4_ENC= rc4_enc.o rc4_skey.o
 RC5_ENC= rc5_enc.o
 MD5_ASM_OBJ= 
-SHA1_ASM_OBJ= sha1-armv4-large.o sha256-armv4.o sha512-armv4.o
+SHA1_ASM_OBJ= 
 RMD160_ASM_OBJ= 
 WP_ASM_OBJ= wp_block.o
 CMLL_ENC= camellia.o cmll_misc.o cmll_cbc.o
-MODES_ASM_OBJ= ghash-armv4.o ghashv8-armx.o
+MODES_ASM_OBJ= 
 ENGINES_ASM_OBJ= 
-PERLASM_SCHEME= void
+PERLASM_SCHEME= 
 
 # KRB5 stuff
 KRB5_INCLUDES=
@@ -140,19 +139,19 @@ FIPSCANLIB=
 
 BASEADDR=0xFB00000
 
-DIRS=   crypto ssl apps
+DIRS=   crypto ssl engines apps test tools
 ENGDIRS= ccgost
 SHLIBDIRS= crypto ssl
 
 # dirs in crypto to build
 SDIRS=  \
 	objects \
-	md4 md5 sha hmac whrlpool \
-	des aes rc2 rc4 rc5 idea bf cast modes \
+	md4 md5 sha mdc2 hmac ripemd whrlpool \
+	des aes rc2 rc4 idea bf cast camellia seed modes \
 	bn ec rsa dsa ecdsa dh ecdh dso engine \
 	buffer bio stack lhash rand err \
-	evp asn1 pem x509 x509v3 conf txt_db pkcs7 pkcs12 comp ocsp ui \
-	cms pqueue srp cmac
+	evp asn1 pem x509 x509v3 conf txt_db pkcs7 pkcs12 comp ocsp ui krb5 \
+	cms pqueue ts srp cmac
 # keep in mind that the above list is adjusted by ./Configure
 # according to no-xxx arguments...
 
@@ -172,13 +171,13 @@ SHELL=/bin/sh
 
 TOP=    .
 ONEDIRS=out tmp
-EDIRS=  times bugs util include certs ms shlib mt demos perl sf dep VMS
+EDIRS=  times doc bugs util include certs ms shlib mt demos perl sf dep VMS
 WDIRS=  windows
 LIBS=   libcrypto.a libssl.a
 SHARED_CRYPTO=libcrypto$(SHLIB_EXT)
 SHARED_SSL=libssl$(SHLIB_EXT)
-SHARED_LIBS=$(SHARED_CRYPTO) $(SHARED_SSL)
-SHARED_LIBS_LINK_EXTS=.so.$(SHLIB_MAJOR) .so
+SHARED_LIBS=
+SHARED_LIBS_LINK_EXTS=
 SHARED_LDFLAGS=
 
 GENERAL=        Makefile
@@ -204,7 +203,8 @@ CLEARENV=	TOP= && unset TOP $${LIB+LIB} $${LIBS+LIBS}	\
 		$${ASFLAGS+ASFLAGS} $${AFLAGS+AFLAGS}		\
 		$${LDCMD+LDCMD} $${LDFLAGS+LDFLAGS} $${SCRIPTS+SCRIPTS}	\
 		$${SHAREDCMD+SHAREDCMD} $${SHAREDFLAGS+SHAREDFLAGS}	\
-		$${SHARED_LIB+SHARED_LIB} $${LIBEXTRAS+LIBEXTRAS}
+		$${SHARED_LIB+SHARED_LIB} $${LIBEXTRAS+LIBEXTRAS}	\
+		$${APPS+APPS}
 
 # LC_ALL=C ensures that error [and other] messages are delivered in
 # same language for uniform treatment.
@@ -405,6 +405,11 @@ openssl.pc: Makefile
 	    echo 'Version: '$(VERSION); \
 	    echo 'Requires: libssl libcrypto' ) > openssl.pc
 
+Makefile: Makefile.org Configure config
+	@echo "Makefile is older than Makefile.org, Configure or config."
+	@echo "Reconfigure the source tree (via './config' or 'perl Configure'), please."
+	@false
+
 libclean:
 	rm -f *.map *.so *.so.* *.dylib *.dll engines/*.so engines/*.dll engines/*.dylib *.a engines/*.a */lib */*/lib
 
@@ -528,7 +533,7 @@ dist:
 	@$(MAKE) SDIRS='$(SDIRS)' clean
 	@$(MAKE) TAR='$(TAR)' TARFLAGS='$(TARFLAGS)' $(DISTTARVARS) tar
 
-install: all install_sw
+install: all install_docs install_sw
 
 install_sw:
 	@$(PERL) $(TOP)/util/mkdir-p.pl $(INSTALL_PREFIX)$(INSTALLTOP)/bin \
