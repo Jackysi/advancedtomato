@@ -81,7 +81,7 @@ ERROR:
 void wo_uploadsplash(char *url)
 {
         if (rboot) {
-                redirect("/new-splashd.asp");
+                redirect("/splashd.asp");
 		exit(0);
         }
         else {
