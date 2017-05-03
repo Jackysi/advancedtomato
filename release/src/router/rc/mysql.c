@@ -272,7 +272,7 @@ void stop_mysql(void)
 	fprintf( fp, "#!/bin/sh\n\n" );
 	fprintf( fp, "%s/mysqladmin -uroot -p\"%s\" --shutdown_timeout=3 shutdown\n", pbi, nvram_safe_get("mysql_passwd"));
 	fprintf( fp, "killall mysqld\n" );
-	fprintf( fp, "logger \"MySQL successfully stoped\" \n");
+	fprintf( fp, "logger \"MySQL successfully stopped\" \n");
 	fprintf( fp, "sleep 1\n");
 	fprintf( fp, "rm -f /var/run/mysql.pid\n");
 	fprintf( fp, "/usr/bin/mycheck addcru\n");
