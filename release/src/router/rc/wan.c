@@ -1018,10 +1018,7 @@ void start_wan(int mode)
 	xstart("mwanroute");
 
 	if(nvram_get_int("mwan_cktime") > 0)
-		xstart("watchdog", "add");
-
-	if(nvram_match("adblock_enable", "1"))
-		xstart("/usr/sbin/adblock");
+		xstart("watchdog", "add");	
 
 	led(LED_DIAG, 0);	// for 4712, 5325E (?)
 	led(LED_DMZ, nvram_match("dmz_enable", "1"));
@@ -1165,6 +1162,10 @@ void start_wan_done(char *wan_ifname, char *prefix)
 	}
 
 	dns_to_resolv();
+
+	if(nvram_match("adblock_enable", "1"))
+		xstart("/usr/sbin/adblock");
+
 	start_dnsmasq();
 
 	start_firewall();
