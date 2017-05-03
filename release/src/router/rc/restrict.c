@@ -280,8 +280,9 @@ void ipt_restrictions(void)
 						  wanfaces.iface[n].name);
 				}
 			}
-		// Only mess with DNS requests that are coming in on INPUT
+		// Only mess with DNS requests that are coming in on INPUT for both UDP and TCP
 		ip46t_write("-I INPUT 1 -i ! lo -p udp --dport 53 -j restrict\n");
+		ip46t_write("-I INPUT 1 -i ! lo -p tcp --dport 53 -j restrict\n");
 	}
 
 		sprintf(reschain, "rres%02d", nrule);
