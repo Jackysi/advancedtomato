@@ -216,6 +216,7 @@ endif
 obj-$(TCONFIG_NGINX) += mysql
 obj-$(TCONFIG_NGINX) += spawn-fcgi
 obj-$(TCONFIG_NGINX) += pcre
+obj-$(TCONFIG_NGINX) += libatomic_ops
 obj-$(TCONFIG_NGINX) += libiconv
 obj-$(TCONFIG_NGINX) += libxml2
 obj-$(TCONFIG_NGINX) += libpng
@@ -1761,11 +1762,13 @@ pcre-install: pcre
 	@$(SEP)
 	install -D pcre/.libs/libpcre.so.1 $(INSTALLDIR)/pcre/usr/lib/libpcre.so.1.2.7
 	$(STRIP) -s $(INSTALLDIR)/pcre/usr/lib/libpcre.so.1.2.7
-	install -D pcre/.libs/libpcreposix.so.0.0.4 $(INSTALLDIR)/pcre/usr/lib/libpcreposix.so.0.0.4
-	$(STRIP) -s $(INSTALLDIR)/pcre/usr/lib/libpcreposix.so.0.0.4
 	cd $(INSTALLDIR)/pcre/usr/lib/ && \
-		ln -sf libpcre.so.1.2.7 libpcre.so.1 && \
-		ln -sf libpcreposix.so.0.0.4 libpcreposix.so.0
+		ln -sf libpcre.so.1.2.7 libpcre.so.1
+#unused at the moment - shibby
+#	install -D pcre/.libs/libpcreposix.so.0.0.4 $(INSTALLDIR)/pcre/usr/lib/libpcreposix.so.0.0.4
+#	$(STRIP) -s $(INSTALLDIR)/pcre/usr/lib/libpcreposix.so.0.0.4
+#	cd $(INSTALLDIR)/pcre/usr/lib/ && \
+#		ln -sf libpcreposix.so.0.0.4 libpcreposix.so.0
 
 pcre-clean:
 	( if [ -f pcre/Makefile ]; then \
@@ -1819,10 +1822,24 @@ libpng-install: libpng
 		ln -sf libpng12.so.0.51.0 libpng12.so && \
 		ln -sf libpng12.so.0.51.0 libpng12.so.0
 
-libpng-clean:
-	-@$(MAKE) -C libpng clean
-	@rm -f libpng/stamp-h1
-	@rm -rf libpng/staged
+libatomic_ops/stamp-h1:
+	cd libatomic_ops && \
+	./autogen.sh && \
+	CC=$(CC) AR=$(AR) RANLIB=$(RANLIB) LD=$(LD) CFLAGS="-Os -Wall $(EXTRACFLAGS)" \
+	$(CONFIGURE) --prefix=/usr --enable-static --enable-shared
+	touch $@
+
+libatomic_ops: libatomic_ops/stamp-h1
+	@$(MAKE) -C libatomic_ops $(PARALLEL_BUILD)
+
+libatomic_ops-install: libatomic_ops
+	@$(SEP)
+	install -D libatomic_ops/src/.libs/libatomic_ops.so.1.0.3 $(INSTALLDIR)/libatomic_ops/usr/lib/libatomic_ops.so.1.0.3
+	$(STRIP) $(INSTALLDIR)/libatomic_ops/usr/lib/libatomic_ops.so.1.0.3
+
+libatomic_ops-clean:
+	-@$(MAKE) -C libatomic_ops clean
+	@rm -f libatomic_ops/stamp-h1
 
 php/stamp-h1: pcre zlib libiconv sqlite libxml2 libpng jpeg libcurl
 	@$(SEP)
@@ -1915,7 +1932,7 @@ php-install: php
 	cd $(INSTALLDIR)/php/usr/sbin && ln -sf php-cgi php-fcgi
 	$(STRIP) $(INSTALLDIR)/php/usr/sbin/php-cgi
 
-nginx/stamp-h1: openssl zlib pcre
+nginx/stamp-h1: openssl zlib pcre libatomic_ops
 	@$(SEP)
 	cd $(TOP)/nginx && ./configure --crossbuild=Linux::$(ARCH) \
 		--prefix=/usr \
@@ -1933,9 +1950,10 @@ nginx/stamp-h1: openssl zlib pcre
 		--http-uwsgi-temp-path=/tmp/var/lib/nginx/uwsgi \
 		--http-scgi-temp-path=/tmp/var/lib/nginx/scgi \
 		--http-proxy-temp-path=/tmp/var/lib/nginx/proxy \
+		--with-libatomic="$(TOP)/libatomic_ops" \
 		--with-cc="$(CC)" \
-		--with-ld-opt="$(LDFLAGS) -L $(TOP)/pcre/.libs -L $(TOP)/zlib -L $(TOP)/openssl" \
-		--with-cc-opt="$(EXTRACFLAGS) $(CPPFLAGS) $(CFLAGS) -I $(TOP)/openssl/include -I $(TOP)/openssl/include/openssl -I $(TOP)/pcre -I $(TOP)/zlib" \
+		--with-ld-opt="$(LDFLAGS) -L $(TOP)/pcre/.libs -L $(TOP)/zlib -L $(TOP)/openssl -L $(TOP)/libatomic_ops/src" \
+		--with-cc-opt="$(EXTRACFLAGS) $(CPPFLAGS) $(CFLAGS) -I $(TOP)/openssl/include -I $(TOP)/openssl/include/openssl -I $(TOP)/pcre -I $(TOP)/zlib -I $(TOP)/libatomic_ops/src/.libs" \
 		$(ADDITIONAL_MODULES)
 
 nginx: nginx/stamp-h1
