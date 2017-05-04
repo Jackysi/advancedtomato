@@ -2053,6 +2053,20 @@ open_tun(const char *dev, const char *dev_type, const char *dev_node, struct tun
 
 #ifdef ENABLE_FEATURE_TUN_PERSIST
 
+/*
+ * This can be removed in future
+ * when all systems will use newer
+ * linux-headers
+ *
+ * be compatible with Tomato K26 - shibby
+ */
+#ifndef TUNSETOWNER
+#define TUNSETOWNER	_IOW('T', 204, int)
+#endif
+#ifndef TUNSETGROUP
+#define TUNSETGROUP	_IOW('T', 206, int)
+#endif
+
 void
 tuncfg(const char *dev, const char *dev_type, const char *dev_node, int persist_mode, const char *username, const char *groupname, const struct tuntap_options *options)
 {

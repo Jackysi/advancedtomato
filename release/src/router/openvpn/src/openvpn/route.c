@@ -46,6 +46,10 @@
 #include "memdbg.h"
 
 #if defined(TARGET_LINUX) || defined(TARGET_ANDROID)
+// be compatible with Tomato K26 - shibby
+typedef __signed__ long __s64;
+typedef unsigned long __u64;
+// end - shibby
 #include <linux/rtnetlink.h>            /* RTM_GETROUTE etc. */
 #endif
 
