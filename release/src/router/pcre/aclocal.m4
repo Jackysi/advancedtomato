@@ -211,9 +211,92 @@ else
         AC_MSG_RESULT([yes])
 	$3
 fi[]dnl
-])# PKG_CHECK_MODULES
+])dnl PKG_CHECK_MODULES
 
-# Copyright (C) 2002-2013 Free Software Foundation, Inc.
+
+dnl PKG_CHECK_MODULES_STATIC(VARIABLE-PREFIX, MODULES, [ACTION-IF-FOUND],
+dnl   [ACTION-IF-NOT-FOUND])
+dnl ---------------------------------------------------------------------
+dnl Since: 0.29
+dnl
+dnl Checks for existence of MODULES and gathers its build flags with
+dnl static libraries enabled. Sets VARIABLE-PREFIX_CFLAGS from --cflags
+dnl and VARIABLE-PREFIX_LIBS from --libs.
+dnl
+dnl Note that if there is a possibility the first call to
+dnl PKG_CHECK_MODULES_STATIC might not happen, you should be sure to
+dnl include an explicit call to PKG_PROG_PKG_CONFIG in your
+dnl configure.ac.
+AC_DEFUN([PKG_CHECK_MODULES_STATIC],
+[AC_REQUIRE([PKG_PROG_PKG_CONFIG])dnl
+_save_PKG_CONFIG=$PKG_CONFIG
+PKG_CONFIG="$PKG_CONFIG --static"
+PKG_CHECK_MODULES($@)
+PKG_CONFIG=$_save_PKG_CONFIG[]dnl
+])dnl PKG_CHECK_MODULES_STATIC
+
+
+dnl PKG_INSTALLDIR([DIRECTORY])
+dnl -------------------------
+dnl Since: 0.27
+dnl
+dnl Substitutes the variable pkgconfigdir as the location where a module
+dnl should install pkg-config .pc files. By default the directory is
+dnl $libdir/pkgconfig, but the default can be changed by passing
+dnl DIRECTORY. The user can override through the --with-pkgconfigdir
+dnl parameter.
+AC_DEFUN([PKG_INSTALLDIR],
+[m4_pushdef([pkg_default], [m4_default([$1], ['${libdir}/pkgconfig'])])
+m4_pushdef([pkg_description],
+    [pkg-config installation directory @<:@]pkg_default[@:>@])
+AC_ARG_WITH([pkgconfigdir],
+    [AS_HELP_STRING([--with-pkgconfigdir], pkg_description)],,
+    [with_pkgconfigdir=]pkg_default)
+AC_SUBST([pkgconfigdir], [$with_pkgconfigdir])
+m4_popdef([pkg_default])
+m4_popdef([pkg_description])
+])dnl PKG_INSTALLDIR
+
+
+dnl PKG_NOARCH_INSTALLDIR([DIRECTORY])
+dnl --------------------------------
+dnl Since: 0.27
+dnl
+dnl Substitutes the variable noarch_pkgconfigdir as the location where a
+dnl module should install arch-independent pkg-config .pc files. By
+dnl default the directory is $datadir/pkgconfig, but the default can be
+dnl changed by passing DIRECTORY. The user can override through the
+dnl --with-noarch-pkgconfigdir parameter.
+AC_DEFUN([PKG_NOARCH_INSTALLDIR],
+[m4_pushdef([pkg_default], [m4_default([$1], ['${datadir}/pkgconfig'])])
+m4_pushdef([pkg_description],
+    [pkg-config arch-independent installation directory @<:@]pkg_default[@:>@])
+AC_ARG_WITH([noarch-pkgconfigdir],
+    [AS_HELP_STRING([--with-noarch-pkgconfigdir], pkg_description)],,
+    [with_noarch_pkgconfigdir=]pkg_default)
+AC_SUBST([noarch_pkgconfigdir], [$with_noarch_pkgconfigdir])
+m4_popdef([pkg_default])
+m4_popdef([pkg_description])
+])dnl PKG_NOARCH_INSTALLDIR
+
+
+dnl PKG_CHECK_VAR(VARIABLE, MODULE, CONFIG-VARIABLE,
+dnl [ACTION-IF-FOUND], [ACTION-IF-NOT-FOUND])
+dnl -------------------------------------------
+dnl Since: 0.28
+dnl
+dnl Retrieves the value of the pkg-config variable for the given module.
+AC_DEFUN([PKG_CHECK_VAR],
+[AC_REQUIRE([PKG_PROG_PKG_CONFIG])dnl
+AC_ARG_VAR([$1], [value of $3 for $2, overriding pkg-config])dnl
+
+_PKG_CONFIG([$1], [variable="][$3]["], [$2])
+AS_VAR_COPY([$1], [pkg_cv_][$1])
+
+AS_VAR_IF([$1], [""], [$5], [$4])dnl
+])dnl PKG_CHECK_VAR
+
+# Copyright (C) 2002-2014 Free Software Foundation, Inc.
 #
 # This file is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
