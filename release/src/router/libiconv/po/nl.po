@@ -1,28 +1,33 @@
-# Dutch messages for libiconv.
-# Copyright (C) 2003, 2007 Free Software Foundation, Inc.
+# Dutch messages for GNU libiconv.
+# Copyright (C) 2016 Free Software Foundation, Inc.
 # This file is distributed under the same license as the libiconv package.
-# Tim Van Holder <tim.van.holder@telenet.be>, 2007.
+#
+# "Things change, and they never go back to what they were before."
+#
 # Taco Witte <info@tacowitte.nl>, 2003.
 # Elros Cyriatan <cyriatan@fastmail.fm>, 2003.
-#
+# Tim Van Holder <tim.van.holder@telenet.be>, 2007.
+# Benno Schulenberg <benno@vertaalt.nl>, 2017.
 msgid ""
 msgstr ""
-"Project-Id-Version: libiconv 1.12\n"
+"Project-Id-Version: libiconv 1.15-pre1\n"
 "Report-Msgid-Bugs-To: bug-gnu-libiconv@gnu.org\n"
-"POT-Creation-Date: 2011-08-07 15:24+0200\n"
-"PO-Revision-Date: 2007-12-27 20:29+0100\n"
-"Last-Translator: Tim Van Holder <tim.van.holder@telenet.be>\n"
+"POT-Creation-Date: 2016-12-04 17:16+0100\n"
+"PO-Revision-Date: 2017-01-07 15:41+0100\n"
+"Last-Translator: Benno Schulenberg <benno@vertaalt.nl>\n"
 "Language-Team: Dutch <vertaling@vrijschrift.org>\n"
 "Language: nl\n"
 "MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=utf-8\n"
+"Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"X-Bugs: Report translation errors to the Language-Team address.\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"X-Generator: Lokalize 1.0\n"
 
 #. TRANSLATORS: The first line of the short usage message.
 #: src/iconv.c:104
 msgid "Usage: iconv [-c] [-s] [-f fromcode] [-t tocode] [file ...]"
-msgstr "Gebruik: iconv [-c] [-s] [-f vancode] [-t naarcode] [bestand ...]"
+msgstr "Gebruik: iconv [-c] [-s] [-f VANCODE] [-t NAARCODE] [BESTAND...]"
 
 #. TRANSLATORS: The second line of the short usage message.
 #. Align it correctly against the first line.
@@ -32,8 +37,8 @@ msgstr "of:    iconv -l"
 
 #: src/iconv.c:110
 #, c-format
-msgid "Try `%s --help' for more information.\n"
-msgstr "Probeer `%s --help' voor meer informatie.\n"
+msgid "Try '%s --help' for more information.\n"
+msgstr "Typ '%s --help' voor meer informatie.\n"
 
 #. TRANSLATORS: The first line of the long usage message.
 #. The %s placeholder expands to the program name.
@@ -60,7 +65,7 @@ msgstr "Zet tekst om van één codering naar een andere.\n"
 #: src/iconv.c:132
 #, c-format, no-wrap
 msgid "Options controlling the input and output format:\n"
-msgstr "Opties die weerslag hebben op het formaat van de in- en uitvoer:\n"
+msgstr "Opties voor de codering van in- en uitvoer:\n"
 
 #: src/iconv.c:135
 #, c-format, no-wrap
@@ -83,13 +88,13 @@ msgstr ""
 #: src/iconv.c:144
 #, c-format, no-wrap
 msgid "Options controlling conversion problems:\n"
-msgstr "Opties die weerslag hebben op omzettingsproblemen:\n"
+msgstr "Opties voor omzettingsproblemen:\n"
 
 # of misschien "gooi ... weg"
 #: src/iconv.c:147
 #, c-format, no-wrap
 msgid "  -c                          discard unconvertible characters\n"
-msgstr "  -c                          laat onomzetbare tekens vallen\n"
+msgstr "  -c                          onomzetbare tekens weglaten\n"
 
 # Of iets als FORMATTERINGSTEKST?
 #: src/iconv.c:150
@@ -115,32 +120,32 @@ msgstr "  --widechar-subst=TEKST      vervanging voor onomzetbare brede tekens\n
 #: src/iconv.c:162
 #, c-format, no-wrap
 msgid "Options controlling error output:\n"
-msgstr "Opties die weerslag hebben op foutmeldingen:\n"
+msgstr "Opties voor foutmeldingen:\n"
 
 #: src/iconv.c:165
 #, c-format, no-wrap
 msgid "  -s, --silent                suppress error messages about conversion problems\n"
-msgstr "  -s, --silent                onderdruk meldingen van omzettingsproblemen\n"
+msgstr "  -s, --silent                meldingen van omzettingsproblemen onderdrukken\n"
 
 #: src/iconv.c:169
 #, c-format, no-wrap
 msgid "Informative output:\n"
-msgstr "Informatieve uitvoer:\n"
+msgstr "Opties voor informatieve uitvoer:\n"
 
 #: src/iconv.c:172
 #, c-format, no-wrap
 msgid "  -l, --list                  list the supported encodings\n"
-msgstr "  -l, --list                  toon een lijst van de ondersteunde coderingen\n"
+msgstr "  -l, --list                  een lijst van ondersteunde coderingen tonen\n"
 
 #: src/iconv.c:175
 #, c-format, no-wrap
 msgid "  --help                      display this help and exit\n"
-msgstr "  --help                      toon deze hulptekst en beëindig het programma\n"
+msgstr "  --help                      deze hulptekst tonen stoppen\n"
 
 #: src/iconv.c:178
 #, c-format, no-wrap
 msgid "  --version                   output version information and exit\n"
-msgstr "  --version                   toon versie-informatie en beëindig het programma\n"
+msgstr "  --version                   programmaversie tonen en stoppen\n"
 
 #. TRANSLATORS: The placeholder indicates the bug-reporting address
 #. for this package.  Please add _another line_ saying
@@ -149,20 +154,20 @@ msgstr "  --version                   toon versie-informatie en beëindig het pr
 #: src/iconv.c:185
 msgid "Report bugs to <bug-gnu-libiconv@gnu.org>.\n"
 msgstr ""
-"Meld bugs aan <bug-gnu-libiconv@gnu.org>.\n"
-"Meld fouten in de vertaling aan <vertaling@vrijschrift.nl>.\n"
+"Rapporteer gebreken in het programma aan <bug-gnu-libiconv@gnu.org>;\n"
+"meld fouten in de vertaling aan <vertaling@vrijschrift.org>.\n"
 
 #: src/iconv.c:196
-#, fuzzy, no-wrap
+#, no-wrap
 msgid ""
 "License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>\n"
 "This is free software: you are free to change and redistribute it.\n"
 "There is NO WARRANTY, to the extent permitted by law.\n"
 msgstr ""
-"Licentie GPLv2+: GNU GPL versie 2 of hoger <http://gnu.org/licenses/gpl.html>\n"
-"Dit is vrije software; het staat U vrij om wijzigingen te maken en/of de\n"
-"software te herverdelen.\n"
-"Er is GEEN GARANTIE, voor zover dit wettelijk toegestaan is.\n"
+"Dit is vrije software: u mag het vrijelijk wijzigen en verder verspreiden.\n"
+"De precieze licentie is GPL-3+: GNU General Public License versie 3 of later.\n"
+"Zie http://gnu.org/licenses/gpl.html voor de volledige (Engelse) tekst.\n"
+"Deze software kent GEEN GARANTIE, voor zover de wet dit toestaat.\n"
 
 #. TRANSLATORS: The %s placeholder expands to an author's name.
 #: src/iconv.c:202
@@ -213,7 +218,7 @@ msgstr "%s argument: De tekst stopt midden in een commando."
 #: src/iconv.c:376
 #, c-format
 msgid "%s argument: The character '%c' is not a valid conversion specifier."
-msgstr "%s argument: Het '%c' teken is geen geldige omzettingsspecificatie."
+msgstr "%s argument: Het teken '%c' is geen geldige omzettingsspecificatie."
 
 #. TRANSLATORS: An error message.
 #. The %s placeholder expands to a command-line option.
@@ -270,7 +275,7 @@ msgstr "kan byte-vervanging niet omzetten naar een brede tekenreeks: %s"
 #: src/iconv.c:578
 #, c-format
 msgid "cannot convert widechar substitution to target encoding: %s"
-msgstr "kan brede tekenvervanging niet omzetten naar de doelcodering: %s"
+msgstr "kan breedteken-vervanging niet omzetten naar de doelcodering: %s"
 
 #. TRANSLATORS: An error message.
 #. The %s placeholder expands to a piece of text, specified through --byte-subst.
@@ -284,7 +289,7 @@ msgstr "kan byte-vervanging niet omzetten naar de doelcodering: %s"
 #: src/iconv.c:638
 #, c-format
 msgid "%s:%u:%u: cannot convert"
-msgstr "%s:%u:%u: omzetting onmogelijk"
+msgstr "%s:%u:%u: omzetting is onmogelijk"
 
 # "shift sequence" was eerst als "verschuivingsreeks" vertaald, maar als heel specifiek jargon laat ik het liever onvertaald
 #. TRANSLATORS: An error message.
@@ -294,7 +299,7 @@ msgstr "%s:%u:%u: omzetting onmogelijk"
 #: src/iconv.c:652
 #, c-format
 msgid "%s:%u:%u: incomplete character or shift sequence"
-msgstr "%s:%u:%u: onvolledig teken of onvolledige shift sequence"
+msgstr "%s:%u:%u: onvolledig teken of onvolledige shift-sequentie"
 
 #. TRANSLATORS: The first part of an error message.
 #. It is followed by a colon and a detail message.
@@ -309,51 +314,51 @@ msgstr "%s:%u:%u"
 #: src/iconv.c:826
 #, c-format
 msgid "%s: I/O error"
-msgstr "%s: I/O fout"
+msgstr "%s: Invoer-/uitvoerfout"
 
 #. TRANSLATORS: An error message.
 #. The placeholder expands to the encoding name, specified through --from-code.
-#: src/iconv.c:1014
+#: src/iconv.c:1015
 #, c-format
 msgid "conversion from %s unsupported"
-msgstr "omzetting vanuit %s niet ondersteund"
+msgstr "omzetting vanuit %s wordt niet ondersteund"
 
 #. TRANSLATORS: An error message.
 #. The placeholder expands to the encoding name, specified through --to-code.
-#: src/iconv.c:1020
+#: src/iconv.c:1021
 #, c-format
 msgid "conversion to %s unsupported"
-msgstr "omzetting naar %s niet ondersteund"
+msgstr "omzetting naar %s wordt niet ondersteund"
 
 #. TRANSLATORS: An error message.
 #. The placeholders expand to the encoding names, specified through --from-code and --to-code, respectively.
-#: src/iconv.c:1026
+#: src/iconv.c:1027
 #, c-format
 msgid "conversion from %s to %s unsupported"
-msgstr "omzetting van %s naar %s niet ondersteund"
+msgstr "omzetting van %s naar %s wordt niet ondersteund"
 
 #. TRANSLATORS: Additional advice after an error message.
 #. The %s placeholder expands to the program name.
-#: src/iconv.c:1031
+#: src/iconv.c:1032
 #, c-format
 msgid "try '%s -l' to get the list of supported encodings"
-msgstr "probeer '%s -l' om de lijst van ondersteunde coderingen te krijgen"
+msgstr "Typ '%s -l' voor een lijst van ondersteunde coderingen."
 
 #. TRANSLATORS: A filename substitute denoting standard input.
-#: src/iconv.c:1088
+#: src/iconv.c:1089
 msgid "(stdin)"
-msgstr "(stdin)"
+msgstr "(standaardinvoer)"
 
 #. TRANSLATORS: The first part of an error message.
 #. It is followed by a colon and a detail message.
 #. The %s placeholder expands to the input file name.
-#: src/iconv.c:1100
+#: src/iconv.c:1101
 #, c-format
 msgid "%s"
 msgstr "%s"
 
 #. TRANSLATORS: An error message.
-#: src/iconv.c:1114
+#: src/iconv.c:1115
 #, c-format
 msgid "I/O error"
-msgstr "I/O fout"
+msgstr "Invoer-/uitvoerfout"

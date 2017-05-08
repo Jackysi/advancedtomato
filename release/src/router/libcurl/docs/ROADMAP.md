@@ -5,18 +5,16 @@ Roadmap of things Daniel Stenberg and Steve Holme want to work on next. It is
 intended to serve as a guideline for others for information, feedback and
 possible participation.
 
-HTTP/2
-------
+QUIC
+----
 
-- test suite
-
-   Base this on existing nghttp2 server to start with to make functional
-   tests. Later on we can adopt that code or work with nghttp2 to provide ways
-   to have the http2 server respond with broken responses to make sure we deal
-   with that nicely as well.
-
-   To decide: if we need to bundle parts of the nghttp2 stuff that probably
-   won't be shipped by many distros.
+The standardization process of QUIC has been taken to the IETF and can be
+followed on the [IETF QUIC Mailing
+list](https://www.ietf.org/mailman/listinfo/quic). I'd like us to get on the
+bandwagon. Ideally, this would be done with a separate library/project to
+handle the binary/framing layer in a similar fashion to how HTTP/2 is
+implemented. This, to allow other projects to benefit from the work and to
+thus broaden the interest and chance of others to participate.
 
 HTTP cookies
 ------------
@@ -36,19 +34,17 @@ SRV records
 
 How to find services for specific domains/hosts.
 
-HTTPS to proxy
---------------
-
-To avoid network traffic to/from the proxy getting snooped on. There's a git
-branch in the public git repository for this that we need to make sure works
-for all TLS backends and then merge!
-
 curl_formadd()
 --------------
 
 make sure there's an easy handle passed in to `curl_formadd()`,
 `curl_formget()` and `curl_formfree()` by adding replacement functions and
-deprecating the old ones to allow custom mallocs and more
+deprecating the old ones to allow custom mallocs and more.
+
+Or perhaps even better: revamp the formpost API completely while we're at it
+and making something that is easier to use and understand:
+
+ https://github.com/curl/curl/wiki/formpost-API-redesigned
 
 Third-party SASL
 ----------------
@@ -104,18 +100,14 @@ Improve
 
 2. curl -h output (considered overwhelming to users)
 
-3. we have > 170 command line options, is there a way to redo things to
+3. we have > 200 command line options, is there a way to redo things to
    simplify or improve the situation as we are likely to keep adding
    features/options in the future too
 
-4. docs (considered "bad" by users but how do we make it better?)
-
-  - split up curl.1
-
-5. authentication framework (consider merging HTTP and SASL authentication to
+4. authentication framework (consider merging HTTP and SASL authentication to
    give one API for protocols to call)
 
-6. Perform some of the clean up from the TODO document, removing old
+5. Perform some of the clean up from the TODO document, removing old
    definitions and such like that are currently earmarked to be removed years
    ago
 

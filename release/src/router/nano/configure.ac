@@ -1,37 +1,45 @@
-# Configuration for nano - a small and user-friendly text editor
+# Configuration for GNU nano - a small and user-friendly text editor
 #
 # Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,
 # 2008, 2009, 2010, 2011, 2013, 2014 Free Software Foundation, Inc.
 #
-# nano is free software; you can redistribute it and/or modify it
-# under the terms of the GNU General Public License as published by the
-# Free Software Foundation; either version 3, or (at your option) any
-# later version.
+# GNU nano is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published
+# by the Free Software Foundation, either version 3 of the License,
+# or (at your option) any later version.
 #
-# nano is distributed in the hope that it will be useful, but
-# WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-# General Public License for more details.
+# GNU nano is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty
+# of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+# See the GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with nano; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301,
-# USA.
+# along with this program.  If not, see http://www.gnu.org/licenses/.
 
-AC_INIT([nano], [2.6.1], [nano-devel@gnu.org], [nano])
+AC_INIT([GNU nano], [2.8.0], [nano-devel@gnu.org], [nano])
 AC_CONFIG_SRCDIR([src/nano.c])
 AC_CANONICAL_HOST
-AM_INIT_AUTOMAKE
+AM_INIT_AUTOMAKE([1.14])
 AC_CONFIG_HEADERS([config.h])
 
 dnl Make sure the ONCE macros are available.
 
-AC_PREREQ(2.61)
+AC_PREREQ([2.69])
+
+dnl Lie about gnulib features we don't use to speed up & shrink down.
+
+gl_cv_func_printf_directive_n=yes
+gl_cv_func_printf_infinite_long_double=yes
+gl_cv_func_printf_long_double=yes
+gl_cv_func_snprintf_directive_n=yes
+gl_cv_glob_lists_symlinks=yes
 
 dnl Checks for programs.
 
 AC_GNU_SOURCE
 AC_PROG_CC
+gl_EARLY
+gl_INIT
 AC_PROG_LN_S
 AC_ISC_POSIX
 AC_SYS_LARGEFILE
@@ -39,7 +47,7 @@ AC_SYS_LARGEFILE
 
 dnl Internationalization macros.
 
-AM_GNU_GETTEXT_VERSION(0.11.5)
+AM_GNU_GETTEXT_VERSION([0.18.3])
 AM_GNU_GETTEXT([external], [need-ngettext])
 AM_CONDITIONAL(USE_NLS, test x$USE_NLS = xyes)
 
@@ -50,7 +58,7 @@ AC_DEFINE_DIR([PKGDATADIR], [pkgdatadir], [Where data are placed to.])
 
 dnl Checks for header files.
 
-AC_CHECK_HEADERS(getopt.h libintl.h limits.h regex.h sys/param.h wchar.h wctype.h stdarg.h)
+AC_CHECK_HEADERS(libintl.h limits.h pwd.h termios.h sys/param.h)
 
 dnl Checks for options.
 
@@ -73,15 +81,7 @@ fi
 if test "x$enable_color" = xno; then
     AC_DEFINE(DISABLE_COLOR, 1, [Define this to disable syntax highlighting.])
 else
-    if test x$ac_cv_header_regex_h != xyes; then
-	AC_MSG_ERROR([
-*** The header file regex.h was not found.  If you wish to have
-*** color support, this header file is required.  Please either
-*** install C libraries that include the regex.h file, or call
-*** the configure script with --disable-color.])
-    else
-	color_support=yes
-    fi
+    color_support=yes
 fi
 
 AC_ARG_ENABLE(comment,
@@ -90,13 +90,12 @@ if test "x$enable_tiny" = xyes; then
     if test "x$enable_comment" = xyes; then
 	AC_MSG_ERROR([--enable-comment cannot work with --enable-tiny])
     else
-	# Disabling nanorc silently disables comment support.
 	enable_comment=no
     fi
 fi
 if test "x$disable_comment" != xyes; then
     if test "x$enable_comment" != xno; then
-	AC_DEFINE(ENABLE_COMMENT, 1, [Define this to disable the comment/uncomment functionality.])
+	AC_DEFINE(ENABLE_COMMENT, 1, [Define this to enable the comment/uncomment function.])
     fi
 fi
 
@@ -126,6 +125,19 @@ fi
 
 AC_ARG_ENABLE(libmagic,
 AS_HELP_STRING([--disable-libmagic], [Disable detection of file types via libmagic]))
+
+AC_ARG_ENABLE(linenumbers,
+AS_HELP_STRING([--disable-linenumbers], [Disable line numbering]))
+if test "x$enable_tiny" = xyes; then
+    if test "x$enable_linenumbers" != xyes; then
+	enable_linenumbers=no
+    fi
+fi
+if test "x$disable_linenumbers" != xyes; then
+    if test "x$enable_linenumbers" != xno; then
+	AC_DEFINE(ENABLE_LINENUMBERS, 1, [Define this to enable line numbering.])
+    fi
+fi
 
 AC_ARG_ENABLE(mouse,
 AS_HELP_STRING([--disable-mouse], [Disable mouse support (and -m flag)]))
@@ -162,7 +174,22 @@ fi
 AC_ARG_ENABLE(tabcomp,
 AS_HELP_STRING([--disable-tabcomp], [Disable tab completion functions]))
 if test "x$enable_tabcomp" = xno; then
-    AC_DEFINE(DISABLE_TABCOMP, 1, [Define this to disable the tab completion functions for files and search strings.])
+    AC_DEFINE(DISABLE_TABCOMP, 1, [Define this to disable the tab completion functions for filenames and search strings.])
+fi
+
+AC_ARG_ENABLE(wordcomp,
+AS_HELP_STRING([--disable-wordcomp], [Disable the word completion function]))
+if test "x$enable_tiny" = xyes; then
+    if test "x$enable_wordcomp" = xyes; then
+	AC_MSG_ERROR([--enable-wordcomp cannot work with --enable-tiny])
+    else
+	enable_wordcomp=no
+    fi
+fi
+if test "x$disable_wordcomp" != xyes; then
+    if test "x$enable_wordcomp" != xno; then
+	AC_DEFINE(ENABLE_WORDCOMPLETION, 1, [Define this to enable the word completion function.])
+    fi
 fi
 
 AC_ARG_ENABLE(wrapping,
@@ -442,30 +469,9 @@ int main(void)
 
 dnl Checks for functions.
 
-AC_CHECK_FUNCS(getdelim getline isblank strcasecmp strcasestr strncasecmp strnlen snprintf vsnprintf)
-
 if test "x$enable_utf8" != xno; then
-    AC_CHECK_FUNCS(iswalnum iswblank iswpunct iswspace nl_langinfo mblen mbstowcs mbtowc wctomb wcwidth)
+    AC_CHECK_FUNCS(iswalnum iswpunct mblen mbstowcs mbtowc wctomb)
 fi
-
-if test x$ac_cv_func_snprintf = xno; then
-    AM_PATH_GLIB_2_0(2.0.0,,
-	AC_MSG_ERROR([
-*** snprintf() not found.  GLIB 2.x not found either.
-*** You should install the GLIB 2.x library which can
-*** be found at http://ftp.gtk.org/.]),
-	glib)
-fi
-
-if test x$ac_cv_func_vsnprintf = xno; then
-    AM_PATH_GLIB_2_0(2.0.0,,
-	AC_MSG_ERROR([
-*** vsnprintf() not found.  GLIB 2.x not found either.
-*** You should install the GLIB 2.x library which can
-*** be found at http://ftp.gtk.org/.]),
-	glib)
-fi
-
 dnl Checks for typedefs, structures, and compiler characteristics.
 
 dnl Checks for available flags.
@@ -475,8 +481,6 @@ AX_CHECK_COMPILE_FLAG([-Wall], [CFLAGS="$CFLAGS -Wall"], [], [])
 dnl Checks for library functions.
 
 AC_TYPE_SIGNAL
-AC_FUNC_VPRINTF
-AC_CHECK_FUNCS(getopt_long)
 
 dnl Checks for libraries.
 
@@ -540,8 +544,15 @@ else
     AC_MSG_RESULT([Using $CURSES_LIB_NAME as the curses library])
 fi
 
-AC_CHECK_LIB([$CURSES_LIB_NAME], use_default_colors, AC_DEFINE(HAVE_USE_DEFAULT_COLORS, 1, [Define this if your curses library has the use_default_colors() command.]))
-AC_CHECK_LIB([$CURSES_LIB_NAME], key_defined, AC_DEFINE(HAVE_KEY_DEFINED, 1, [Define this if your curses library has the key_defined() command.]))
+AC_CHECK_LIB([$CURSES_LIB_NAME], [use_default_colors],
+	     [AC_DEFINE(HAVE_USE_DEFAULT_COLORS, 1, [Define this if your curses library has the use_default_colors() command.])],
+	     [], [$CURSES_LIB])
+AC_CHECK_LIB([$CURSES_LIB_NAME], [set_escdelay],
+	     [AC_DEFINE(HAVE_SET_ESCDELAY, 1, [Define this if your curses library has the set_escdelay() function.])],
+	     [], [$CURSES_LIB])
+AC_CHECK_LIB([$CURSES_LIB_NAME], [key_defined],
+	     [AC_DEFINE(HAVE_KEY_DEFINED, 1, [Define this if your curses library has the key_defined() command.])],
+	     [], [$CURSES_LIB])
 
 dnl Parse any configure options.
 
@@ -549,25 +560,15 @@ LIBS="$LIBS $CURSES_LIB"
 
 AC_SUBST(CURSES_LIB)
 
-if test "x$GLIB_CFLAGS" != "x"; then
-    CFLAGS="$CFLAGS $GLIB_CFLAGS"
-fi
-if test "x$GLIB_LIBS" != "x"; then
-    LDFLAGS="$LDFLAGS $GLIB_LIBS"
-fi
-
 if test "x$enable_utf8" != xno && \
     test x$CURSES_LIB_WIDE = xyes && \
     test x$ac_cv_func_iswalnum = xyes && \
     test x$ac_cv_func_iswpunct = xyes && \
-    (test x$ac_cv_func_iswblank = xyes || test x$ac_cv_func_iswspace = xyes) && \
-    test x$ac_cv_func_nl_langinfo = xyes && \
     test x$ac_cv_func_mblen = xyes && \
     test x$ac_cv_func_mbstowcs = xyes && \
     test x$ac_cv_func_mbtowc = xyes && \
-    test x$ac_cv_func_wctomb = xyes && \
-    test x$ac_cv_func_wcwidth = xyes; then
-	AC_DEFINE(ENABLE_UTF8, 1, [Define this if your system has sufficient UTF-8 support (a wide curses library, iswalnum(), iswpunct(), iswblank() or iswspace(), nl_langinfo, mblen(), mbstowcs(), mbtowc(), wctomb(), and wcwidth()).])
+    test x$ac_cv_func_wctomb = xyes; then
+	AC_DEFINE(ENABLE_UTF8, 1, [Define this if your system has sufficient UTF-8 support.])
 else
     if test "x$enable_utf8" = xyes; then
 	AC_MSG_ERROR([
@@ -599,12 +600,10 @@ AC_CACHE_CHECK([for enhanced regular expression flag], nano_cv_flag_reg_extended
 AC_DEFINE_UNQUOTED(NANO_REG_EXTENDED, $nano_cv_flag_reg_extended,
 		   [Flag(s) to use to get the full range of extended regular expressions])
 
-if test x$color_support = xyes; then
-	# Now check for the end-of-word boundary support (/< and />).
-	AC_MSG_CHECKING([for GNU-style word boundary regex support])
-
-	AC_ARG_WITH(wordbounds,
-        AS_HELP_STRING([--with-wordbounds], [Use GNU-style word boundary delimiters]),
+# Check for word-boundary support (/< and />).
+AC_MSG_CHECKING([for GNU-style word boundary regex support])
+AC_ARG_WITH(wordbounds,
+AS_HELP_STRING([--with-wordbounds], [Use GNU-style word boundary delimiters]),
 	[ case "$with_wordbounds" in
 	    no)
 		AC_MSG_RESULT(no)
@@ -641,6 +640,7 @@ int main(void)
 	)
 ])
 
+if test x$color_support = xyes; then
 #    if test x$CURSES_LIB_NAME = xcurses; then
 	AC_MSG_CHECKING([whether _XOPEN_SOURCE_EXTENDED is needed])
 	AC_TRY_RUN([
@@ -704,32 +704,26 @@ else
 fi
 AM_CONDITIONAL(GROFF_HTML, test x$groff_html_support = xyes)
 
-# Check for the availability of makeinfo.
-AC_CHECK_PROG(haveit, makeinfo, yes, no)
-AM_CONDITIONAL(HAVE_MAKEINFO, test x$haveit = xyes)
-
+# Check whether this is a git repository.
 AC_MSG_CHECKING([whether building from git])
 if test -d .git ; then
     AC_MSG_RESULT([yes])
-    AC_PATH_PROG([GIT], [git])
-    REVISION=`($GIT rev-parse --is-inside-work-tree >/dev/null 2>&1) && ($GIT rev-parse --short HEAD)`
-    AC_SUBST(REVISION)
-    AC_DEFINE_UNQUOTED([REVISION],"${REVISION}","Setting REVISION in config.h.")
+    from_git=yes
 else
     AC_MSG_RESULT([no])
+    from_git=no
 fi
+AM_CONDITIONAL(BUILDING_FROM_GIT, test x$from_git = xyes)
 
 AC_CONFIG_FILES([
 Makefile
 doc/Makefile
-doc/nanorc.sample
-doc/man/Makefile
-doc/man/fr/Makefile
-doc/syntax/Makefile
-doc/texinfo/Makefile
+doc/sample.nanorc
+lib/Makefile
 m4/Makefile
 po/Makefile.in
 src/Makefile
+syntax/Makefile
 nano.spec
 ])
 

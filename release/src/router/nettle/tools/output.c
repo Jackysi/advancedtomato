@@ -203,7 +203,7 @@ sexp_put_string(struct sexp_output *output, enum sexp_mode mode,
 {
   if (!string->size)
     sexp_put_data(output, 2,
-		  (mode == SEXP_ADVANCED) ? "\"\"": "0:");
+		  (const uint8_t *) ((mode == SEXP_ADVANCED) ? "\"\"": "0:"));
 
   else if (mode == SEXP_ADVANCED)
     {

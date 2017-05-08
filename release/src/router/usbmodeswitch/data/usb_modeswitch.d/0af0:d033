@@ -1,4 +1,5 @@
 # Option HSO device
 TargetClass=0xff
 OptionMode=1
-NoDriverLoading=1
+
+

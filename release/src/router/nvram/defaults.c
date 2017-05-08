@@ -742,6 +742,7 @@ const defaults_t defaults[] = {
 	{ "sshd_authkeys",		""				},
 	{ "sshd_hostkey",		""				},
 	{ "sshd_dsskey",		""				},
+	{ "sshd_ecdsakey",		""				},
 	{ "sshd_forwarding",		"1"				},
 	{ "rmgt_sip",			""				},	// remote management: source ip address
 
@@ -874,6 +875,9 @@ const defaults_t defaults[] = {
 #ifdef TCONFIG_HFS
 	{ "usb_fs_hfs",			"0"				}, //!Victek
 #endif
+#ifdef TCONFIG_UPS
+	{ "usb_apcupsd",		"0"				},
+#endif
 	{ "usb_automount",		"1"				},
 #if 0
 	{ "usb_bdflush",		"30 500 0 0 100 100 60 0 0"	},
@@ -932,6 +936,7 @@ const defaults_t defaults[] = {
 	},
 	{ "smbd_user",			"nas"				},
 	{ "smbd_passwd",		""				},
+	{ "smbd_ifnames",		"br0"				},
 #endif
 
 #ifdef TCONFIG_MEDIA_SERVER
@@ -940,6 +945,7 @@ const defaults_t defaults[] = {
 	{ "ms_dirs",			"/mnt<"				},
 	{ "ms_port",			"0"				},
 	{ "ms_dbdir",			""				},
+	{ "ms_ifname",			"br0"				},
 	{ "ms_tivo",			"0"				},
 	{ "ms_stdlna",			"0"				},
 	{ "ms_sas",			"0"				},
@@ -999,7 +1005,7 @@ const defaults_t defaults[] = {
 	{ "vpn_server1_firewall", "auto"          },
 	{ "vpn_server1_crypt",    "tls"           },
 	{ "vpn_server1_comp",     "adaptive"      },
-	{ "vpn_server1_cipher",   "default"       },
+	{ "vpn_server1_cipher",   "AES-128-CBC"   },
 	{ "vpn_server1_dhcp",     "1"             },
 	{ "vpn_server1_r1",       "192.168.1.50"  },
 	{ "vpn_server1_r2",       "192.168.1.55"  },
@@ -1028,11 +1034,11 @@ const defaults_t defaults[] = {
 	{ "vpn_server2_poll",     "0"             },
 	{ "vpn_server2_if",       "tun"           },
 	{ "vpn_server2_proto",    "udp"           },
-	{ "vpn_server2_port",     "1194"          },
+	{ "vpn_server2_port",     "1195"          },
 	{ "vpn_server2_firewall", "auto"          },
 	{ "vpn_server2_crypt",    "tls"           },
 	{ "vpn_server2_comp",     "adaptive"      },
-	{ "vpn_server2_cipher",   "default"       },
+	{ "vpn_server2_cipher",   "AES-128-CBC"   },
 	{ "vpn_server2_dhcp",     "1"             },
 	{ "vpn_server2_r1",       "192.168.1.50"  },
 	{ "vpn_server2_r2",       "192.168.1.55"  },

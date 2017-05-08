@@ -20,8 +20,8 @@ typedef struct ngx_http_file_cache_s  ngx_http_file_cache_t;
 typedef struct ngx_http_log_ctx_s     ngx_http_log_ctx_t;
 typedef struct ngx_http_chunked_s     ngx_http_chunked_t;
 
-#if (NGX_HTTP_SPDY)
-typedef struct ngx_http_spdy_stream_s  ngx_http_spdy_stream_t;
+#if (NGX_HTTP_V2)
+typedef struct ngx_http_v2_stream_s   ngx_http_v2_stream_t;
 #endif
 
 typedef ngx_int_t (*ngx_http_header_handler_pt)(ngx_http_request_t *r,
@@ -36,11 +36,10 @@ typedef u_char *(*ngx_http_log_handler_pt)(ngx_http_request_t *r,
 #include <ngx_http_script.h>
 #include <ngx_http_upstream.h>
 #include <ngx_http_upstream_round_robin.h>
-#include <ngx_http_busy_lock.h>
 #include <ngx_http_core_module.h>
 
-#if (NGX_HTTP_SPDY)
-#include <ngx_http_spdy.h>
+#if (NGX_HTTP_V2)
+#include <ngx_http_v2.h>
 #endif
 #if (NGX_HTTP_CACHE)
 #include <ngx_http_cache.h>
@@ -105,6 +104,8 @@ ngx_int_t ngx_http_parse_header_line(ngx_http_request_t *r, ngx_buf_t *b,
     ngx_uint_t allow_underscores);
 ngx_int_t ngx_http_parse_multi_header_lines(ngx_array_t *headers,
     ngx_str_t *name, ngx_str_t *value);
+ngx_int_t ngx_http_parse_set_cookie_lines(ngx_array_t *headers,
+    ngx_str_t *name, ngx_str_t *value);
 ngx_int_t ngx_http_arg(ngx_http_request_t *r, u_char *name, size_t len,
     ngx_str_t *value);
 void ngx_http_split_args(ngx_http_request_t *r, ngx_str_t *uri,
@@ -129,9 +130,6 @@ void ngx_http_empty_handler(ngx_event_t *wev);
 void ngx_http_request_empty_handler(ngx_http_request_t *r);
 
 
-#define ngx_http_ephemeral(r)  (void *) (&r->uri_start)
-
-
 #define NGX_HTTP_LAST   1
 #define NGX_HTTP_FLUSH  2
 
@@ -140,6 +138,7 @@ ngx_int_t ngx_http_send_special(ngx_http_request_t *r, ngx_uint_t flags);
 
 ngx_int_t ngx_http_read_client_request_body(ngx_http_request_t *r,
     ngx_http_client_body_handler_pt post_handler);
+ngx_int_t ngx_http_read_unbuffered_request_body(ngx_http_request_t *r);
 
 ngx_int_t ngx_http_send_header(ngx_http_request_t *r);
 ngx_int_t ngx_http_special_response_handler(ngx_http_request_t *r,
@@ -147,11 +146,6 @@ ngx_int_t ngx_http_special_response_handler(ngx_http_request_t *r,
 ngx_int_t ngx_http_filter_finalize_request(ngx_http_request_t *r,
     ngx_module_t *m, ngx_int_t error);
 void ngx_http_clean_header(ngx_http_request_t *r);
-
-
-time_t ngx_http_parse_time(u_char *value, size_t len);
-size_t ngx_http_get_time(char *buf, time_t t);
-
 
 
 ngx_int_t ngx_http_discard_request_body(ngx_http_request_t *r);
@@ -179,6 +173,7 @@ extern ngx_str_t  ngx_http_html_default_types[];
 
 extern ngx_http_output_header_filter_pt  ngx_http_top_header_filter;
 extern ngx_http_output_body_filter_pt    ngx_http_top_body_filter;
+extern ngx_http_request_body_filter_pt   ngx_http_top_request_body_filter;
 
 
 #endif /* _NGX_HTTP_H_INCLUDED_ */

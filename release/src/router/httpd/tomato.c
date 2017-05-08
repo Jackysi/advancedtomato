@@ -204,21 +204,6 @@ static void wo_blank(char *url)
 	web_puts("\n\n\n\n");
 }
 
-static void wo_favicon(char *url)
-{
-	send_header(200, NULL, "image/vnd.microsoft.icon", 0);
-	do_file(url);
-/*
-	if (nvram_match("web_favicon", "1")) {
-		send_header(200, NULL, "image/vnd.microsoft.icon", 0);
-		do_file(url);
-	}
-	else {
-		send_error(404, NULL, NULL);
-	}
-*/
-}
-
 static void wo_cfe(char *url)
 {
 	do_file(MTD_DEV(0ro));
@@ -314,7 +299,7 @@ const struct mime_handler mime_handlers[] = {
 	{ "**.txt",			mime_plain,					2,	wi_generic_noid,	do_file,		1 },
 	{ "**.bin",			mime_binary,				0,	wi_generic_noid,	do_file,		1 },
 	{ "**.bino",		mime_octetstream,			0,	wi_generic_noid,	do_file,		1 },
-	{ "favicon.ico",	NULL,						24,	wi_generic_noid,	wo_favicon,		1 },
+	{ "favicon.ico",	"image/x-icon",				24,	wi_generic_noid,	do_file,		1 },
 // !!TB - CGI Support, enable downloading archives
 	{ "**/cgi-bin/**|**.sh",	NULL,					0,	wi_cgi_bin,		wo_cgi_bin,			1 },
 	{ "**.tar|**.gz",		mime_binary,				0,	wi_generic_noid,	do_file,		1 },
@@ -1260,6 +1245,9 @@ static const nvset_t nvset_list[] = {
 #ifdef TCONFIG_NTFS
 	{ "usb_fs_ntfs",		V_01				},
 #endif
+#ifdef TCONFIG_UPS
+	{ "usb_apcupsd",		V_01				},
+#endif
 #ifdef TCONFIG_HFS
 	{ "usb_fs_hfs",			V_01				}, //!Victek
 #endif
@@ -1316,6 +1304,7 @@ static const nvset_t nvset_list[] = {
 	{ "smbd_shares",		V_LENGTH(0, 4096)		},
 	{ "smbd_user",			V_LENGTH(0, 50)			},
 	{ "smbd_passwd",		V_LENGTH(0, 50)			},
+	{ "smbd_ifnames",		V_LENGTH(0, 50)			},
 #endif
 
 #ifdef TCONFIG_MEDIA_SERVER
@@ -1324,6 +1313,7 @@ static const nvset_t nvset_list[] = {
 	{ "ms_dirs",			V_LENGTH(0, 1024)		},
 	{ "ms_port",			V_RANGE(0, 65535)		},
 	{ "ms_dbdir",			V_LENGTH(0, 256)		},
+	{ "ms_ifname",			V_LENGTH(0, 256)		},
 	{ "ms_tivo",			V_01				},
 	{ "ms_stdlna",			V_01				},
 	{ "ms_rescan",			V_01				},
@@ -1371,6 +1361,7 @@ static const nvset_t nvset_list[] = {
 	{ "qosl_dlc",                    V_RANGE(0, 999999)     },
 	{ "qosl_tcp",                    V_RANGE(0, 1000)       },
 	{ "qosl_udp",                    V_RANGE(0, 100)        },
+	{ "limit_br0_prio",              V_RANGE(0, 5)          },
 	{ "limit_br1_enable",            V_01                   },
 	{ "limit_br1_ulr",               V_RANGE(0, 999999)     },
 	{ "limit_br1_ulc",               V_RANGE(0, 999999)     },
@@ -1932,9 +1923,9 @@ static int save_variables(int write)
 	}
 
 	// special cases
-#ifdef CONFIG_BCMWL6
-	foreach_wif(0, &write, nv_wl_bwcap_chanspec);
-#endif
+	#ifdef CONFIG_BCMWL6
+	    foreach_wif(0, &write, nv_wl_bwcap_chanspec);
+	#endif
 
 	char *p1, *p2;
 	if (((p1 = webcgi_get("set_password_1")) != NULL) && (strcmp(p1, "**********") != 0)) {

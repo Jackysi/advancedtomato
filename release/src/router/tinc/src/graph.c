@@ -149,7 +149,7 @@ static void sssp_bfs(void) {
 			abort();
 
 		for splay_each(edge_t, e, n->edge_tree) {       /* "e" is the edge connected to "from" */
-			if(!e->reverse)
+			if(!e->reverse || e->to == myself)
 				continue;
 
 			/* Situation:
@@ -238,10 +238,11 @@ static void check_reachability(void) {
 
 			n->status.udp_confirmed = false;
 			n->maxmtu = MTU;
+			n->maxrecentlen = 0;
 			n->minmtu = 0;
 			n->mtuprobes = 0;
 
-			timeout_del(&n->mtutimeout);
+			timeout_del(&n->udp_ping_timeout);
 
 			char *name;
 			char *address;
@@ -275,6 +276,10 @@ static void check_reachability(void) {
 				update_node_udp(n, NULL);
 				memset(&n->status, 0, sizeof n->status);
 				n->options = 0;
+			} else if(n->connection) {
+				// Speed up UDP probing by sending our key.
+				if(!n->status.sptps)
+					send_ans_key(n);
 			}
 		}
 

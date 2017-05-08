@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: libiconv 1.12\n"
 "Report-Msgid-Bugs-To: bug-gnu-libiconv@gnu.org\n"
-"POT-Creation-Date: 2011-08-07 15:24+0200\n"
+"POT-Creation-Date: 2016-12-04 17:16+0100\n"
 "PO-Revision-Date: 2008-12-31 14:30+0700\n"
 "Last-Translator: Arif E. Nugroho <arif_endro@yahoo.com>\n"
 "Language-Team: Indonesian <translation-team-id@lists.sourceforge.net>\n"
@@ -30,8 +30,8 @@ msgid "or:    iconv -l"
 msgstr "atau:    iconv -l"
 
 #: src/iconv.c:110
-#, c-format
-msgid "Try `%s --help' for more information.\n"
+#, fuzzy, c-format
+msgid "Try '%s --help' for more information.\n"
 msgstr "Coba `%s --help' untuk informasi lebih lanjut.\n"
 
 #. TRANSLATORS: The first line of the long usage message.
@@ -305,47 +305,47 @@ msgstr "%s: I/O error"
 
 #. TRANSLATORS: An error message.
 #. The placeholder expands to the encoding name, specified through --from-code.
-#: src/iconv.c:1014
+#: src/iconv.c:1015
 #, c-format
 msgid "conversion from %s unsupported"
 msgstr "konversi dari %s tidak didukung"
 
 #. TRANSLATORS: An error message.
 #. The placeholder expands to the encoding name, specified through --to-code.
-#: src/iconv.c:1020
+#: src/iconv.c:1021
 #, c-format
 msgid "conversion to %s unsupported"
 msgstr "konversi ke %s tidak didukung"
 
 #. TRANSLATORS: An error message.
 #. The placeholders expand to the encoding names, specified through --from-code and --to-code, respectively.
-#: src/iconv.c:1026
+#: src/iconv.c:1027
 #, c-format
 msgid "conversion from %s to %s unsupported"
 msgstr "konversi dari %s to %s tidak didukung"
 
 #. TRANSLATORS: Additional advice after an error message.
 #. The %s placeholder expands to the program name.
-#: src/iconv.c:1031
+#: src/iconv.c:1032
 #, c-format
 msgid "try '%s -l' to get the list of supported encodings"
 msgstr "coba '%s -l' untuk mendapatkan daftar dari pengkodean yang didukung"
 
 #. TRANSLATORS: A filename substitute denoting standard input.
-#: src/iconv.c:1088
+#: src/iconv.c:1089
 msgid "(stdin)"
 msgstr "(stdin)"
 
 #. TRANSLATORS: The first part of an error message.
 #. It is followed by a colon and a detail message.
 #. The %s placeholder expands to the input file name.
-#: src/iconv.c:1100
+#: src/iconv.c:1101
 #, c-format
 msgid "%s"
 msgstr "%s"
 
 #. TRANSLATORS: An error message.
-#: src/iconv.c:1114
+#: src/iconv.c:1115
 #, c-format
 msgid "I/O error"
 msgstr "I/O error"

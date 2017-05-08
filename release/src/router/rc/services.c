@@ -890,7 +890,8 @@ void start_6rd_tunnel(void)
 
 	// adding default route via the border relay
 	snprintf(tmp_ipv6, sizeof(tmp_ipv6), "::%s", relay);
-	eval("ip", "-6", "route", "add", "default", "via", tmp_ipv6, "dev", (char *)tun_dev);
+//	eval("ip", "-6", "route", "add", "default", "via", tmp_ipv6, "dev", (char *)tun_dev);
+	eval("ip", "-6", "route", "add", "::/0", "via", tmp_ipv6, "dev", (char *)tun_dev);
 
 	nvram_set("ipv6_ifname", (char *)tun_dev);
 
@@ -1932,6 +1933,7 @@ static void start_samba(void)
 	char nlsmod[15];
 	int mode;
 	char *nv;
+	char *si;
 
 	if (getpid() != 1) {
 		start_service("smbd");
@@ -1944,6 +1946,8 @@ static void start_samba(void)
 
 	if ((fp = fopen("/etc/smb.conf", "w")) == NULL)
 		return;
+
+	si = nvram_safe_get("smbd_ifnames");
 
 	fprintf(fp, "[global]\n"
 		" interfaces = %s\n"
@@ -1963,7 +1967,7 @@ static void start_samba(void)
 		" encrypt passwords = yes\n"
 		" preserve case = yes\n"
 		" short preserve case = yes\n",
-		nvram_safe_get("lan_ifname"),
+		strlen(si) ? si : nvram_safe_get("lan_ifname"),
 		nvram_get("smbd_wgroup") ? : "WORKGROUP",
 		nvram_safe_get("lan_hostname"),
 		nvram_get("router_name") ? : "Tomato",
@@ -2142,6 +2146,7 @@ static void start_media_server(void)
 	char *dbdir;
 	char *argv[] = { MEDIA_SERVER_APP, "-f", "/etc/"MEDIA_SERVER_APP".conf", "-R", NULL };
 	static int once = 1;
+	char *msi;
 
 	if (getpid() != 1) {
 		start_service("media");
@@ -2169,6 +2174,8 @@ static void start_media_server(void)
 				if (!(*dbdir)) dbdir = NULL;
 				mkdir_if_none(dbdir ? : "/var/run/"MEDIA_SERVER_APP);
 
+				msi = nvram_safe_get("ms_ifname");
+
 				fprintf(f,
 					"network_interface=%s\n"
 					"port=%d\n"
@@ -2183,7 +2190,7 @@ static void start_media_server(void)
 					"log_dir=/var/log\n"
 					"log_level=general,artwork,database,inotify,scanner,metadata,http,ssdp,tivo=warn\n"
 					"\n",
-					nvram_safe_get("lan_ifname"),
+					strlen(msi) ? msi : nvram_safe_get("lan_ifname"),
 					(port < 0) || (port >= 0xffff) ? 0 : port,
 					nvram_get("router_name") ? : "Tomato",
 					dbdir ? : "/var/run/"MEDIA_SERVER_APP,

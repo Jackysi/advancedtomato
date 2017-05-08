@@ -1,3 +1,79 @@
+NEWS for the Nettle 3.3 release
+
+	This release fixes a couple of bugs, and improves resistance
+	to side-channel attacks on RSA and DSA private key operations.
+
+	Changes in behavoir:
+
+	* Invalid private RSA keys, with an even modulo, are now
+	  rejected by rsa_private_key_prepare. (Earlier versions
+	  allowed such keys, even if results of using them were bogus).
+
+	  Nettle applications are required to call
+	  rsa_private_key_prepare and check the return value, before
+	  using any other RSA private key functions; failing to do so
+	  may result in crashes for invalid private keys. As a
+	  workaround for versions of Gnutls which don't use
+	  rsa_private_key_prepare, additional checks for even moduli
+	  are added to the rsa_*_tr functions which are used by all
+	  recent versions of Gnutls.
+
+	* Ignore bit 255 of the x coordinate of the input point to
+	  curve25519_mul, as required by RFC 7748. To differentiate at
+	  compile time, curve25519.h defines the constant
+	  NETTLE_CURVE25519_RFC7748.
+
+	Security:
+
+	* RSA and DSA now use side-channel silent modular
+	  exponentiation, to defend against attacks on the private key
+	  from evil processes sharing the same processor cache. This
+	  attack scenario is of particular relevance when running an
+	  HTTPS server on a virtual machine, where you don't know who
+	  you share the cache hardware with.
+
+	  (Private key operations on elliptic curves were already
+	  side-channel silent).
+
+	Bug fixes:
+
+	* Fix sexp-conv crashes on invalid input. Reported by Hanno
+	  Böck.
+
+	* Fix out-of-bounds read in des_weak_p. Fixed by Nikos
+	  Mavrogiannopoulos.
+
+	* Fix a couple of formally undefined shift operations,
+	  reported by Nikos Mavrogiannopoulos.
+
+	* Fix compilation with c89. Reported by Henrik Grubbström.
+
+	New features:
+
+	* New function memeql_sec, for side-channel silent comparison
+	  of two memory areas.
+
+	Miscellaneous:
+
+	* Building the public key support of nettle now requires GMP
+	  version 5.0 or later (unless --enable-mini-gmp is used).
+
+	* Filenames of windows DLL libraries now include major number
+	  only. So the dll names change at the same time as the
+	  corresponding soname on ELF platforms. Fixed by Nikos
+	  Mavrogiannopoulos.
+
+	* Eliminate most pointer-signedness warnings. In the process,
+	  the strings representing expression type for sexp_interator
+	  functions were changed from const uint8_t * to const char *.
+	  These functions are undocumented, and it doesn't change the
+	  ABI on any platform I'm aware of.
+
+	The shared library names are libnettle.so.6.3 and
+	libhogweed.so.4.3, with sonames still libnettle.so.6 and
+	libhogweed.so.4. It is intended to be fully binary compatible
+	with nettle-3.1.
+
 NEWS for the Nettle 3.2 release
 
 	Bug fixes:

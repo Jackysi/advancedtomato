@@ -79,7 +79,7 @@ hash_file(const struct nettle_hash *hash, void *ctx, FILE *f)
 {
   for (;;)
     {
-      char buffer[BUFSIZE];
+      uint8_t buffer[BUFSIZE];
       size_t res = fread(buffer, 1, sizeof(buffer), f);
       if (ferror(f))
 	return 0;

@@ -38,14 +38,14 @@ void create_passwd(void)
 	m = umask(0777);
 	if ((f = fopen("/etc/shadow", "w")) != NULL) {
 		p = crypt(p, salt);
-		fprintf(f, "root:%s:0:0:99999:7:0:0:\n"
-				   "nobody:*:0:0:99999:7:0:0:\n", p);
+		fprintf(f, "root:%s:1:0:99999:7:0:0:\n"
+				   "nobody:*:1:0:99999:7:0:0:\n", p);
 #if TOMATO_SL
 		// todo		zzz
-		fprintf(f, "admin:*:0:0:99999:7:0:0:\n");
+		fprintf(f, "admin:*:1:0:99999:7:0:0:\n");
 #endif
 #ifdef TCONFIG_SAMBASRV	//!!TB
-		fprintf(f, "%s:*:0:0:99999:7:0:0:\n", smbd_user);
+		fprintf(f, "%s:*:1:0:99999:7:0:0:\n", smbd_user);
 #endif
 
 		fappend(f, "/etc/shadow.custom");
@@ -115,10 +115,11 @@ void start_sshd(void)
 	mkdir("/etc/dropbear", 0700);
 	mkdir("/root/.ssh", 0700);
 
-	f_write_string("/root/.ssh/authorized_keys", nvram_safe_get("sshd_authkeys"), 0, 0700);
+	f_write_string("/root/.ssh/authorized_keys", nvram_safe_get("sshd_authkeys"), 0, 0600);
 
-	dirty |= check_host_key("rsa", "sshd_hostkey", "/etc/dropbear/dropbear_rsa_host_key");
-	dirty |= check_host_key("dss", "sshd_dsskey",  "/etc/dropbear/dropbear_dss_host_key");
+	dirty |= check_host_key("rsa",   "sshd_hostkey",  "/etc/dropbear/dropbear_rsa_host_key");
+	dirty |= check_host_key("dss",   "sshd_dsskey",   "/etc/dropbear/dropbear_dss_host_key");
+	dirty |= check_host_key("ecdsa", "sshd_ecdsakey", "/etc/dropbear/dropbear_ecdsa_host_key");
 	if (dirty)
 		nvram_commit_x();
 

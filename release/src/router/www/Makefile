@@ -193,6 +193,7 @@ ifneq ($(TCONFIG_UPS),y)
 	rm -f $(INSTALLDIR)/www/nas-ups.asp
 	sed -i $(INSTALLDIR)/www/tomato.js -e "/UPS-BEGIN/,/UPS-END/d"
 	sed -i $(INSTALLDIR)/www/about.asp -e "/UPS-BEGIN/,/UPS-END/d"
+	sed -i $(INSTALLDIR)/www/nas-usb.asp -e "/UPS-BEGIN/,/UPS-END/d"
 endif
 
 # Only include the TOR pages if tor project is configured in.

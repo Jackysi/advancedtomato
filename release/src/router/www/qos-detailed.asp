@@ -97,10 +97,10 @@ No part of this file may be used without permission.
 				}
 				else setTimeout(resolve, 500);
 				xob = null;
-			}
+			};
 			xob.onError = function(ex) {
 				xob = null;
-			}
+			};
 
 			xob.post('resolve.cgi', 'ip=' + queue.splice(0, 20).join(','));
 		}
@@ -144,7 +144,7 @@ No part of this file may be used without permission.
 				v.push(s);
 			}
 			return v;
-		}
+		};
 
 		grid.sortCompare = function(a, b) {
 			var obj = TGO(a);
@@ -154,7 +154,7 @@ No part of this file may be used without permission.
 			var r;
 
 			switch (col) {
-				case 0:		// Proto
+				case 0:		// Protocol
 				case 2:		// S port
 				case 4:		// D port
 				case 6:		// Rule #
@@ -178,7 +178,7 @@ No part of this file may be used without permission.
 					break;
 			}
 			return obj.sortAscending ? r : -r;
-		}
+		};
 
 		grid.onClick = function(cell) {
 			var row = PR(cell);
@@ -194,7 +194,7 @@ No part of this file may be used without permission.
 			else {
 				this.resolveAll();
 			}
-		}
+		};
 
 		grid.resolveAll = function()
 		{
@@ -217,7 +217,7 @@ No part of this file may be used without permission.
 			}
 			q = null;
 			resolve();
-		}
+		};
 
 		grid.setName = function(ip, name) {
 			var i, row, data, cols, j;
@@ -237,12 +237,12 @@ No part of this file may be used without permission.
 					}
 				}
 			}
-		}
+		};
 
 		grid.setup = function() {
 			this.init('grid', 'sort');
-			this.headerSet(['Proto', 'Source', 'S Port', 'Destination', 'D Port', 'Class', 'Rule', 'Bytes Out', 'Bytes In']);
-		}
+			this.headerSet(['Protocol', 'Source', 'S Port', 'Destination', 'D Port', 'Class', 'Rule', 'Bytes Out', 'Bytes In']);
+		};
 
 		var ref = new TomatoRefresh('/update.cgi', '', 0, 'qos_detailed');
 
@@ -377,7 +377,7 @@ No part of this file may be used without permission.
 				E('numtotalconn').innerHTML='<small><i>(showing ' + numconnshown + ' out of ' + numconntotal + ' connections)</i></small>';
 			else
 				E('numtotalconn').innerHTML='<small>(' + numconntotal + ' connections)</small>';
-		}
+		};
 
 		function addExcludeList(address) {
 			if (E('_f_filter_ipe').value.length<6) {

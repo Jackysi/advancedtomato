@@ -84,6 +84,12 @@ Public-key algorithms
 * DSA::                         The DSA digital signature algorithm.
 * Elliptic curves::             Elliptic curves and ECDSA
 
+Elliptic curves
+
+* Side-channel silence::
+* ECDSA::
+* Curve 25519::
+
 
 
 File: nettle.info,  Node: Introduction,  Next: Copyright,  Prev: Top,  Up: Top
@@ -1893,8 +1899,8 @@ These functions uses ‘void *’ to pass cipher contexts around.
 
      Applies the encryption or decryption function F in CBC mode.  The
      final ciphertext block processed is copied into IV before
-     returning, so that large message be processed be a sequence of
-     calls to ‘cbc_encrypt’.  The function F is of type
+     returning, so that a large message can be processed by a sequence
+     of calls to ‘cbc_encrypt’.  The function F is of type
 
      ‘void f (void *CTX, size_t LENGTH, uint8_t DST, const uint8_t
      *SRC)’,
@@ -4154,6 +4160,15 @@ curve using the 256-bit prime p = 2^{256} - 2^{224} + 2^{192} + 2^{96} -
 “bitsize of the curve” is used as a shorthand for the bitsize of the
 curve’s prime p, e.g., 256 bits for ‘nettle_secp_256r1’.
 
+* Menu:
+
+* Side-channel silence::
+* ECDSA::
+* Curve 25519::
+
+
+File: nettle.info,  Node: Side-channel silence,  Next: ECDSA,  Up: Elliptic curves
+
 6.7.3.1 Side-channel silence
 ............................
 
@@ -4172,13 +4187,17 @@ be side-channel silent.  The side-channel attacks considered are:
      depending on the data, e.g, an internal lookup table in some
      cryptographic algorithm, an attacker running a separate process on
      the same system may use behavior of internal CPU caches to get
-     information about your secrets.
+     information about your secrets.  This type of attack can even cross
+     virtual machine boundaries.
 
    Nettle’s ECC implementation is designed to be "side-channel silent",
 and not leak any information to these attacks.  Timing and memory
 accesses depend only on the size of the input data and its location in
 memory, not on the actual data bits.  This implies a performance penalty
 in several of the building blocks.
+
+
+File: nettle.info,  Node: ECDSA,  Next: Curve 25519,  Prev: Side-channel silence,  Up: Elliptic curves
 
 6.7.3.2 ECDSA
 .............
@@ -4207,8 +4226,8 @@ the data types used to represent public and private keys.
      Represents a point on an elliptic curve.  In particular, it is used
      to represent an ECDSA public key.
 
- -- Function: void ecc_point_init (struct ecc_point *P, const
-          structecc_curve *ECC)
+ -- Function: void ecc_point_init (struct ecc_point *P, const struct
+          ecc_curve *ECC)
      Initializes P to represent points on the given curve ECC.
      Allocates storage for the coordinates, using the same allocation
      functions as GMP.
@@ -4222,7 +4241,7 @@ the data types used to represent public and private keys.
      If so, the coordinates are copied and converted to internal
      representation, and the function returns 1.  Otherwise, it returns
      0.  Currently, the infinity point (or zero point, with additive
-     notation) i snot allowed.
+     notation) is not allowed.
 
  -- Function: void ecc_point_get (const struct ecc_point *P, mpz_t X,
           mpz_t Y)
@@ -4282,33 +4301,52 @@ used.
      octets and store them at ‘dst’.  For advice, see *Note
      Randomness::.
 
+
+File: nettle.info,  Node: Curve 25519,  Prev: ECDSA,  Up: Elliptic curves
+
 6.7.3.3 Curve25519
 ..................
 
 Curve25519 is an elliptic curve of Montgomery type, y^2 = x^3 + 486662
 x^2 + x (mod p), with p = 2^255 - 19.  Montgomery curves have the
 advantage of simple and efficient point addition based on the
-x-coordinate only.  This particular curve was proposed by
-D.~J.~Bernstein in 2006, for fast Diffie-Hellman key exchange.  The
-group generator is defined by x = 9 (there are actually two points with
-x = 9, differing by the sign of the y-coordinate, but that doesn’t
-matter for the curve25519 operations which work with the x-coordinate
-only).
+x-coordinate only.  This particular curve was proposed by D. J.
+Bernstein in 2006, for fast Diffie-Hellman key exchange, and is also
+described in ‘RFC 7748’.  The group generator is defined by x = 9 (there
+are actually two points with x = 9, differing by the sign of the
+y-coordinate, but that doesn’t matter for the curve25519 operations
+which work with the x-coordinate only).
 
    The curve25519 functions are defined as operations on octet strings,
-which are interpreted as x-coordinates in little-endian byte order.
+representing 255-bit scalars or x-coordinates, in little-endian byte
+order.  The most significant input bit, i.e, the most significant bit of
+the last octet, is always ignored.
+
+   For scalars, in addition, the least significant three bits are
+ignored, and treated as zero, and the second most significant bit is
+ignored too, and treated as one.  Then the scalar input string always
+represents 8 times a number in the range 2^251 <= s < 2^252.
 
    Of all the possible input strings, only about half correspond to
-points on curve25519, i.e., a value that can be produced by
-‘curve25519_mul_g’.  The other half corresponds to points on a related
-“twist curve”.  The current implementation of ‘curve25519_mul’ uses a
+x-coordinates of points on curve25519, i.e., a value x for which the the
+curve equation can be solved for y.  The other half correspond to points
+on a related “twist curve”.  The function ‘curve25519_mul’ uses a
 Montgomery ladder for the scalar multiplication, as suggested in the
-curve25519 literature, and produces a well defined output for all
-possible inputs, no matter if points are on the proper curve or on its
-twist.  However, at the time of writing, it is not yet ruled out that
-other implementations could be faster, and therefore the behaviour for
-inputs corresponding to points on the twist curve must be considered an
-implementation idiosyncrasy, and may change in future versions.
+curve25519 literature, and required by ‘RFC 7748’.  The output is
+therefore well defined for _all_ possible inputs, no matter if the input
+string represents a valid point on the curve or not.
+
+   Note that the curve25519 implementation in earlier versions of Nettle
+deviates slightly from ‘RFC 7748’, in that bit 255 of the x coordinate
+of the point input to curve25519_mul was not ignored.  The
+‘nette/curve25519.h’ defines a preprocessor symbol
+‘NETTLE_CURVE25519_RFC7748’ to indicate conformance with the standard.
+
+   Nettle defines Curve 25519 in ‘<nettle/curve25519.h>’.
+
+ -- Constant: NETTLE_CURVE25519_RFC7748
+     Defined to 1 in Nettle versions conforming to RFC 7748.  Undefined
+     in earlier versions.
 
  -- Constant: CURVE25519_SIZE
      The size of the strings representing curve25519 points and scalars,
@@ -4330,17 +4368,13 @@ implementation idiosyncrasy, and may change in future versions.
      little-endian representation of the scalar and the x-coordinates,
      respectively.  They are all of size ‘CURVE25519_SIZE’.
 
-     The output value is defined only when the input P is a string
-     produced by ‘curve25519_mul_g’.  (See discussion above, about the
-     twist curve).
-
      This function is intended to be compatible with the function
      ‘crypto_scalar_mult’ in the NaCl library.
 
 6.7.3.4 EdDSA
 .............
 
-EdDSA is a signature scheme proposed by D.~J.~Bernstein et al.  in 2011.
+EdDSA is a signature scheme proposed by D. J. Bernstein et al.  in 2011.
 It is defined using a “Twisted Edwards curve”, of the form -x^2 + y^2 =
 1 + d x^2 y^2.  The specific signature scheme Ed25519 uses a curve which
 is equivalent to curve25519: The two groups used differ only by a simple
@@ -4849,7 +4883,15 @@ File: nettle.info,  Node: Miscellaneous functions,  Next: Compatibility function
      Like ‘memxor’, but takes two source areas and separate destination
      area.
 
-   ‘memxor’ is declared in ‘<nettle/memxor.h>’.
+ -- Function: int memeql_sec (const void *A, const void *B, size_t N)
+     Side-channel silent comparison of the N bytes at A and B.  I.e.,
+     instructions executed and memory accesses are identical no matter
+     where the areas differ, *note Side-channel silence::.  Return
+     non-zero if the areas are equal, and zero if they differ.
+
+   These functions are declared in ‘<nettle/memops.h>’.  For
+compatibility with earlier versions of Nettle, ‘memxor’ and ‘memxor3’
+are also declared in ‘<nettle/memxor.h>’.
 
 
 File: nettle.info,  Node: Compatibility functions,  Prev: Miscellaneous functions,  Up: Reference
@@ -5089,8 +5131,9 @@ Function and Concept Index
 * CTR_CRYPT:                             CTR.                 (line  60)
 * CTR_CTX:                               CTR.                 (line  48)
 * CTR_SET_COUNTER:                       CTR.                 (line  55)
-* curve25519_mul:                        Elliptic curves.     (line 194)
-* curve25519_mul_g:                      Elliptic curves.     (line 185)
+* Curve 25519:                           Curve 25519.         (line   6)
+* curve25519_mul:                        Curve 25519.         (line  60)
+* curve25519_mul_g:                      Curve 25519.         (line  51)
 * des3_decrypt:                          Cipher functions.    (line 606)
 * des3_encrypt:                          Cipher functions.    (line 599)
 * des3_set_key:                          Cipher functions.    (line 588)
@@ -5139,21 +5182,21 @@ Function and Concept Index
 * EAX_SET_NONCE:                         EAX.                 (line  98)
 * eax_update:                            EAX.                 (line  48)
 * EAX_UPDATE:                            EAX.                 (line 101)
-* ecc_point_clear:                       Elliptic curves.     (line  84)
-* ecc_point_get:                         Elliptic curves.     (line  95)
-* ecc_point_init:                        Elliptic curves.     (line  78)
-* ecc_point_set:                         Elliptic curves.     (line  87)
-* ecc_scalar_clear:                      Elliptic curves.     (line 110)
-* ecc_scalar_get:                        Elliptic curves.     (line 117)
-* ecc_scalar_init:                       Elliptic curves.     (line 105)
-* ecc_scalar_set:                        Elliptic curves.     (line 113)
-* ecdsa_generate_keypair:                Elliptic curves.     (line 141)
-* ecdsa_sign:                            Elliptic curves.     (line 123)
-* ecdsa_verify:                          Elliptic curves.     (line 132)
-* ed25519_sha512_public_key:             Elliptic curves.     (line 238)
-* ed25519_sha512_sign:                   Elliptic curves.     (line 243)
-* ed25519_sha512_verify:                 Elliptic curves.     (line 248)
-* eddsa:                                 Elliptic curves.     (line 211)
+* ecc_point_clear:                       ECDSA.               (line  36)
+* ecc_point_get:                         ECDSA.               (line  47)
+* ecc_point_init:                        ECDSA.               (line  30)
+* ecc_point_set:                         ECDSA.               (line  39)
+* ecc_scalar_clear:                      ECDSA.               (line  62)
+* ecc_scalar_get:                        ECDSA.               (line  69)
+* ecc_scalar_init:                       ECDSA.               (line  57)
+* ecc_scalar_set:                        ECDSA.               (line  65)
+* ecdsa_generate_keypair:                ECDSA.               (line  93)
+* ecdsa_sign:                            ECDSA.               (line  75)
+* ecdsa_verify:                          ECDSA.               (line  84)
+* ed25519_sha512_public_key:             Curve 25519.         (line 100)
+* ed25519_sha512_sign:                   Curve 25519.         (line 105)
+* ed25519_sha512_verify:                 Curve 25519.         (line 110)
+* eddsa:                                 Curve 25519.         (line  73)
 * Entropy:                               Randomness.          (line  51)
 * Galois Counter Mode:                   GCM.                 (line   6)
 * GCM:                                   GCM.                 (line   6)
@@ -5263,6 +5306,8 @@ Function and Concept Index
                                                               (line  32)
 * md5_update:                            Legacy hash functions.
                                                               (line  35)
+* memeql_sec:                            Miscellaneous functions.
+                                                              (line  16)
 * memxor:                                Miscellaneous functions.
                                                               (line   6)
 * memxor3:                               Miscellaneous functions.
@@ -5425,6 +5470,8 @@ Function and Concept Index
                                                               (line  96)
 * sha512_update:                         Recommended hash functions.
                                                               (line  99)
+* Side-channel attack:                   Side-channel silence.
+                                                              (line   6)
 * Stream Cipher:                         Cipher functions.    (line  12)
 * twofish_decrypt:                       Cipher functions.    (line 767)
 * twofish_encrypt:                       Cipher functions.    (line 760)
@@ -5461,44 +5508,47 @@ Function and Concept Index
 
 Tag Table:
 Node: Top543
-Node: Introduction2600
-Node: Copyright4179
-Node: Conventions9029
-Node: Example11183
-Node: Linking12433
-Node: Reference13294
-Node: Hash functions13842
-Node: Recommended hash functions15372
-Node: Legacy hash functions26899
-Node: nettle_hash abstraction34749
-Node: Cipher functions36450
-Node: Cipher modes72141
-Node: CBC73241
-Node: CTR76623
-Node: Authenticated encryption79224
-Node: EAX82577
-Node: GCM88750
-Node: CCM101587
-Node: ChaCha-Poly1305114373
-Node: nettle_aead abstraction118248
-Node: Keyed hash functions119711
-Node: HMAC121345
-Node: UMAC129365
-Node: Poly1305135240
-Node: Key derivation functions137897
-Node: Public-key algorithms141645
-Node: RSA145700
-Node: RSA-Footnotes163501
-Ref: RSA-Footnote-1163554
-Node: DSA163732
-Node: Elliptic curves179208
-Node: Randomness191293
-Node: ASCII encoding206629
-Node: Miscellaneous functions213356
-Node: Compatibility functions214041
-Node: Nettle soup215389
-Node: Installation216386
-Node: Index217762
+Node: Introduction2669
+Node: Copyright4248
+Node: Conventions9098
+Node: Example11252
+Node: Linking12502
+Node: Reference13363
+Node: Hash functions13911
+Node: Recommended hash functions15441
+Node: Legacy hash functions26968
+Node: nettle_hash abstraction34818
+Node: Cipher functions36519
+Node: Cipher modes72210
+Node: CBC73310
+Node: CTR76698
+Node: Authenticated encryption79299
+Node: EAX82652
+Node: GCM88825
+Node: CCM101662
+Node: ChaCha-Poly1305114448
+Node: nettle_aead abstraction118323
+Node: Keyed hash functions119786
+Node: HMAC121420
+Node: UMAC129440
+Node: Poly1305135315
+Node: Key derivation functions137972
+Node: Public-key algorithms141720
+Node: RSA145775
+Node: RSA-Footnotes163576
+Ref: RSA-Footnote-1163629
+Node: DSA163807
+Node: Elliptic curves179283
+Node: Side-channel silence180636
+Node: ECDSA182079
+Node: Curve 25519186834
+Node: Randomness192352
+Node: ASCII encoding207688
+Node: Miscellaneous functions214415
+Node: Compatibility functions215575
+Node: Nettle soup216923
+Node: Installation217920
+Node: Index219296
 
 End Tag Table
 

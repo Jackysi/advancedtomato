@@ -201,7 +201,7 @@ No part of this file may be used without permission.
 
 		grid.setup = function() {
 			this.init('grid', 'sort');
-			this.headerSet(['Proto', 'Source', 'S Port', 'Destination', 'D Port', 'UL Rate', 'DL Rate']);
+			this.headerSet(['Protocol', 'Source', 'S Port', 'Destination', 'D Port', 'UL Rate', 'DL Rate']);
 		}
 
 		var ref = new TomatoRefresh('/update.cgi', '', 0, 'qos_ctrate');

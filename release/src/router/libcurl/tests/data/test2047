@@ -43,6 +43,7 @@ idn
 </features>
 <setenv>
 CHARSET=UTF-8
+LANG=en_US.UTF-8
 </setenv>
  <name>
 Connection re-use with IDN host name over HTTP proxy
@@ -63,10 +64,12 @@ http://åäö.se/2047 -x %HOSTIP:%HTTPPORT -w "%{num_connects}\n%{num_redirects}
 GET http://xn--4cab6c.se/2047 HTTP/1.1
 Host: xn--4cab6c.se
 Accept: */*
+Proxy-Connection: Keep-Alive
 
 GET http://xn--4cab6c.se/20470001 HTTP/1.1
 Host: xn--4cab6c.se
 Accept: */*
+Proxy-Connection: Keep-Alive
 
 </protocol>
 

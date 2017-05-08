@@ -53,7 +53,7 @@ To integrate this library into your package:
 
 Distribution:
     The libcharset directory of
-    ftp://ftp.gnu.org/pub/gnu/libiconv/libiconv-1.8.tar.gz
+    ftp://ftp.gnu.org/pub/gnu/libiconv/libiconv-1.14.tar.gz
 
 Homepage:
     http://www.haible.de/bruno/packages-libcharset.html

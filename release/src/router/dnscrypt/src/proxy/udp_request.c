@@ -7,6 +7,7 @@
 # include <sys/socket.h>
 # include <arpa/inet.h>
 # include <netinet/in.h>
+# include <netinet/ip.h>
 #endif
 
 #include <assert.h>
@@ -25,6 +26,7 @@
 #include "logger.h"
 #include "probes.h"
 #include "queue.h"
+#include "sandboxes.h"
 #include "tcp_request.h"
 #include "udp_request.h"
 #include "udp_request_p.h"
@@ -255,6 +257,9 @@ timeout_timer_cb(evutil_socket_t timeout_timer_handle, short ev_flags,
 #ifndef SO_SNDBUFFORCE
 # define SO_SNDBUFFORCE SO_SNDBUF
 #endif
+#ifndef IPTOS_DSCP_AF32
+# define IPTOS_DSCP_AF32 0x70
+#endif
 
 static void
 udp_tune(evutil_socket_t const handle)
@@ -275,6 +280,10 @@ udp_tune(evutil_socket_t const handle)
 #elif defined(IP_DONTFRAG)
     setsockopt(handle, IPPROTO_IP, IP_DONTFRAG,
                (void *) (int []) { 0 }, sizeof (int));
+#endif
+#ifdef IP_TOS
+    setsockopt(handle, IPPROTO_IP, IP_TOS,
+               (void *) (int []) { IPTOS_DSCP_AF32 }, sizeof (int));
 #endif
 }
 
@@ -492,7 +501,7 @@ udp_listener_bind(ProxyContext * const proxy_context)
                             "Unable to create a socket (UDP)");
             return -1;
         }
-#if defined(__linux__) && defined(SO_REUSEPORT)
+#if defined(__linux__) && defined(SO_REUSEPORT) && !defined(NO_REUSEPORT)
         setsockopt(proxy_context->udp_listener_handle, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
 #endif
         if (bind(proxy_context->udp_listener_handle,
@@ -509,7 +518,7 @@ udp_listener_bind(ProxyContext * const proxy_context)
     evutil_make_socket_closeonexec(proxy_context->udp_listener_handle);
     evutil_make_socket_nonblocking(proxy_context->udp_listener_handle);
     udp_tune(proxy_context->udp_listener_handle);
-
+    attach_udp_dnsq_bpf(proxy_context->udp_listener_handle);
     if ((proxy_context->udp_proxy_resolver_handle = socket
          (proxy_context->resolver_sockaddr.ss_family, SOCK_DGRAM, IPPROTO_UDP)) == -1) {
         logger_noformat(proxy_context, LOG_ERR,
@@ -564,8 +573,10 @@ udp_listener_stop(ProxyContext * const proxy_context)
     if (proxy_context->udp_proxy_resolver_event == NULL) {
         return;
     }
+    event_free(proxy_context->udp_listener_event);
+    proxy_context->udp_listener_event = NULL;
     event_free(proxy_context->udp_proxy_resolver_event);
     proxy_context->udp_proxy_resolver_event = NULL;
-    while (udp_listener_kill_oldest_request(proxy_context) != 0) { }
+    while (udp_listener_kill_oldest_request(proxy_context) == 0) { }
     logger_noformat(proxy_context, LOG_INFO, "UDP listener shut down");
 }

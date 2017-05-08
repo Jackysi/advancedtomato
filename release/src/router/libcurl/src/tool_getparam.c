@@ -21,7 +21,7 @@
  ***************************************************************************/
 #include "tool_setup.h"
 
-#include "rawstr.h"
+#include "strcase.h"
 
 #define ENABLE_CURLX_PRINTF
 /* use our own printf() functions */
@@ -125,6 +125,7 @@ static const struct LongShort aliases[]= {
   {"$e", "proxy-digest",             FALSE},
   {"$f", "proxy-basic",              FALSE},
   {"$g", "retry",                    TRUE},
+  {"$V", "retry-connrefused",        FALSE},
   {"$h", "retry-delay",              TRUE},
   {"$i", "retry-max-time",           TRUE},
   {"$k", "proxy-negotiate",          FALSE},
@@ -182,6 +183,7 @@ static const struct LongShort aliases[]= {
   {"$R", "expect100-timeout",        TRUE},
   {"$S", "tftp-no-options",          FALSE},
   {"$U", "connect-to",               TRUE},
+  {"$W", "abstract-unix-socket",     TRUE},
   {"0",   "http1.0",                 FALSE},
   {"01",  "http1.1",                 FALSE},
   {"02",  "http2",                   FALSE},
@@ -190,6 +192,7 @@ static const struct LongShort aliases[]= {
   {"10",  "tlsv1.0",                 FALSE},
   {"11",  "tlsv1.1",                 FALSE},
   {"12",  "tlsv1.2",                 FALSE},
+  {"13",  "tlsv1.3",                 FALSE},
   {"2",  "sslv2",                    FALSE},
   {"3",  "sslv3",                    FALSE},
   {"4",  "ipv4",                     FALSE},
@@ -228,7 +231,24 @@ static const struct LongShort aliases[]= {
   {"Er", "false-start",              FALSE},
   {"Es", "ssl-no-revoke",            FALSE},
   {"Et", "tcp-fastopen",             FALSE},
+  {"Eu", "proxy-tlsuser",            TRUE},
+  {"Ev", "proxy-tlspassword",        TRUE},
+  {"Ew", "proxy-tlsauthtype",        TRUE},
+  {"Ex", "proxy-cert",               TRUE},
+  {"Ey", "proxy-cert-type",          TRUE},
+  {"Ez", "proxy-key",                TRUE},
+  {"E0", "proxy-key-type",           TRUE},
+  {"E1", "proxy-pass",               TRUE},
+  {"E2", "proxy-ciphers",            TRUE},
+  {"E3", "proxy-crlfile",            TRUE},
+  {"E4", "proxy-ssl-allow-beast",    FALSE},
+  {"E5", "login-options",            TRUE},
+  {"E6", "proxy-cacert",             TRUE},
+  {"E7", "proxy-capath",             TRUE},
+  {"E8", "proxy-insecure",           FALSE},
+  {"E9", "proxy-tlsv1",              FALSE},
   {"f",  "fail",                     FALSE},
+  {"fa", "fail-early",               FALSE},
   {"F",  "form",                     TRUE},
   {"Fs", "form-string",              TRUE},
   {"g",  "globoff",                  FALSE},
@@ -271,6 +291,7 @@ static const struct LongShort aliases[]= {
   {"V",  "version",                  FALSE},
   {"w",  "write-out",                TRUE},
   {"x",  "proxy",                    TRUE},
+  {"xa", "preproxy",                 TRUE},
   {"X",  "request",                  TRUE},
   {"Y",  "speed-limit",              TRUE},
   {"y",  "speed-time",               TRUE},
@@ -301,9 +322,12 @@ void parse_cert_parameter(const char *cert_parameter,
   if(param_length == 0)
     return;
 
-  /* next less trivial: cert_parameter contains no colon nor backslash; this
+  /* next less trivial: cert_parameter starts 'pkcs11:' and thus
+   * looks like a RFC7512 PKCS#11 URI which can be used as-is.
+   * Also if cert_parameter contains no colon nor backslash, this
    * means no passphrase was given and no characters escaped */
-  if(!strpbrk(cert_parameter, ":\\")) {
+  if(!strncmp(cert_parameter, "pkcs11:", 7) ||
+     !strpbrk(cert_parameter, ":\\")) {
     *certname = strdup(cert_parameter);
     return;
   }
@@ -378,6 +402,20 @@ done:
   *certname_place = '\0';
 }
 
+static void
+GetFileAndPassword(char *nextarg, char **file, char **password)
+{
+  char *certname, *passphrase;
+  parse_cert_parameter(nextarg, &certname, &passphrase);
+  Curl_safefree(*file);
+  *file = certname;
+  if(passphrase) {
+    Curl_safefree(*password);
+    *password = passphrase;
+  }
+  cleanarg(nextarg);
+}
+
 ParameterError getparameter(char *flag,    /* f or -long-flag */
                             char *nextarg, /* NULL if unset */
                             bool *usedarg, /* set to TRUE if the arg
@@ -413,10 +451,10 @@ ParameterError getparameter(char *flag,    /* f or -long-flag */
     }
 
     for(j = 0; j < sizeof(aliases)/sizeof(aliases[0]); j++) {
-      if(curlx_strnequal(aliases[j].lname, word, fnam)) {
+      if(curl_strnequal(aliases[j].lname, word, fnam)) {
         longopt = TRUE;
         numhits++;
-        if(curlx_raw_equal(aliases[j].lname, word)) {
+        if(curl_strequal(aliases[j].lname, word)) {
           parse = aliases[j].letter;
           hit = j;
           numhits = 1; /* a single unique hit */
@@ -721,7 +759,11 @@ ParameterError getparameter(char *flag,    /* f or -long-flag */
       case '@': /* the URL! */
       {
         struct getout *url;
-        if(config->url_get || ((config->url_get = config->url_list) != NULL)) {
+
+        if(!config->url_get)
+          config->url_get = config->url_list;
+
+        if(config->url_get) {
           /* there's a node here, if it already is filled-in continue to find
              an "empty" node */
           while(config->url_get && (config->url_get->flags & GETOUT_URL))
@@ -749,7 +791,7 @@ ParameterError getparameter(char *flag,    /* f or -long-flag */
       break;
     case '$': /* more options without a short option */
       switch(subletter) {
-      case 'a': /* --ftp-ssl */
+      case 'a': /* --ssl */
         if(toggle && !(curlinfo->features & CURL_VERSION_SSL))
           return PARAM_LIBCURL_DOESNT_SUPPORT;
         config->ftp_ssl = toggle;
@@ -759,21 +801,21 @@ ParameterError getparameter(char *flag,    /* f or -long-flag */
         break;
       case 'c': /* --socks5 specifies a socks5 proxy to use, and resolves
                    the name locally and passes on the resolved address */
-        GetStr(&config->socksproxy, nextarg);
-        config->socksver = CURLPROXY_SOCKS5;
+        GetStr(&config->proxy, nextarg);
+        config->proxyver = CURLPROXY_SOCKS5;
         break;
       case 't': /* --socks4 specifies a socks4 proxy to use */
-        GetStr(&config->socksproxy, nextarg);
-        config->socksver = CURLPROXY_SOCKS4;
+        GetStr(&config->proxy, nextarg);
+        config->proxyver = CURLPROXY_SOCKS4;
         break;
       case 'T': /* --socks4a specifies a socks4a proxy to use */
-        GetStr(&config->socksproxy, nextarg);
-        config->socksver = CURLPROXY_SOCKS4A;
+        GetStr(&config->proxy, nextarg);
+        config->proxyver = CURLPROXY_SOCKS4A;
         break;
       case '2': /* --socks5-hostname specifies a socks5 proxy and enables name
                    resolving with the proxy */
-        GetStr(&config->socksproxy, nextarg);
-        config->socksver = CURLPROXY_SOCKS5_HOSTNAME;
+        GetStr(&config->proxy, nextarg);
+        config->proxyver = CURLPROXY_SOCKS5_HOSTNAME;
         break;
       case 'd': /* --tcp-nodelay option */
         config->tcp_nodelay = toggle;
@@ -788,6 +830,9 @@ ParameterError getparameter(char *flag,    /* f or -long-flag */
         err = str2unum(&config->req_retry, nextarg);
         if(err)
           return err;
+        break;
+      case 'V': /* --retry-connrefused */
+        config->retry_connrefused = toggle;
         break;
       case 'h': /* --retry-delay */
         err = str2unum(&config->retry_delay, nextarg);
@@ -844,7 +889,7 @@ ParameterError getparameter(char *flag,    /* f or -long-flag */
       case 'u': /* --ftp-alternative-to-user */
         GetStr(&config->ftp_alternative_to_user, nextarg);
         break;
-      case 'v': /* --ftp-ssl-reqd */
+      case 'v': /* --ssl-reqd */
         if(toggle && !(curlinfo->features & CURL_VERSION_SSL))
           return PARAM_LIBCURL_DOESNT_SUPPORT;
         config->ftp_ssl_reqd = toggle;
@@ -980,6 +1025,7 @@ ParameterError getparameter(char *flag,    /* f or -long-flag */
 #endif
         break;
       case 'M': /* --unix-socket */
+        config->abstract_unix_socket = FALSE;
         GetStr(&config->unix_socket_path, nextarg);
         break;
       case 'N': /* --path-as-is */
@@ -1009,6 +1055,10 @@ ParameterError getparameter(char *flag,    /* f or -long-flag */
         err = add2list(&config->connect_to, nextarg);
         if(err)
           return err;
+        break;
+      case 'W': /* --abstract-unix-socket */
+        config->abstract_unix_socket = TRUE;
+        GetStr(&config->unix_socket_path, nextarg);
         break;
       }
       break;
@@ -1058,6 +1108,10 @@ ParameterError getparameter(char *flag,    /* f or -long-flag */
         /* TLS version 1.2 */
         config->ssl_version = CURL_SSLVERSION_TLSv1_2;
         break;
+      case '3':
+        /* TLS version 1.3 */
+        config->ssl_version = CURL_SSLVERSION_TLSv1_3;
+        break;
       }
       break;
     case '2':
@@ -1106,7 +1160,7 @@ ParameterError getparameter(char *flag,    /* f or -long-flag */
       break;
     case 'C':
       /* This makes us continue an ftp transfer at given position */
-      if(!curlx_strequal(nextarg, "-")) {
+      if(strcmp(nextarg, "-")) {
         err = str2offset(&config->resume_from, nextarg);
         if(err)
           return err;
@@ -1150,7 +1204,7 @@ ParameterError getparameter(char *flag,    /* f or -long-flag */
         }
         if('@' == is_file) {
           /* a '@' letter, it means that a file name or - (stdin) follows */
-          if(curlx_strequal("-", p)) {
+          if(!strcmp("-", p)) {
             file = stdin;
             set_binmode(stdin);
           }
@@ -1215,7 +1269,7 @@ ParameterError getparameter(char *flag,    /* f or -long-flag */
            or - (stdin) follows */
         nextarg++; /* pass the @ */
 
-        if(curlx_strequal("-", nextarg)) {
+        if(!strcmp("-", nextarg)) {
           file = stdin;
           if(subletter == 'b') /* forced data-binary */
             set_binmode(stdin);
@@ -1321,6 +1375,9 @@ ParameterError getparameter(char *flag,    /* f or -long-flag */
     break;
     case 'E':
       switch(subletter) {
+      case '\0': /* certificate file */
+        GetFileAndPassword(nextarg, &config->cert, &config->key_passwd);
+        break;
       case 'a': /* CA info PEM file */
         /* CA info PEM file */
         GetStr(&config->cacert, nextarg);
@@ -1340,7 +1397,7 @@ ParameterError getparameter(char *flag,    /* f or -long-flag */
         break;
       case 'f': /* crypto engine */
         GetStr(&config->engine, nextarg);
-        if(config->engine && curlx_raw_equal(config->engine, "list"))
+        if(config->engine && curl_strequal(config->engine, "list"))
           return PARAM_ENGINES_REQUESTED;
         break;
       case 'g': /* CA info PEM file */
@@ -1374,7 +1431,7 @@ ParameterError getparameter(char *flag,    /* f or -long-flag */
       case 'm': /* TLS authentication type */
         if(curlinfo->features & CURL_VERSION_TLSAUTH_SRP) {
           GetStr(&config->tls_authtype, nextarg);
-          if(!strequal(config->tls_authtype, "SRP"))
+          if(!curl_strequal(config->tls_authtype, "SRP"))
             return PARAM_LIBCURL_DOESNT_SUPPORT; /* only support TLS-SRP */
         }
         else
@@ -1411,23 +1468,102 @@ ParameterError getparameter(char *flag,    /* f or -long-flag */
         config->tcp_fastopen = TRUE;
         break;
 
-      default: /* certificate file */
-      {
-        char *certname, *passphrase;
-        parse_cert_parameter(nextarg, &certname, &passphrase);
-        Curl_safefree(config->cert);
-        config->cert = certname;
-        if(passphrase) {
-          Curl_safefree(config->key_passwd);
-          config->key_passwd = passphrase;
+      case 'u': /* TLS username for proxy */
+        if(curlinfo->features & CURL_VERSION_TLSAUTH_SRP)
+          GetStr(&config->proxy_tls_username, nextarg);
+        else
+          return PARAM_LIBCURL_DOESNT_SUPPORT;
+        break;
+
+      case 'v': /* TLS password for proxy */
+        if(curlinfo->features & CURL_VERSION_TLSAUTH_SRP)
+          GetStr(&config->proxy_tls_password, nextarg);
+        else
+          return PARAM_LIBCURL_DOESNT_SUPPORT;
+        break;
+
+      case 'w': /* TLS authentication type for proxy */
+        if(curlinfo->features & CURL_VERSION_TLSAUTH_SRP) {
+          GetStr(&config->proxy_tls_authtype, nextarg);
+          if(!curl_strequal(config->proxy_tls_authtype, "SRP"))
+            return PARAM_LIBCURL_DOESNT_SUPPORT; /* only support TLS-SRP */
         }
+        else
+          return PARAM_LIBCURL_DOESNT_SUPPORT;
+        break;
+
+      case 'x': /* certificate file for proxy */
+        GetFileAndPassword(nextarg, &config->proxy_cert,
+                           &config->proxy_key_passwd);
+        break;
+
+      case 'y': /* cert file type for proxy */
+        GetStr(&config->proxy_cert_type, nextarg);
+        break;
+
+      case 'z': /* private key file for proxy */
+        GetStr(&config->proxy_key, nextarg);
+        break;
+
+      case '0': /* private key file type for proxy */
+        GetStr(&config->proxy_key_type, nextarg);
+        break;
+
+      case '1': /* private key passphrase for proxy */
+        GetStr(&config->proxy_key_passwd, nextarg);
         cleanarg(nextarg);
-      }
+        break;
+
+      case '2': /* ciphers for proxy */
+        GetStr(&config->proxy_cipher_list, nextarg);
+        break;
+
+      case '3': /* CRL info PEM file for proxy */
+        /* CRL file */
+        GetStr(&config->proxy_crlfile, nextarg);
+        break;
+
+      case '4': /* no empty SSL fragments for proxy */
+        if(curlinfo->features & CURL_VERSION_SSL)
+          config->proxy_ssl_allow_beast = toggle;
+        break;
+
+      case '5': /* --login-options */
+        GetStr(&config->login_options, nextarg);
+        break;
+
+      case '6': /* CA info PEM file for proxy */
+        /* CA info PEM file */
+        GetStr(&config->proxy_cacert, nextarg);
+        break;
+
+      case '7': /* CA info PEM file for proxy */
+        /* CA cert directory */
+        GetStr(&config->proxy_capath, nextarg);
+        break;
+
+      case '8': /* allow insecure SSL connects for proxy */
+        config->proxy_insecure_ok = toggle;
+        break;
+
+      case '9':
+        /* TLS version 1 for proxy */
+        config->proxy_ssl_version = CURL_SSLVERSION_TLSv1;
+        break;
+
+      default: /* unknown flag */
+        return PARAM_OPTION_UNKNOWN;
       }
       break;
     case 'f':
-      /* fail hard on errors  */
-      config->failonerror = toggle;
+      switch(subletter) {
+      case 'a': /* --fail-early */
+        global->fail_early = toggle;
+        break;
+      default:
+        /* fail hard on errors  */
+        config->failonerror = toggle;
+      }
       break;
     case 'F':
       /* "form data" simulation, this is a little advanced so lets do our best
@@ -1503,7 +1639,7 @@ ParameterError getparameter(char *flag,    /* f or -long-flag */
       break;
     case 'L':
       config->followlocation = toggle; /* Follow Location: HTTP headers */
-      switch (subletter) {
+      switch(subletter) {
       case 't':
         /* Continue to send authentication (user+password) when following
          * locations, even when hostname changed */
@@ -1562,7 +1698,9 @@ ParameterError getparameter(char *flag,    /* f or -long-flag */
       /* output file */
     {
       struct getout *url;
-      if(config->url_out || ((config->url_out = config->url_list) != NULL)) {
+      if(!config->url_out)
+        config->url_out = config->url_list;
+      if(config->url_out) {
         /* there's a node here, if it already is filled-in continue to find
            an "empty" node */
         while(config->url_out && (config->url_out->flags & GETOUT_OUTFILE))
@@ -1699,7 +1837,9 @@ ParameterError getparameter(char *flag,    /* f or -long-flag */
       /* we are uploading */
     {
       struct getout *url;
-      if(config->url_out || ((config->url_out = config->url_list) != NULL)) {
+      if(!config->url_out)
+        config->url_out = config->url_list;
+      if(config->url_out) {
         /* there's a node here, if it already is filled-in continue to find
            an "empty" node */
         while(config->url_out && (config->url_out->flags & GETOUT_UPLOAD))
@@ -1767,7 +1907,7 @@ ParameterError getparameter(char *flag,    /* f or -long-flag */
         FILE *file;
         const char *fname;
         nextarg++; /* pass the @ */
-        if(curlx_strequal("-", nextarg)) {
+        if(!strcmp("-", nextarg)) {
           fname = "<stdin>";
           file = stdin;
         }
@@ -1787,9 +1927,16 @@ ParameterError getparameter(char *flag,    /* f or -long-flag */
         GetStr(&config->writeout, nextarg);
       break;
     case 'x':
-      /* proxy */
-      GetStr(&config->proxy, nextarg);
-      config->proxyver = CURLPROXY_HTTP;
+      switch(subletter) {
+      case 'a': /* --preproxy */
+        GetStr(&config->preproxy, nextarg);
+        break;
+      default:
+        /* --proxy */
+        GetStr(&config->proxy, nextarg);
+        config->proxyver = CURLPROXY_HTTP;
+        break;
+      }
       break;
     case 'X':
       /* set custom request */
@@ -1840,7 +1987,7 @@ ParameterError getparameter(char *flag,    /* f or -long-flag */
           /* failed, remove time condition */
           config->timecond = CURL_TIMECOND_NONE;
           warnf(global,
-                "Illegal date format for -z, --timecond (and not "
+                "Illegal date format for -z, --time-cond (and not "
                 "a file name). Disabling time condition. "
                 "See curl_getdate(3) for valid date syntax.\n");
         }
@@ -1877,7 +2024,7 @@ ParameterError parse_args(struct GlobalConfig *config, int argc,
       bool passarg;
       char *flag = argv[i];
 
-      if(curlx_strequal("--", argv[i]))
+      if(!strcmp("--", argv[i]))
         /* This indicates the end of the flags and thus enables the
            following (URL) argument to start with -. */
         stillflags = FALSE;
@@ -1933,7 +2080,7 @@ ParameterError parse_args(struct GlobalConfig *config, int argc,
      result != PARAM_ENGINES_REQUESTED) {
     const char *reason = param2text(result);
 
-    if(orig_opt && !curlx_strequal(":", orig_opt))
+    if(orig_opt && strcmp(":", orig_opt))
       helpf(config->errors, "option %s: %s\n", orig_opt, reason);
     else
       helpf(config->errors, "%s\n", reason);

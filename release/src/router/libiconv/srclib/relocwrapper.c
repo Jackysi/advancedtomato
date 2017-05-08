@@ -1,5 +1,5 @@
 /* Relocating wrapper program.
-   Copyright (C) 2003, 2005-2007, 2009-2011 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2005-2007, 2009-2017 Free Software Foundation, Inc.
    Written by Bruno Haible <bruno@clisp.org>, 2003.
 
    This program is free software: you can redistribute it and/or modify
@@ -19,16 +19,23 @@
    relocwrapper
     -> progname
     -> progreloc
-        -> areadlink
-           -> careadlinkat
+       -> areadlink
+          -> careadlinkat
              -> allocator
-             -> readlink
-        -> canonicalize-lgpl
-           -> malloca
-           -> readlink
+          -> readlink
+             -> stat
+                -> dosname
+                -> pathmax
+                -> verify
+       -> canonicalize-lgpl
+          -> malloca
+          -> lstat
+          -> readlink
     -> relocatable
     -> setenv
        -> malloca
+    -> fprintf-posix [ignore, cut dependency tree here]
+    -> strerror [ignore, cut dependency tree here]
     -> c-ctype
 
    Macros that need to be set while compiling this file:
@@ -60,6 +67,7 @@
 
 /* Use the system functions, not the gnulib overrides in this file.  */
 #undef fprintf
+#undef strerror
 
 /* Return a copy of the filename, with an extra ".bin" at the end.
    More generally, it replaces "${EXEEXT}" at the end with ".bin${EXEEXT}".  */

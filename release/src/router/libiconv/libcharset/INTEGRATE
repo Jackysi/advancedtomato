@@ -1,5 +1,10 @@
 Integration of this library into your package:
 
+The preferred way is to use the Gnulib module 'localcharset'.
+
+Here are instructions if you don't want to use Gnulib. It's tedious,
+many small changes to your package:
+
 * Copy the lib/ sourcefiles (localcharset.c, config.charset, ref-add.sin,
   ref-del.sin) and the include file (include/localcharset.h) into your
   package.
@@ -13,7 +18,7 @@ Integration of this library into your package:
     AM_LANGINFO_CODESET
     gl_FCNTL_O_FLAGS
     jm_GLIBC21
-    AC_CHECK_HEADERS(stddef.h stdlib.h string.h)
+    AC_CHECK_HEADERS([stddef.h stdlib.h string.h])
 
   and make sure that it sets and AC_SUBSTs the PACKAGE variable.
 

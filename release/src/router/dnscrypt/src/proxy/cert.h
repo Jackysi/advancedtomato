@@ -15,6 +15,8 @@
 # define CERT_QUERY_TEST_RETRY_STEPS         2
 #endif
 
+#define CERT_RECOMMENDED_MAX_KEY_ROTATION_PERIOD 86400
+
 typedef struct CertUpdater_ {
     struct evdns_base *evdns_base;
     struct event      *cert_timer;

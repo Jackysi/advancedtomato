@@ -385,11 +385,29 @@ static void load(int new) {
 	}
 }
 
+int speed_empty(Node *node) {
+	int i, j;
+	/*iterate over the entire speed[i][j] two-dimensional array
+	and look for any entries (counters) that are non-zero.
+	If such an entry is found, return 0 (false)*/
+	for (i = 0; i < MAX_NSPEED; ++i) {
+		for (j = 0; j < MAX_COUNTER; ++j) {
+			if (node->speed[i][j]) {
+			return 0;
+			}
+		}
+	}
+	return 1;
+}
+
 void Node_print_speedjs(Node *self, void *t) {
 	int j, k, p;
 	uint64_t total, tmax;
 	uint64_t n;
 	char c;
+
+	//hide hosts with no traffic on IP Traffic - Last 24 Hours
+	if (speed_empty(self)) return;
 
 	node_print_mode_t *info = (node_print_mode_t *)t;
 
@@ -529,9 +547,13 @@ static void calc(void) {
 	int n;
 	char *exclude = NULL;
 	char *include = NULL;
+	char prefix[] = "wanXX_";
 
 	Node *ptr = NULL;
 	Node test;
+
+	int wanup = 0; // 0 = FALSE, 1 = TRUE
+	long wanuptime = 0; // wanuptime in seconds
 
 	now = time(0);
 
@@ -627,8 +649,12 @@ static void calc(void) {
 							_dprintf("%s: counter[%d]=%llu ptr->last[%d]=%llu c=%llu sc=%llu\n", __FUNCTION__, i, counter[i], i, ptr->last[i], c, sc);
 #endif
 							if (c < sc) {
-								diff = (0xFFFFFFFF - sc) + c;
-								if (diff > MAX_ROLLOVER) diff = 0;
+								wanup = check_wanup(prefix); // router/shared/misc.c
+								wanuptime = check_wanup_time(); // router/shared/misc.c
+								diff = ((0xFFFFFFFFFFFFFFFFULL) - sc + 1ULL) + c; // rollover calculation
+								if(diff > ((uint64_t)MAX_ROLLOVER)) diff = 0ULL; // 3750 MByte / 120 sec => 250 MBit/s maximum limit with roll-over! Try to catch unknown/unwanted traffic peaks - Part 1/2
+								if(wanup && (wanuptime < (INTERVAL + 10))) diff = 0ULL; // Try to catch traffic peaks at connection startup/reconnect (ADSL/PPPoE) - Part 2/2
+								// see https://www.linksysinfo.org/index.php?threads/tomato-toastmans-releases.36106/page-39#post-281722
 							}
 							else {
 								 diff = c - sc;

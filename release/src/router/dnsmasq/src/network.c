@@ -746,7 +746,7 @@ static int make_sock(union mysockaddr *addr, int type, int dienow)
   
   if (type == SOCK_STREAM)
     {
-      if (listen(fd, 5) == -1)
+      if (listen(fd, TCP_BACKLOG) == -1)
 	goto err;
     }
   else if (family == AF_INET)
@@ -1204,6 +1204,7 @@ int local_bind(int fd, union mysockaddr *addr, char *intname, int is_tcp)
 static struct serverfd *allocate_sfd(union mysockaddr *addr, char *intname)
 {
   struct serverfd *sfd;
+  unsigned int ifindex = 0;
   int errsave;
 
   /* when using random ports, servers which would otherwise use
@@ -1224,11 +1225,15 @@ static struct serverfd *allocate_sfd(union mysockaddr *addr, char *intname)
 	return NULL;
 #endif
     }
-      
+  
+  if (intname && strlen(intname) != 0)
+    ifindex = if_nametoindex(intname); /* index == 0 when not binding to an interface */
+    
   /* may have a suitable one already */
   for (sfd = daemon->sfds; sfd; sfd = sfd->next )
     if (sockaddr_isequal(&sfd->source_addr, addr) &&
-	strcmp(intname, sfd->interface) == 0)
+	strcmp(intname, sfd->interface) == 0 &&
+	ifindex == sfd->ifindex) 
       return sfd;
   
   /* need to make a new one. */
@@ -1254,6 +1259,7 @@ static struct serverfd *allocate_sfd(union mysockaddr *addr, char *intname)
   strcpy(sfd->interface, intname); 
   sfd->source_addr = *addr;
   sfd->next = daemon->sfds;
+  sfd->ifindex = ifindex;
   daemon->sfds = sfd;
   return sfd; 
 }
@@ -1429,11 +1435,16 @@ void check_servers(void)
 {
   struct irec *iface;
   struct server *serv;
+  struct serverfd *sfd, *tmp, **up;
   int port = 0, count;
+  int locals = 0;
 
   /* interface may be new since startup */
   if (!option_bool(OPT_NOWILD))
     enumerate_interfaces(0);
+  
+  for (sfd = daemon->sfds; sfd; sfd = sfd->next)
+    sfd->used = 0;
   
 #ifdef HAVE_DNSSEC
  /* Disable DNSSEC validation when using server=/domain/.... servers
@@ -1505,6 +1516,9 @@ void check_servers(void)
 	      serv->flags |= SERV_MARK;
 	      continue;
 	    }
+	    
+	  if (serv->sfd)
+	    serv->sfd->used = 1;
 	}
       
       if (!(serv->flags & SERV_NO_REBIND) && !(serv->flags & SERV_LITERAL_ADDRESS))
@@ -1527,7 +1541,11 @@ void check_servers(void)
 		s1 = _("domain"), s2 = serv->domain;
 	      
 	      if (serv->flags & SERV_NO_ADDR)
-		my_syslog(LOG_INFO, _("using local addresses only for %s %s"), s1, s2);
+               {
+                 count--;
+                 if (++locals <= LOCALS_LOGGED)
+                       my_syslog(LOG_INFO, _("using local addresses only for %s %s"), s1, s2);
+               }
 	      else if (serv->flags & SERV_USE_RESOLV)
 		my_syslog(LOG_INFO, _("using standard nameservers for %s %s"), s1, s2);
 	      else 
@@ -1543,10 +1561,26 @@ void check_servers(void)
 	    my_syslog(LOG_INFO, _("using nameserver %s#%d"), daemon->namebuff, port); 
 	}
     }
-  
+
+  if (locals > LOCALS_LOGGED)
+    my_syslog(LOG_INFO, _("using %d more local addresses"), locals - LOCALS_LOGGED);
   if (count - 1 > SERVERS_LOGGED)
     my_syslog(LOG_INFO, _("using %d more nameservers"), count - SERVERS_LOGGED - 1);
 
+  /* Remove unused sfds */
+  for (sfd = daemon->sfds, up = &daemon->sfds; sfd; sfd = tmp)
+    {
+       tmp = sfd->next;
+       if (!sfd->used) 
+       {
+         *up = sfd->next;
+         close(sfd->fd);
+         free(sfd);
+       } 
+      else
+       up = &sfd->next;
+    }
+  
   cleanup_servers();
 }
 

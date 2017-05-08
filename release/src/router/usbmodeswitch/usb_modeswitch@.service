@@ -3,6 +3,6 @@ Description=USB_ModeSwitch_%i
 
 [Service]
 Type=oneshot
-ExecStart=/usr/sbin/usb_modeswitch_dispatcher --switch-systemd %i
+ExecStart=/usr/sbin/usb_modeswitch_dispatcher --switch-mode %i
 #ExecStart=/bin/echo %i
 

@@ -1,4 +1,4 @@
-dnl Copyright (C) 1999-2009 Free Software Foundation, Inc.
+dnl Copyright (C) 1999-2009, 2016 Free Software Foundation, Inc.
 dnl This file is part of the GNU LIBICONV Library.
 dnl
 dnl The GNU LIBICONV Library is free software; you can redistribute it and/or
@@ -13,19 +13,13 @@ dnl Library General Public License for more details.
 dnl
 dnl You should have received a copy of the GNU Library General Public License
 dnl along with the GNU LIBICONV Library; see the file COPYING.LIB.  If not,
-dnl write to the Free Software Foundation, Inc., 51 Franklin Street,
-dnl Fifth Floor, Boston, MA 02110-1301, USA.
+dnl see <http://www.gnu.org/licenses/>.
 
 AC_PREREQ([2.60])
-
-PACKAGE=libiconv
-VERSION=0
-
-AC_INIT([configure.ac])
+AC_INIT([libiconv], [0])
+AC_CONFIG_SRCDIR([configure.ac])
 AC_CONFIG_AUX_DIR([../build-aux])
 AC_PROG_MAKE_SET
-AC_SUBST([PACKAGE])
-AC_SUBST([VERSION])
 
 dnl           checks for basic programs
 

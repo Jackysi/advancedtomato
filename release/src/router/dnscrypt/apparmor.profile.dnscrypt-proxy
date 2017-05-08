@@ -18,6 +18,7 @@
   capability ipc_lock,
 
   /bin/false r,
+  /etc/dnscrypt-proxy.conf r,
   /etc/ld.so.cache r,
   /etc/nsswitch.conf r,
   /etc/passwd r,

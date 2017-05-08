@@ -886,6 +886,19 @@ ngx_http_parse_header_line(ngx_http_request_t *r, ngx_buf_t *b,
                     break;
                 }
 
+                if (ch == '_') {
+                    if (allow_underscores) {
+                        hash = ngx_hash(0, ch);
+                        r->lowcase_header[0] = ch;
+                        i = 1;
+
+                    } else {
+                        r->invalid_header = 1;
+                    }
+
+                    break;
+                }
+
                 if (ch == '\0') {
                     return NGX_HTTP_PARSE_INVALID_HEADER;
                 }
@@ -1274,7 +1287,7 @@ ngx_http_parse_complex_uri(ngx_http_request_t *r, ngx_uint_t merge_slashes)
                 break;
             }
 
-            switch(ch) {
+            switch (ch) {
 #if (NGX_WIN32)
             case '\\':
                 if (u - 2 >= r->uri.data
@@ -1344,7 +1357,7 @@ ngx_http_parse_complex_uri(ngx_http_request_t *r, ngx_uint_t merge_slashes)
                 break;
             }
 
-            switch(ch) {
+            switch (ch) {
 #if (NGX_WIN32)
             case '\\':
                 break;
@@ -1387,7 +1400,7 @@ ngx_http_parse_complex_uri(ngx_http_request_t *r, ngx_uint_t merge_slashes)
                 break;
             }
 
-            switch(ch) {
+            switch (ch) {
 #if (NGX_WIN32)
             case '\\':
 #endif
@@ -1428,7 +1441,7 @@ ngx_http_parse_complex_uri(ngx_http_request_t *r, ngx_uint_t merge_slashes)
                 break;
             }
 
-            switch(ch) {
+            switch (ch) {
 #if (NGX_WIN32)
             case '\\':
 #endif
@@ -1972,6 +1985,57 @@ ngx_http_parse_multi_header_lines(ngx_array_t *headers, ngx_str_t *name,
 
 
 ngx_int_t
+ngx_http_parse_set_cookie_lines(ngx_array_t *headers, ngx_str_t *name,
+    ngx_str_t *value)
+{
+    ngx_uint_t         i;
+    u_char            *start, *last, *end;
+    ngx_table_elt_t  **h;
+
+    h = headers->elts;
+
+    for (i = 0; i < headers->nelts; i++) {
+
+        ngx_log_debug2(NGX_LOG_DEBUG_HTTP, headers->pool->log, 0,
+                       "parse header: \"%V: %V\"", &h[i]->key, &h[i]->value);
+
+        if (name->len >= h[i]->value.len) {
+            continue;
+        }
+
+        start = h[i]->value.data;
+        end = h[i]->value.data + h[i]->value.len;
+
+        if (ngx_strncasecmp(start, name->data, name->len) != 0) {
+            continue;
+        }
+
+        for (start += name->len; start < end && *start == ' '; start++) {
+            /* void */
+        }
+
+        if (start == end || *start++ != '=') {
+            /* the invalid header value */
+            continue;
+        }
+
+        while (start < end && *start == ' ') { start++; }
+
+        for (last = start; last < end && *last != ';'; last++) {
+            /* void */
+        }
+
+        value->len = last - start;
+        value->data = start;
+
+        return i;
+    }
+
+    return NGX_DECLINED;
+}
+
+
+ngx_int_t
 ngx_http_arg(ngx_http_request_t *r, u_char *name, size_t len, ngx_str_t *value)
 {
     u_char  *p, *last;
@@ -2091,6 +2155,10 @@ ngx_http_parse_chunked(ngx_http_request_t *r, ngx_buf_t *b,
             goto invalid;
 
         case sw_chunk_size:
+            if (ctx->size > NGX_MAX_OFF_T_VALUE / 16) {
+                goto invalid;
+            }
+
             if (ch >= '0' && ch <= '9') {
                 ctx->size = ctx->size * 16 + (ch - '0');
                 break;
@@ -2240,6 +2308,10 @@ data:
     ctx->state = state;
     b->pos = pos;
 
+    if (ctx->size > NGX_MAX_OFF_T_VALUE - 5) {
+        goto invalid;
+    }
+
     switch (state) {
 
     case sw_chunk_start:
@@ -2274,10 +2346,6 @@ data:
         ctx->length = 2 /* LF LF */;
         break;
 
-    }
-
-    if (ctx->size < 0 || ctx->length < 0) {
-        goto invalid;
     }
 
     return rc;

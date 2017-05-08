@@ -14,7 +14,7 @@ No part of this file may be used without permission.
 	<script type="text/javascript" src="js/wireless.jsx?_http_id=<% nv(http_id); %>"></script>
 	<script type="text/javascript" src="js/bwm-common.js"></script>
 	<script type="text/javascript">
-		//<% nvram("wan_ifname,wan_iface,wan2_ifname,wan2_iface,wan3_ifname,wan3_iface,wan4_ifname,wan4_iface,lan_ifname,wl_ifname,wan_proto,wan2_proto,wan3_proto,wan4_proto,web_svg,rstats_colors"); %>
+		//<% nvram("wan_ifname,wan_iface,wan2_ifname,wan2_iface,wan3_ifname,wan3_iface,wan4_ifname,wan4_iface,lan_ifname,lan1_ifname,lan2_ifname,lan3_ifname,wl_ifname,wan_proto,wan2_proto,wan3_proto,wan4_proto,web_svg,rstats_colors"); %>
 
 		var cprefix = 'bw_r';
 		var updateInt = 2;
@@ -56,15 +56,15 @@ No part of this file may be used without permission.
 
 				for (i in netdev) {
 					c = netdev[i];
-					if ((p = prev[i]) != null) {
-						h = speed_history[i];
+                    if ( (p = prev[ i ]) != null ) {
+                        h = speed_history[ i ];
 
-						h.rx.splice(0, 1);
-						h.rx.push((c.rx < p.rx) ? (c.rx + (0xFFFFFFFF - p.rx)) : (c.rx - p.rx));
+                        h.rx.splice( 0, 1 );
+                        h.rx.push( (c.rx < p.rx) ? (c.rx + (0xFFFFFFFF - p.rx + 0x00000001)) : (c.rx - p.rx) );
 
-						h.tx.splice(0, 1);
-						h.tx.push((c.tx < p.tx) ? (c.tx + (0xFFFFFFFF - p.tx)) : (c.tx - p.tx));
-					}
+                        h.tx.splice( 0, 1 );
+                        h.tx.push( (c.tx < p.tx) ? (c.tx + (0xFFFFFFFF - p.tx + 0x00000001)) : (c.tx - p.tx) );
+                    }
 					else if (!speed_history[i]) {
 						speed_history[i] = {};
 						h = speed_history[i];
@@ -83,7 +83,7 @@ No part of this file may be used without permission.
 			catch (ex) {
 			}
 			--updating;
-		}
+		};
 
 		function watchdog()
 		{

@@ -6,8 +6,9 @@ For use with Tomato Firmware only.
 No part of this file may be used without permission.
 --><title>Media Server</title>
 <content>
-	<script type="text/javascript">
-		//	<% nvram("at_update,tomatoanon_answer,ms_enable,ms_port,ms_dirs,ms_dbdir,ms_tivo,ms_stdlna,ms_sas,cifs1,cifs2,jffs2_on"); %>
+    <script type="text/javascript">
+        //	<% nvram("ms_enable,ms_port,ms_dirs,ms_dbdir,ms_ifname,ms_tivo,ms_stdlna,ms_sas,cifs1,cifs2,jffs2_on,lan_ifname,lan1_ifname,lan2_ifname,lan3_ifname"); %>
+
 
 		changed = 0;
 		mdup = parseInt('<% psup("minidlna"); %>');
@@ -27,7 +28,7 @@ No part of this file may be used without permission.
 			}
 			if (b.length < 2) b.push(mediatypes[0][1]);
 			return b;
-		}
+		};
 
 		msg.verifyFields = function(row, quiet)
 		{
@@ -83,6 +84,16 @@ No part of this file may be used without permission.
 			var a, b, v;
 			var eLoc, eUser;
 
+            var bridge1 = E( '_ms_ifname' );
+            if ( nvram.lan_ifname.length < 1 )
+                bridge1.options[ 0 ].disabled = true;
+            if ( nvram.lan1_ifname.length < 1 )
+                bridge1.options[ 1 ].disabled = true;
+            if ( nvram.lan2_ifname.length < 1 )
+                bridge1.options[ 2 ].disabled = true;
+            if ( nvram.lan3_ifname.length < 1 )
+                bridge1.options[ 3 ].disabled = true;
+
 			elem.display('_restart_button', nvram.ms_enable == '1');
 
 			a = E('_f_ms_enable').checked ? 1 : 0;
@@ -93,6 +104,7 @@ No part of this file may be used without permission.
 			eLoc.disabled = (a == 0);
 			eUser.disabled = (a == 0);
 			E('_ms_port').disabled = (a == 0);
+			E('_ms_ifname').disabled = (a == 0);
 			E('_f_ms_sas').disabled = (a == 0);
 			E('_f_ms_rescan').disabled = (a == 0);
 			E('_f_ms_tivo').disabled = (a == 0);
@@ -248,7 +260,13 @@ No part of this file may be used without permission.
 
 				$('.content.mediadlna').forms([
 					{ title: 'Enable', name: 'f_ms_enable', type: 'checkbox', value: nvram.ms_enable == '1' },
-					{ title: 'Port', name: 'ms_port', type: 'text', maxlen: 5, size: 6, value: nvram.ms_port, suffix: '<small>(range: 0 - 65535; default (random) set 0)</small>' },
+                    { title: 'Listen on', indent: 2, name: 'ms_ifname', type: 'select', options: [
+                        ['br0','LAN (br0)*'],
+                        ['br1','LAN1 (br1)'],
+                        ['br2','LAN2 (br2)'],
+                        ['br3','LAN3 (br3)']
+                        ], value: eval ( 'nvram.ms_ifname' ), suffix: ' <small>* default</small> ' },
+					{ title: 'Port', indent: 2, name: 'ms_port', type: 'text', maxlen: 5, size: 6, value: nvram.ms_port, suffix: '<small>(range: 0 - 65535; default (random) set 0)</small>' },
 					{ title: 'Database Location', multi: [
 						{ name: 'f_loc', type: 'select', options: [['','RAM (Temporary)'],
 							/* JFFS2-BEGIN */

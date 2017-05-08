@@ -10,7 +10,7 @@ CC = @CC@
 CFLAGS = @CFLAGS@
 CPPFLAGS = @CPPFLAGS@
 LDFLAGS = @LDFLAGS@
-INCLUDES = -I. -I$(srcdir) -I../include -I$(srcdir)/../include -I../srclib -I$(srcdir)/../srclib -I../lib
+INCLUDES = -I. -I$(srcdir) -I../include -I$(srcdir)/../include -I../srclib -I$(srcdir)/../srclib -I..
 LIBTOOL = @LIBTOOL@
 LIBTOOL_COMPILE = $(LIBTOOL) --mode=compile
 LIBTOOL_LINK = $(LIBTOOL) --mode=link
@@ -123,12 +123,15 @@ check : all table-from table-to ../src/iconv_no_i18n test-shiftseq test-to-wchar
 	$(srcdir)/check-stateful $(srcdir) ISO-2022-JP
 	$(srcdir)/check-stateful $(srcdir) ISO-2022-JP-2
 	$(srcdir)/check-stateful $(srcdir) ISO-2022-JP-1
+	$(srcdir)/check-stateful $(srcdir) ISO-2022-JP-MS
 	$(srcdir)/check-stateless $(srcdir) EUC-CN
 	$(srcdir)/check-stateless $(srcdir) GBK
 	$(srcdir)/check-stateless $(srcdir) CP936
 	$(CC) $(LDFLAGS) $(INCLUDES) $(CFLAGS) $(CPPFLAGS) $(srcdir)/gengb18030z.c ../srclib/libicrt.a -o gengb18030z && \
 	{ cat $(srcdir)/GB18030-BMP.TXT ; ./gengb18030z ; } | sort > GB18030.TXT && \
+	{ test $(srcdir) = . || cp $(srcdir)/GB18030.IRREVERSIBLE.TXT GB18030.IRREVERSIBLE.TXT; } && \
 	$(srcdir)/check-stateless . GB18030 && \
+	{ test $(srcdir) = . || $(RM) GB18030.IRREVERSIBLE.TXT; } && \
 	$(RM) -r gengb18030z@EXEEXT@ gengb18030z.dSYM GB18030.TXT
 	$(srcdir)/check-stateful $(srcdir) ISO-2022-CN
 	$(srcdir)/check-stateful $(srcdir) ISO-2022-CN-EXT
@@ -241,5 +244,173 @@ distclean : clean
 	$(RM) Makefile
 
 maintainer-clean : distclean
+
+# List of source files.
+SOURCE_FILES = \
+  Makefile.in \
+  table-from.c table-to.c uniq-u.c \
+  check-stateful check-stateful.bat \
+  check-stateless check-stateless.bat \
+  check-translit check-translit.bat \
+  check-translitfailure \
+  ASCII.TXT \
+  genutf8.c \
+  UCS-2BE-snippet UCS-2BE-snippet.UTF-8 \
+  UCS-2LE-snippet UCS-2LE-snippet.UTF-8 \
+  UCS-4BE-snippet UCS-4BE-snippet.UTF-8 \
+  UCS-4LE-snippet UCS-4LE-snippet.UTF-8 \
+  UTF-16-snippet UTF-16-snippet.UTF-8 \
+  UTF-16BE-snippet UTF-16BE-snippet.UTF-8 \
+  UTF-16LE-snippet UTF-16LE-snippet.UTF-8 \
+  UTF-32-snippet UTF-32-snippet.UTF-8 \
+  UTF-32BE-snippet UTF-32BE-snippet.UTF-8 \
+  UTF-32LE-snippet UTF-32LE-snippet.UTF-8 \
+  UTF-7-snippet UTF-7-snippet.UTF-8 \
+  ISO-8859-1.TXT \
+  ISO-8859-2.TXT \
+  ISO-8859-3.TXT \
+  ISO-8859-4.TXT \
+  ISO-8859-5.TXT \
+  ISO-8859-6.TXT \
+  ISO-8859-7.TXT \
+  ISO-8859-8.TXT \
+  ISO-8859-9.TXT \
+  ISO-8859-10.TXT \
+  ISO-8859-11.TXT \
+  ISO-8859-13.TXT \
+  ISO-8859-14.TXT \
+  ISO-8859-15.TXT \
+  ISO-8859-16.TXT \
+  KOI8-R.TXT \
+  KOI8-U.TXT \
+  KOI8-RU.TXT \
+  CP1250.TXT \
+  CP1251.TXT \
+  CP1252.TXT \
+  CP1253.TXT \
+  CP1254.TXT \
+  CP1255.TXT CP1255.IRREVERSIBLE.TXT \
+  CP1255-snippet CP1255-snippet.UTF-8 \
+  CP1256.TXT \
+  CP1257.TXT \
+  CP1258.TXT CP1258.IRREVERSIBLE.TXT \
+  CP1258-snippet CP1258-snippet.UTF-8 \
+  CP850.TXT \
+  CP862.TXT \
+  CP866.TXT \
+  CP1131.TXT \
+  MacRoman.TXT \
+  MacCentralEurope.TXT \
+  MacIceland.TXT \
+  MacCroatian.TXT \
+  MacRomania.TXT \
+  MacCyrillic.TXT \
+  MacUkraine.TXT \
+  MacGreek.TXT \
+  MacTurkish.TXT \
+  MacHebrew.TXT \
+  MacArabic.TXT \
+  MacThai.TXT \
+  HP-ROMAN8.TXT \
+  NEXTSTEP.TXT \
+  ARMSCII-8.TXT ARMSCII-8.IRREVERSIBLE.TXT \
+  Georgian-Academy.TXT \
+  Georgian-PS.TXT \
+  KOI8-T.TXT \
+  PT154.TXT \
+  RK1048.TXT \
+  MuleLao-1.TXT \
+  CP1133.TXT \
+  TIS-620.TXT \
+  CP874.TXT \
+  VISCII.TXT \
+  TCVN.TXT TCVN.IRREVERSIBLE.TXT \
+  TCVN-snippet TCVN-snippet.UTF-8 \
+  ISO646-JP.TXT \
+  JIS_X0201.TXT \
+  ISO646-CN.TXT \
+  ISO-IR-165.TXT ISO-IR-165.IRREVERSIBLE.TXT \
+  EUC-JP.TXT EUC-JP.IRREVERSIBLE.TXT \
+  SHIFT_JIS.TXT \
+  CP932.TXT CP932.IRREVERSIBLE.TXT \
+  ISO-2022-JP-snippet ISO-2022-JP-snippet.UTF-8 \
+  ISO-2022-JP-2-snippet ISO-2022-JP-2-snippet.UTF-8 \
+  ISO-2022-JP-1-snippet ISO-2022-JP-1-snippet.UTF-8 \
+  ISO-2022-JP-MS-snippet ISO-2022-JP-MS-snippet.alt ISO-2022-JP-MS-snippet.UTF-8 \
+  EUC-CN.TXT \
+  GBK.TXT \
+  CP936.TXT \
+  gengb18030z.c GB18030-BMP.TXT GB18030.IRREVERSIBLE.TXT \
+  ISO-2022-CN-snippet ISO-2022-CN-snippet.UTF-8 \
+  ISO-2022-CN-EXT-snippet ISO-2022-CN-EXT-snippet.UTF-8 \
+  HZ-snippet HZ-snippet.UTF-8 \
+  EUC-TW.TXT EUC-TW.IRREVERSIBLE.TXT \
+  BIG5.TXT \
+  CP950.TXT CP950.IRREVERSIBLE.TXT \
+  BIG5-HKSCS-1999.TXT BIG5-HKSCS-1999.IRREVERSIBLE.TXT \
+  BIG5-HKSCS-1999-snippet BIG5-HKSCS-1999-snippet.UTF-8 \
+  BIG5-HKSCS-2001.TXT BIG5-HKSCS-2001.IRREVERSIBLE.TXT \
+  BIG5-HKSCS-2001-snippet BIG5-HKSCS-2001-snippet.UTF-8 \
+  BIG5-HKSCS-2004.TXT BIG5-HKSCS-2004.IRREVERSIBLE.TXT \
+  BIG5-HKSCS-2004-snippet BIG5-HKSCS-2004-snippet.UTF-8 \
+  BIG5-HKSCS-2008.TXT BIG5-HKSCS-2008.IRREVERSIBLE.TXT \
+  BIG5-HKSCS-2008-snippet BIG5-HKSCS-2008-snippet.UTF-8 \
+  EUC-KR.TXT \
+  CP949.TXT \
+  JOHAB.TXT \
+  ISO-2022-KR-snippet \
+  ISO-2022-KR-snippet.UTF-8 \
+  Quotes.UTF-8 Quotes.ISO-8859-1 Quotes.ASCII \
+  Translit1.ISO-8859-1 Translit1.ASCII \
+  TranslitFail1.ISO-8859-1 \
+  check-subst \
+  test-shiftseq.c \
+  test-to-wchar.c \
+  CP856.TXT \
+  CP922.TXT \
+  CP1046.TXT \
+  CP1124.TXT \
+  CP1129.TXT \
+  CP1161.TXT CP1161.IRREVERSIBLE.TXT \
+  CP1162.TXT \
+  CP1163.TXT CP1163.IRREVERSIBLE.TXT \
+  DEC-KANJI.TXT \
+  DEC-HANYU.TXT DEC-HANYU.IRREVERSIBLE.TXT \
+  CP437.TXT \
+  CP737.TXT \
+  CP775.TXT \
+  CP852.TXT \
+  CP853.TXT \
+  CP855.TXT \
+  CP857.TXT \
+  CP858.TXT \
+  CP860.TXT \
+  CP861.TXT \
+  CP863.TXT \
+  CP864.TXT \
+  CP865.TXT \
+  CP869.TXT \
+  CP1125.TXT \
+  EUC-JISX0213.TXT \
+  SHIFT_JISX0213.TXT \
+  ISO-2022-JP-3-snippet ISO-2022-JP-3-snippet.UTF-8 \
+  BIG5-2003.TXT BIG5-2003.IRREVERSIBLE.TXT \
+  TDS565.TXT \
+  ATARIST.TXT \
+  RISCOS-LATIN1.TXT
+# List of distributed files imported from other packages.
+IMPORTED_FILES =
+# List of distributed files generated by autotools or Makefile.devel.
+GENERATED_FILES =
+# List of distributed files generated by "make".
+DISTRIBUTED_BUILT_FILES =
+# List of distributed files.
+DISTFILES = $(SOURCE_FILES) $(IMPORTED_FILES) $(GENERATED_FILES) $(DISTRIBUTED_BUILT_FILES)
+
+distdir : $(DISTFILES)
+	for file in $(DISTFILES); do \
+	  if test -f $$file; then dir='.'; else dir='$(srcdir)'; fi; \
+	  cp -p "$$dir/$$file" '$(distdir)'/$$file || exit 1; \
+	done
 
 force :

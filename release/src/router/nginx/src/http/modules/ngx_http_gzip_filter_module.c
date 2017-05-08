@@ -306,7 +306,7 @@ ngx_http_gzip_header_filter(ngx_http_request_t *r)
 
     ngx_http_clear_content_length(r);
     ngx_http_clear_accept_ranges(r);
-    ngx_http_clear_etag(r);
+    ngx_http_weak_etag(r);
 
     return ngx_http_next_header_filter(r);
 }
@@ -316,6 +316,7 @@ static ngx_int_t
 ngx_http_gzip_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
 {
     int                   rc;
+    ngx_uint_t            flush;
     ngx_chain_t          *cl;
     ngx_http_gzip_ctx_t  *ctx;
 
@@ -372,7 +373,7 @@ ngx_http_gzip_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
         r->connection->buffered |= NGX_HTTP_GZIP_BUFFERED;
     }
 
-    if (ctx->nomem || in == NULL) {
+    if (ctx->nomem) {
 
         /* flush busy buffers */
 
@@ -385,6 +386,10 @@ ngx_http_gzip_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
         ngx_chain_update_chains(r->pool, &ctx->free, &ctx->busy, &cl,
                                 (ngx_buf_tag_t) &ngx_http_gzip_filter_module);
         ctx->nomem = 0;
+        flush = 0;
+
+    } else {
+        flush = ctx->busy ? 1 : 0;
     }
 
     for ( ;; ) {
@@ -432,7 +437,7 @@ ngx_http_gzip_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
             /* rc == NGX_AGAIN */
         }
 
-        if (ctx->out == NULL) {
+        if (ctx->out == NULL && !flush) {
             ngx_http_gzip_filter_free_copy_buf(r, ctx);
 
             return ctx->busy ? NGX_AGAIN : NGX_OK;
@@ -457,6 +462,7 @@ ngx_http_gzip_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
         ctx->last_out = &ctx->out;
 
         ctx->nomem = 0;
+        flush = 0;
 
         if (ctx->done) {
             return rc;
@@ -1003,14 +1009,14 @@ ngx_http_gzip_filter_alloc(void *opaque, u_int items, u_int size)
         ctx->allocated -= alloc;
 
         ngx_log_debug4(NGX_LOG_DEBUG_HTTP, ctx->request->connection->log, 0,
-                       "gzip alloc: n:%ud s:%ud a:%ud p:%p",
+                       "gzip alloc: n:%ud s:%ud a:%ui p:%p",
                        items, size, alloc, p);
 
         return p;
     }
 
     ngx_log_error(NGX_LOG_ALERT, ctx->request->connection->log, 0,
-                  "gzip filter failed to use preallocated memory: %ud of %ud",
+                  "gzip filter failed to use preallocated memory: %ud of %ui",
                   items * size, ctx->allocated);
 
     p = ngx_palloc(ctx->request->pool, items * size);

@@ -1005,7 +1005,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="ws2_32.lib wldap32.lib"
+				AdditionalDependencies="ws2_32.lib wldap32.lib crypt32.lib"
 				OutputFile="$(OutDir)\$(ProjectName)d.dll"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories=""
@@ -1090,7 +1090,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="ws2_32.lib wldap32.lib"
+				AdditionalDependencies="ws2_32.lib wldap32.lib crypt32.lib"
 				OutputFile="$(OutDir)\$(ProjectName)d.dll"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories=""
@@ -1174,7 +1174,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="ws2_32.lib wldap32.lib"
+				AdditionalDependencies="ws2_32.lib wldap32.lib crypt32.lib"
 				OutputFile="$(OutDir)\$(ProjectName).dll"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories=""
@@ -1257,7 +1257,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="ws2_32.lib wldap32.lib"
+				AdditionalDependencies="ws2_32.lib wldap32.lib crypt32.lib"
 				OutputFile="$(OutDir)\$(ProjectName).dll"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories=""
@@ -3003,7 +3003,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="ws2_32.lib wldap32.lib normaliz.lib"
+				AdditionalDependencies="ws2_32.lib wldap32.lib crypt32.lib normaliz.lib"
 				OutputFile="$(OutDir)\$(ProjectName)d.dll"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories=""
@@ -3088,7 +3088,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="ws2_32.lib wldap32.lib normaliz.lib"
+				AdditionalDependencies="ws2_32.lib wldap32.lib crypt32.lib normaliz.lib"
 				OutputFile="$(OutDir)\$(ProjectName)d.dll"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories=""
@@ -3172,7 +3172,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="ws2_32.lib wldap32.lib normaliz.lib"
+				AdditionalDependencies="ws2_32.lib wldap32.lib crypt32.lib normaliz.lib"
 				OutputFile="$(OutDir)\$(ProjectName).dll"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories=""
@@ -3255,7 +3255,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="ws2_32.lib wldap32.lib normaliz.lib"
+				AdditionalDependencies="ws2_32.lib wldap32.lib crypt32.lib normaliz.lib"
 				OutputFile="$(OutDir)\$(ProjectName).dll"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories=""
@@ -3842,7 +3842,7 @@
 			>
 			</File>
 			<File
-				RelativePath="..\..\..\..\lib\rawstr.c"
+				RelativePath="..\..\..\..\lib\rand.c"
 			>
 			</File>
 			<File
@@ -3902,11 +3902,11 @@
 			>
 			</File>
 			<File
-				RelativePath="..\..\..\..\lib\strdup.c"
+				RelativePath="..\..\..\..\lib\strcase.c"
 			>
 			</File>
 			<File
-				RelativePath="..\..\..\..\lib\strequal.c"
+				RelativePath="..\..\..\..\lib\strdup.c"
 			>
 			</File>
 			<File
@@ -4246,7 +4246,7 @@
 			>
 			</File>
 			<File
-				RelativePath="..\..\..\..\lib\rawstr.h"
+				RelativePath="..\..\..\..\lib\rand.h"
 			>
 			</File>
 			<File
@@ -4306,11 +4306,11 @@
 			>
 			</File>
 			<File
-				RelativePath="..\..\..\..\lib\strdup.h"
+				RelativePath="..\..\..\..\lib\strcase.h"
 			>
 			</File>
 			<File
-				RelativePath="..\..\..\..\lib\strequal.h"
+				RelativePath="..\..\..\..\lib\strdup.h"
 			>
 			</File>
 			<File

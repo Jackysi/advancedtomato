@@ -1,22 +1,23 @@
 # Czech translation for libiconv.
 # Copyright (C) 2009 Free Software Foundation, Inc.
 # This file is distributed under the same license as the libiconv package.
-# Petr Pisar <petr.pisar@atlas.cz>, 2009.
+# Petr Pisar <petr.pisar@atlas.cz>, 2009, 2016.
 #
 # Založeno na doméně libc.
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: libiconv 1.12\n"
+"Project-Id-Version: libiconv 1.15-pre1\n"
 "Report-Msgid-Bugs-To: bug-gnu-libiconv@gnu.org\n"
-"POT-Creation-Date: 2011-08-07 15:24+0200\n"
-"PO-Revision-Date: 2009-07-21 17:31+0200\n"
+"POT-Creation-Date: 2016-12-04 17:16+0100\n"
+"PO-Revision-Date: 2016-12-12 16:37+01:00\n"
 "Last-Translator: Petr Pisar <petr.pisar@atlas.cz>\n"
 "Language-Team: Czech <translation-team-cs@lists.sourceforge.net>\n"
 "Language: cs\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"X-Bugs: Report translation errors to the Language-Team address.\n"
 "Plural-Forms: nplurals=3; plural=(n==1) ? 0 : (n>=2 && n<=4) ? 1 : 2;\n"
 
 #. TRANSLATORS: The first line of the short usage message.
@@ -33,7 +34,7 @@ msgstr "nebo:    iconv -l"
 
 #: src/iconv.c:110
 #, c-format
-msgid "Try `%s --help' for more information.\n"
+msgid "Try '%s --help' for more information.\n"
 msgstr "Více informací získáte příkazem „%s --help“.\n"
 
 #. TRANSLATORS: The first line of the long usage message.
@@ -157,13 +158,13 @@ msgstr ""
 "(česky).\n"
 
 #: src/iconv.c:196
-#, fuzzy, no-wrap
+#, no-wrap
 msgid ""
 "License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>\n"
 "This is free software: you are free to change and redistribute it.\n"
 "There is NO WARRANTY, to the extent permitted by law.\n"
 msgstr ""
-"Licence GPLv2+: GNU GPL verze 2 nebo novější <http://gnu.org/licenses/gpl.html>\n"
+"Licence GPLv3+: GNU GPL verze 2 nebo novější <http://gnu.org/licenses/gpl.html>\n"
 "Toto je svobodné programové vybavení: můžete jej měnit a šířit.\n"
 "Není poskytována ŽÁDNÁ ZÁRUKA, jak jen zákon dovoluje.\n"
 
@@ -311,48 +312,48 @@ msgstr "%s: chyba I/0"
 
 #. TRANSLATORS: An error message.
 #. The placeholder expands to the encoding name, specified through --from-code.
-#: src/iconv.c:1014
+#: src/iconv.c:1015
 #, c-format
 msgid "conversion from %s unsupported"
 msgstr "převod z %s není podporován"
 
 #. TRANSLATORS: An error message.
 #. The placeholder expands to the encoding name, specified through --to-code.
-#: src/iconv.c:1020
+#: src/iconv.c:1021
 #, c-format
 msgid "conversion to %s unsupported"
 msgstr "převod do %s není podporován"
 
 #. TRANSLATORS: An error message.
 #. The placeholders expand to the encoding names, specified through --from-code and --to-code, respectively.
-#: src/iconv.c:1026
+#: src/iconv.c:1027
 #, c-format
 msgid "conversion from %s to %s unsupported"
 msgstr "převod z %s do %s není podporován"
 
 #. TRANSLATORS: Additional advice after an error message.
 #. The %s placeholder expands to the program name.
-#: src/iconv.c:1031
+#: src/iconv.c:1032
 #, c-format
 msgid "try '%s -l' to get the list of supported encodings"
 msgstr "seznam podporovaných kódování získáte příkazem „%s -l“"
 
 #. TRANSLATORS: A filename substitute denoting standard input.
-#: src/iconv.c:1088
+#: src/iconv.c:1089
 msgid "(stdin)"
 msgstr "(standardní vstup)"
 
 #. TRANSLATORS: The first part of an error message.
 #. It is followed by a colon and a detail message.
 #. The %s placeholder expands to the input file name.
-#: src/iconv.c:1100
+#: src/iconv.c:1101
 #, c-format
 msgid "%s"
 msgstr "%s"
 
 # Vzdálená V/V chyba
 #. TRANSLATORS: An error message.
-#: src/iconv.c:1114
+#: src/iconv.c:1115
 #, c-format
 msgid "I/O error"
 msgstr "Chyba vstupu/výstupu"

@@ -1,12 +1,13 @@
 AC_PREREQ([2.65])
-AC_INIT([dnscrypt-proxy],[1.6.1],[https://dnscrypt.org])
+AC_INIT([dnscrypt-proxy],[1.9.4],[https://dnscrypt.org])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_AUX_DIR([libltdl/config])
 AC_CONFIG_SRCDIR([src/proxy/app.c])
 AC_CONFIG_HEADER([config.h])
 AC_CONFIG_SUBDIRS([src/libevent-modified])
 AC_CANONICAL_HOST
-AM_INIT_AUTOMAKE([1.9 dist-bzip2 tar-ustar gnu subdir-objects])
+AM_INIT_AUTOMAKE([1.11 dist-bzip2 tar-ustar gnu subdir-objects])
+m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 AM_MAINTAINER_MODE
 AM_DEP_TRACK
 
@@ -14,6 +15,7 @@ AC_SUBST(VERSION)
 ISODATE=`date +%Y-%m-%d`
 AC_SUBST(ISODATE)
 
+AC_LANG_ASSERT(C)
 LX_CFLAGS=${CFLAGS-NONE}
 
 dnl Switches.
@@ -48,6 +50,23 @@ AC_ARG_WITH(safecode,
   ])
 ])
 
+AC_ARG_ENABLE(plugins,
+[AS_HELP_STRING(--disable-plugins,Disable support for plugins)],
+[
+  AS_IF([test "x$enableval" = "xno"], [
+    plugins="disabled"
+  ], [
+    plugins="enabled"
+  ])
+],
+[
+  plugins="enabled"
+])
+AS_IF([test "$plugins" = "enabled"], [
+  CPPFLAGS="$CPPFLAGS -DPLUGINS=1"
+])
+AM_CONDITIONAL(PLUGINS, test x$plugins = xenabled)
+
 AC_ARG_ENABLE(debug,
 [AS_HELP_STRING(--enable-debug,For maintainers only - please do not use)],
 [
@@ -65,17 +84,6 @@ AC_ARG_ENABLE(debug,
     CPPFLAGS="$CPPFLAGS -DDEBUG=1"
   ])
 ])
-
-plugins=disabled
-AC_ARG_ENABLE(plugins,
-[AS_HELP_STRING(--enable-plugins,Enable support for plugins)],
-[
-	AS_IF([test "x$enableval" != "xno"], [
-		CPPFLAGS="$CPPFLAGS -DPLUGINS=1"
-		plugins=enabled
-	])
-])
-AM_CONDITIONAL(PLUGINS, test x$plugins = xenabled)
 
 relaxed_plugins_permissions=disabled
 AC_ARG_ENABLE(relaxed-plugins-permissions,
@@ -110,7 +118,7 @@ AS_IF([test "x$with_systemd" = "xyes"], [
   ])
   AS_CASE([$with_systemd:$have_systemd],
     [yes:no],
-      [AC_MSG_ERROR([systemd expected but libsystemd not found])],
+      [AC_MSG_ERROR([systemd expected but libsystemd not found -- maybe you need to install the pkg-config and libsystemd-dev packages])],
     [*:yes],
        AC_DEFINE([HAVE_LIBSYSTEMD], [1], [Define if libsystemd is available])
   )
@@ -128,19 +136,14 @@ AX_CHECK_COMPILE_FLAG([-D_FORTIFY_SOURCE=2],
   [CPPFLAGS="$CPPFLAGS -D_FORTIFY_SOURCE=2"])
 
 AS_CASE([$host_os], [cygwin*|mingw*|msys|pw32*|cegcc*], [ ], [
-  AX_CHECK_COMPILE_FLAG([-fPIC], [
-    AX_CHECK_LINK_FLAG([-fPIC],
-      [CFLAGS="$CFLAGS -fPIC"]
-    )
-  ])
+  AX_CHECK_COMPILE_FLAG([-fPIC], [CFLAGS="$CFLAGS -fPIC"])
 ])
 
 AS_IF([test "$enable_pie" != "no"],[
   AX_CHECK_COMPILE_FLAG([-fPIE], [
-    AX_CHECK_LINK_FLAG([-fPIE],
-      [AX_CHECK_LINK_FLAG([-pie],
-        [CFLAGS="$CFLAGS -fPIE"
-         LDFLAGS="$LDFLAGS -pie"])
+    AX_CHECK_LINK_FLAG([-pie], [
+      [CFLAGS="$CFLAGS -fPIE"
+       LDFLAGS="$LDFLAGS -pie"]
     ])
   ])
 ])
@@ -161,19 +164,12 @@ AS_IF([test "x$enable_ssp" != "xno"],[
 
 AS_CASE([$host_os],
   [cygwin* | mingw* | pw32* | cegcc*], [ ],
-  [dragonfly*], [
-    AX_CHECK_COMPILE_FLAG([-fstack-protector], [
-      AX_CHECK_LINK_FLAG([-fstack-protector],
-        [CFLAGS="$CFLAGS -fstack-protector"]
-      )
-    ])
-  ],
   [*], [
-    AX_CHECK_COMPILE_FLAG([-fstack-protector-all], [
-      AX_CHECK_LINK_FLAG([-fstack-protector-all],
-        [CFLAGS="$CFLAGS -fstack-protector-all"]
-      )
-    ])
+    AX_CHECK_COMPILE_FLAG([-fstack-protector-strong],
+     [CFLAGS="$CFLAGS -fstack-protector-strong"],
+     [AX_CHECK_COMPILE_FLAG([-fstack-protector-all],
+       [CFLAGS="$CFLAGS -fstack-protector-all"])]
+    )
   ])
 ])
 
@@ -228,9 +224,6 @@ AC_SUBST(LIBTOOL_DEPS)
 AC_ARG_VAR([RONN], [path to the ronn text processor])
 AC_PATH_PROG([RONN], [ronn], [#])
 
-AC_ARG_VAR([SIXJACK], [path to 6jack])
-AC_PATH_PROG([SIXJACK], [sixjack], [#])
-
 AC_ARG_VAR([AR], [path to the ar utility])
 AC_CHECK_TOOL([AR], [ar], [ar])
 
@@ -256,17 +249,31 @@ AC_SUBST([PROBES_SOURCE])
 AS_IF([test -d /usr/local/include], [
   CPPFLAGS="$CPPFLAGS -I/usr/local/include"
 ])
-
 AS_IF([test -d /usr/local/lib], [
   LDFLAGS="$LDFLAGS -L/usr/local/lib"
+])
+
+AS_IF([test -d /usr/local/opt/libressl/include], [
+  CPPFLAGS="$CPPFLAGS -I/usr/local/opt/libressl/include"
+], [
+  AS_IF([test -d /usr/local/opt/openssl/include], [
+    CPPFLAGS="$CPPFLAGS -I/usr/local/opt/openssl/include"
+  ])
+])
+AS_IF([test -d /usr/local/opt/libressl/lib], [
+  LDFLAGS="$LDFLAGS -L/usr/local/opt/libressl/lib"
+], [
+  AS_IF([test -d /usr/local/opt/openssl/lib], [
+    LDFLAGS="$LDFLAGS -L/usr/local/opt/openssl/lib"
+  ])
 ])
 
 dnl Checks for header files.
 
 AC_SYS_LARGEFILE
 AC_CHECK_HEADERS([sys/cdefs.h sys/feature_tests.h])
-AC_CHECK_HEADERS([execinfo.h paths.h pwd.h uuid/uuid.h])
-AC_CHECK_HEADERS([sandbox.h])
+AC_CHECK_HEADERS([execinfo.h paths.h pwd.h grp.h uuid/uuid.h])
+AC_CHECK_HEADERS([sandbox.h linux/filter.h linux/random.h])
 AC_CHECK_HEADERS([ws2tcpip.h])
 
 dnl Checks for typedefs, structures, and compiler characteristics.
@@ -431,10 +438,8 @@ case $host_os in
   ;;
 esac
 
-AC_CHECK_HEADER([CoreServices/CoreServices.h],
-  [LIBS="$LIBS -framework CoreFoundation -framework CoreServices"])
-
-AC_CHECK_FUNCS([getpwnam sandbox_init setrlimit putc_unlocked gmtime_r])
+AC_CHECK_FUNCS([getpwnam sandbox_init setrlimit putc_unlocked gmtime_r initgroups])
+AC_CHECK_FUNCS([crypto_box_easy_afternm crypto_core_hchacha20 crypto_box_curve25519xchacha20poly1305_open_easy_afternm])
 
 dnl Libtool.
 
@@ -469,6 +474,7 @@ AH_VERBATIM([NDEBUG], [/* Never ever ignore assertions */
 #endif])
 
 AC_CONFIG_FILES([Makefile
+                 contrib/Makefile
                  dist-build/Makefile
                  man/Makefile
                  src/Makefile
@@ -479,11 +485,13 @@ AC_CONFIG_FILES([Makefile
                  src/include/dnscrypt/version.h
                  src/plugins/Makefile
                  src/plugins/example/Makefile
+                 src/plugins/example-cache/Makefile
                  src/plugins/example-logging/Makefile
                  src/plugins/example-ldns-aaaa-blocking/Makefile
                  src/plugins/example-ldns-blocking/Makefile
-                 src/plugins/example-ldns-opendns-deviceid/Makefile
-                 src/plugins/example-ldns-opendns-set-client-ip/Makefile
+                 src/plugins/example-ldns-forwarding/Makefile
+                 src/plugins/vendor-specific/example-ldns-opendns-deviceid/Makefile
+                 src/plugins/vendor-specific/example-ldns-opendns-set-client-ip/Makefile
                  test/Makefile])
 
 AC_OUTPUT

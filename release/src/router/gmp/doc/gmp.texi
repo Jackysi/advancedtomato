@@ -14,7 +14,7 @@
 This manual describes how to install and use the GNU multiple precision
 arithmetic library, version @value{VERSION}.
 
-Copyright 1991, 1993-2015 Free Software Foundation, Inc.
+Copyright 1991, 1993-2016 Free Software Foundation, Inc.
 
 Permission is granted to copy, distribute and/or modify this document under
 the terms of the GNU Free Documentation License, Version 1.3 or any later
@@ -627,8 +627,8 @@ install under a particular tree.  The default is @samp{/usr/local}.
 @option{--exec-prefix} can be used to direct architecture-dependent files like
 @file{libgmp.a} to a different location.  This can be used to share
 architecture-independent parts like the documentation, but separate the
-dependent parts.  Note however that @file{gmp.h} and @file{mp.h} are
-architecture-dependent since they encode certain aspects of @file{libgmp}, so
+dependent parts.  Note however that @file{gmp.h} is
+architecture-dependent since it encodes certain aspects of @file{libgmp}, so
 it will be necessary to ensure both @file{$prefix/include} and
 @file{$exec_prefix/include} are available to the compiler.
 
@@ -3946,7 +3946,7 @@ Generate a random integer with long strings of zeros and ones in the
 binary representation.  Useful for testing functions and algorithms,
 since this kind of random numbers have proven to be more likely to
 trigger corner-case bugs.  The random number will be in the range
-0 to @m{2^n-1, 2^@var{n}@minus{}1}, inclusive.
+@m{2^{n-1}, 2^@var{n@minus{}1}} to @m{2^n-1, 2^@var{n}@minus{}1}, inclusive.
 
 The variable @var{state} must be initialized by calling one of the
 @code{gmp_randinit} functions (@ref{Random State Initialization})
@@ -4231,7 +4231,7 @@ numbers.  These functions start with the prefix @code{mpq_}.
 Rational numbers are stored in objects of type @code{mpq_t}.
 
 All rational arithmetic functions assume operands have a canonical form, and
-canonicalize their result.  The canonical from means that the denominator and
+canonicalize their result.  The canonical form means that the denominator and
 the numerator have no common factors, and that the denominator is positive.
 Zero has the unique representation 0/1.
 

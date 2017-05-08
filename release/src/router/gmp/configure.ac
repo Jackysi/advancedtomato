@@ -3,7 +3,7 @@ dnl  Process this file with autoconf to produce a configure script.
 
 define(GMP_COPYRIGHT,[[
 
-Copyright 1996-2015 Free Software Foundation, Inc.
+Copyright 1996-2016 Free Software Foundation, Inc.
 
 This file is part of the GNU MP Library.
 
@@ -141,11 +141,6 @@ yes|no) ;;
 *) AC_MSG_ERROR([bad value $enableval for --enable-assembly, need yes or no]) ;;
 esac],
 [enable_assembly=yes])
-
-if test "$enable_assembly" = "yes"; then
-  AC_DEFINE(WANT_ASSEMBLY,1,
-  [Defined to 1 as per --enable-assembly])
-fi
 
 
 AC_ARG_ENABLE(fft,
@@ -596,21 +591,18 @@ case $host in
     ;;
 
 
-  arm64*-*-* | aarch64*-*-*)
-    # The compiler clang version 3.4 or earlier requires an explicit -mfpu=neon
-    # for out assembly code.  Since this compiler cloaks as gcc, we have to
-    # fake too.
-    gcc_cflags_maybe="-mfpu=neon"
-    path="arm64"
-    ;;
-
-
-  arm*-*-*)
+  arm*-*-* | aarch64*-*-*)
+    abilist="32"
     gcc_cflags="$gcc_cflags $fomit_frame_pointer"
     gcc_cflags_optlist="arch fpmode neon tune"
+    gcc_64_cflags_optlist="arch tune"
     gcc_testlist="gcc-arm-umodsi"
-    GMP_INCLUDE_MPN(arm/arm-defs.m4)
+    gcc_64_testlist=""
     CALLING_CONVENTIONS_OBJS='arm32call.lo arm32check.lo'
+    CALLING_CONVENTIONS_OBJS_64=""
+    cclist_64="gcc cc"
+    any_32_testlist="sizeof-long-4"
+    any_64_testlist="sizeof-long-8"
 
     # This is needed for clang, which is not content with flags like -mfpu=neon
     # alone.
@@ -625,37 +617,32 @@ case $host in
     # either enforce them, or organise to strip paths as the corresponding
     # options fail.
     case $host_cpu in
-      armv7*)
-	path="arm/v6t2 arm/v6 arm/v5 arm"
-	gcc_cflags_arch="-march=armv7-a"
-	;;
-      armv6t2*)
-	path="arm/v6t2 arm/v6 arm/v5 arm"
-	gcc_cflags_arch="-march=armv6t2"
-	;;
-      armv6*)
-	path="arm/v6 arm/v5 arm"
-	gcc_cflags_arch="-march=armv6"
-	;;
-      armsa1 | arm9tdmi | armv4*)
-	path="arm"
-	gcc_cflags_arch="-march=armv4"
-	;;
-      armxscale | arm9te | arm10 | armv5*)
+      armxscale | arm7ej | arm9te | arm9e* | arm10* | armv5*)
 	path="arm/v5 arm"
 	gcc_cflags_arch="-march=armv5"
 	;;
-      arm11mpcore | arm1136 | arm1176*)
-	path="arm/v6 arm/v5 arm"
-	gcc_cflags_arch="-march=armv6"
+      armsa1 | arm7t* | arm9t* | armv4t*)
+	path="arm"
+	gcc_cflags_arch="-march=armv4"
 	;;
-      arm1156)
+      arm1156 | armv6t2*)
 	path="arm/v6t2 arm/v6 arm/v5 arm"
 	gcc_cflags_arch="-march=armv6t2"
 	;;
-      armcortexa5)
+      arm11* | armv6*)
+	path="arm/v6 arm/v5 arm"
+	gcc_cflags_arch="-march=armv6"
+	;;
+      armcortexa5 | armv7*)
 	path="arm/v6t2 arm/v6 arm/v5 arm"
 	gcc_cflags_arch="-march=armv7-a"
+	gcc_cflags_tune="-mtune=cortex-a5"
+	;;
+      armcortexa5neon)
+	path="arm/neon arm/v6t2 arm/v6 arm/v5 arm"
+	gcc_cflags_neon="-mfpu=neon"
+	gcc_cflags_arch="-march=armv7-a"
+	gcc_cflags_tune="-mtune=cortex-a5"
 	;;
       armcortexa7)
 	path="arm/v7a/cora7 arm/v6t2 arm/v6 arm/v5 arm"
@@ -701,8 +688,66 @@ case $host in
 	gcc_cflags_neon="-mfpu=neon"
 	gcc_cflags_tune="-mtune=cortex-a15 -mtune=cortex-a9"
 	;;
+      armcortexa53 | armcortexa53neon)
+        abilist="64 32"
+	path="arm/neon arm/v7a/cora9 arm/v6t2 arm/v6 arm/v5 arm"
+	path_64="arm64/cora53 arm64"
+	gcc_cflags_arch="-march=armv8-a"
+	gcc_cflags_neon="-mfpu=neon"
+	gcc_cflags_tune="-mtune=cortex-a53"
+	;;
+      armcortexa57 | armcortexa57neon)
+        abilist="64 32"
+	path="arm/v7a/cora15/neon arm/neon arm/v7a/cora15 arm/v6t2 arm/v6 arm/v5 arm"
+	path_64="arm64/cora57 arm64"
+	gcc_cflags_arch="-march=armv8-a"
+	gcc_cflags_neon="-mfpu=neon"
+	gcc_cflags_tune="-mtune=cortex-a57"
+	;;
+      armcortexa72 | armcortexa72neon)
+        abilist="64 32"
+	path="arm/v7a/cora15/neon arm/neon arm/v7a/cora15 arm/v6t2 arm/v6 arm/v5 arm"
+	path_64="arm64/cora72 arm64"
+	gcc_cflags_arch="-march=armv8-a"
+	gcc_cflags_neon="-mfpu=neon"
+	gcc_cflags_tune="-mtune=cortex-a72"
+	;;
+      armexynosm1)
+        abilist="64 32"
+	path="arm/v7a/cora15/neon arm/neon arm/v7a/cora15 arm/v6t2 arm/v6 arm/v5 arm"
+	path_64="arm64"
+	gcc_cflags_arch="-march=armv8-a"
+	gcc_cflags_neon="-mfpu=neon"
+	gcc_cflags_tune="-mtune=exynosm1"
+	;;
+      armthunderx)
+        abilist="64 32"
+	path="arm/v7a/cora15/neon arm/neon arm/v7a/cora15 arm/v6t2 arm/v6 arm/v5 arm"
+	path_64="arm64"
+	gcc_cflags_arch="-march=armv8-a"
+	gcc_cflags_neon="-mfpu=neon"
+	gcc_cflags_tune="-mtune=thunderx"
+	;;
+      armxgene1)
+        abilist="64 32"
+	path="arm/v7a/cora15/neon arm/neon arm/v7a/cora15 arm/v6t2 arm/v6 arm/v5 arm"
+	path_64="arm64/xgene1 arm64"
+	gcc_cflags_arch="-march=armv8-a"
+	gcc_cflags_neon="-mfpu=neon"
+	gcc_cflags_tune="-mtune=xgene1"
+	;;
+      aarch64*)
+        abilist="64 32"
+	path="arm/v7a/cora15/neon arm/neon arm/v7a/cora15 arm/v6t2 arm/v6 arm/v5 arm"
+	path_64="arm64"
+	gcc_cflags_arch="-march=armv8-a"
+	gcc_cflags_neon="-mfpu=neon"
+	gcc_cflags_tune=""
+	;;
       *)
 	path="arm"
+	gcc_cflags_arch="-march=armv4"
+	GMP_DEFINE_RAW(["define(<NOTHUMB>,1)"])
 	;;
     esac
     ;;
@@ -1224,7 +1269,9 @@ case $host in
     AC_DEFINE(HAVE_HOST_CPU_FAMILY_power)
     HAVE_HOST_CPU_FAMILY_power=1
     cclist="gcc"
-    extra_functions="udiv_w_sdiv"
+    if test "$enable_assembly" = "yes" ; then
+      extra_functions="udiv_w_sdiv"
+    fi
     path="power"
 
     # gcc 2.7.2 knows rios1, rios2, rsc
@@ -1254,7 +1301,9 @@ case $host in
     gcc_cflags="$gcc_cflags $fomit_frame_pointer"
     gcc_cflags_optlist="arch"
     path="s390_32"
-    extra_functions="udiv_w_sdiv"
+    if test "$enable_assembly" = "yes" ; then
+       extra_functions="udiv_w_sdiv"
+    fi
     gcc_32_cflags_maybe="-m31"
 
     case $host_cpu in
@@ -1551,14 +1600,18 @@ case $host in
     GMP_INCLUDE_MPN(vax/elf.m4)
     gcc_cflags="$gcc_cflags $fomit_frame_pointer"
     path="vax"
-    extra_functions="udiv_w_sdiv"
+    if test "$enable_assembly" = "yes" ; then
+      extra_functions="udiv_w_sdiv"
+    fi
     ;;
   vax*-*-*)
     # Default to aout conventions (i.e., no register prefix, '_' global prefix)
     #
     gcc_cflags="$gcc_cflags $fomit_frame_pointer"
     path="vax"
-    extra_functions="udiv_w_sdiv"
+    if test "$enable_assembly" = "yes" ; then
+      extra_functions="udiv_w_sdiv"
+    fi
     ;;
 
 
@@ -1800,7 +1853,7 @@ case $host in
 	path_64="x86_64/coreibwl x86_64/coreihwl x86_64/coreisbr x86_64/coreinhm x86_64/core2 x86_64"
 	# extra_functions_64="missing"	 # enable for bmi2/adx simulation
 	;;
-      skylake | skylakenoavx | cabylake | cabylakenoavx)
+      skylake | skylakenoavx | kabylake | kabylakenoavx)
 	gcc_cflags_cpu="-mtune=skylake -mtune=broadwell -mtune=corei7 -mtune=core2 -mtune=k8"
 	# Don't pass -march=skylake for now as then some compilers emit AVX512.
 	gcc_cflags_arch="-march=broadwell -march=corei7 -march=core2 -march=core2~-mno-sse2 -march=k8 -march=k8~-mno-sse2"
@@ -2470,7 +2523,7 @@ esac
 
 if test "$enable_assembly" = "no"; then
   path="generic"
-  CFLAGS="$CFLAGS -DNO_ASM"
+  AC_DEFINE([NO_ASM],1,[Define to 1 to disable the use of inline assembly])
 #  for abi in $abilist; do
 #    eval unset "path_\$abi"
 #    eval gcc_${abi}_cflags=\"\$gcc_${abi}_cflags -DNO_ASM\"
@@ -3556,6 +3609,12 @@ if test "$gmp_asm_syntax_testing" != no; then
   GMP_ASM_ALIGN_LOG
 
   case $host in
+    arm*-*-* | aarch64*-*-*)
+      case $ABI in
+        32)
+	  GMP_INCLUDE_MPN(arm/arm-defs.m4) ;;
+      esac
+      ;;
     hppa*-*-*)
       # for both pa32 and pa64
       GMP_INCLUDE_MPN(pa32/pa-defs.m4)
@@ -3644,6 +3703,8 @@ yes
 	      GMP_INCLUDE_MPN(x86_64/dos64.m4) ;;
 	    *-openbsd*)
 	      GMP_DEFINE_RAW(["define(<OPENBSD>,1)"]) ;;
+	    *-linux*)
+	      GMP_DEFINE_RAW(["define(<LINUX>,1)"]) ;;
 	  esac
           ;;
       esac

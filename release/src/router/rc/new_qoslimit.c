@@ -361,11 +361,11 @@ void new_qoslimit_start(void)
 		fprintf(tc,
 		"$TCA parent 1:1 classid 1:100 htb rate %skbit ceil %skbit prio %s\n"
 		"$TQA parent 1:100 handle 100: $SFQ\n"
-		"$TFA parent 1:0 prio 3 protocol ip handle 100 fw flowid 1:100\n"
+		"$TFA parent 1:0 prio 3 protocol all handle 100 fw flowid 1:100\n"
 		"\n"
 		"$TCAU parent 2:1 classid 2:100 htb rate %skbit ceil %skbit prio %s\n"
 		"$TQAU parent 2:100 handle 100: $SFQ\n"
-		"$TFAU parent 2:0 prio 3 protocol ip handle 100 fw flowid 2:100\n"
+		"$TFAU parent 2:0 prio 3 protocol all handle 100 fw flowid 2:100\n"
 		"\n"
 		,dlr,dlc,prio_0
 		,ulr,ulc,prio_0);
@@ -393,7 +393,7 @@ void new_qoslimit_start(void)
 				fprintf(tc,
 					"$TCA parent 1:1 classid 1:%s htb rate %skbit ceil %skbit prio %s\n"
 					"$TQA parent 1:%s handle %s: $SFQ\n"
-					"$TFA parent 1:0 prio %s protocol ip handle %s fw flowid 1:%s\n"
+					"$TFA parent 1:0 prio %s protocol all handle %s fw flowid 1:%s\n"
 					"\n"
 					,seq,dlrate,dlceil,priority
 					,seq,seq
@@ -405,7 +405,7 @@ void new_qoslimit_start(void)
 				fprintf(tc,
 					"$TCA parent 1:1 classid 1:%s htb rate %skbit ceil %skbit prio %s\n"
 					"$TQA parent 1:%s handle %s: $SFQ\n"
-					"$TFA parent 1:0 protocol ip prio %s u32 match u16 0x0800 0xFFFF at -2 match u32 0x%02X%02X%02X%02X 0xFFFFFFFF at -12 match u16 0x%02X%02X 0xFFFF at -14 flowid 1:%s\n"
+					"$TFA parent 1:0 protocol all prio %s u32 match u16 0x0800 0xFFFF at -2 match u32 0x%02X%02X%02X%02X 0xFFFFFFFF at -12 match u16 0x%02X%02X 0xFFFF at -14 flowid 1:%s\n"
 					"\n"
 					,seq,dlrate,dlceil,priority
 					,seq,seq
@@ -418,7 +418,7 @@ void new_qoslimit_start(void)
 			fprintf(tc,
 				"$TCAU parent 2:1 classid 2:%s htb rate %skbit ceil %skbit prio %s\n"
 				"$TQAU parent 2:%s handle %s: $SFQ\n"
-				"$TFAU parent 2:0 prio %s protocol ip handle %s fw flowid 2:%s\n"
+				"$TFAU parent 2:0 prio %s protocol all handle %s fw flowid 2:%s\n"
 				"\n"
 				,seq,ulrate,ulceil,priority
 				,seq,seq
@@ -451,7 +451,7 @@ void new_qoslimit_start(void)
 		"tc class add dev br1 parent 4: classid 4:1 htb rate %skbit\n"
 		"$TCA1 parent 4:1 classid 4:401 htb rate %skbit ceil %skbit prio %s\n"
 		"$TQA1 parent 4:401 handle 401: $SFQ\n"
-		"$TFA1 parent 4:0 prio %s protocol ip handle 401 fw flowid 4:401\n"
+		"$TFA1 parent 4:0 prio %s protocol all handle 401 fw flowid 4:401\n"
 		,ibw
 		,dlr_1,dlc_1,prio_1
 		,prio_1);
@@ -460,7 +460,7 @@ void new_qoslimit_start(void)
 		fprintf(tc,
 		"$TCAU parent 2:1 classid 2:501 htb rate %skbit ceil %skbit prio %s\n"
 		"$TQAU parent 2:501 handle 501: $SFQ\n"
-		"$TFAU parent 2:0 prio %s protocol ip handle 501 fw flowid 2:501\n"
+		"$TFAU parent 2:0 prio %s protocol all handle 501 fw flowid 2:501\n"
 		,ulr_1,ulc_1,prio_1
 		,prio_1);
 	}
@@ -489,7 +489,7 @@ void new_qoslimit_start(void)
 		"tc class add dev br2 parent 6: classid 6:1 htb rate %skbit\n"
 		"$TCA2 parent 6:1 classid 6:601 htb rate %skbit ceil %skbit prio %s\n"
 		"$TQA2 parent 6:601 handle 601: $SFQ\n"
-		"$TFA2 parent 6:0 prio %s protocol ip handle 601 fw flowid 6:601\n"
+		"$TFA2 parent 6:0 prio %s protocol all handle 601 fw flowid 6:601\n"
 		,ibw
 		,dlr_2,dlc_2,prio_2
 		,prio_2);
@@ -498,7 +498,7 @@ void new_qoslimit_start(void)
 		fprintf(tc,
 		"$TCAU parent 2:1 classid 2:701 htb rate %skbit ceil %skbit prio %s\n"
 		"$TQAU parent 2:701 handle 701: $SFQ\n"
-		"$TFAU parent 2:0 prio %s protocol ip handle 701 fw flowid 2:701\n"
+		"$TFAU parent 2:0 prio %s protocol all handle 701 fw flowid 2:701\n"
 		,ulr_2,ulc_2,prio_2
 		,prio_2);
 	}
@@ -527,7 +527,7 @@ void new_qoslimit_start(void)
 		"tc class add dev br3 parent 8: classid 8:1 htb rate %skbit\n"
 		"$TCA3 parent 8:1 classid 8:801 htb rate %skbit ceil %skbit prio %s\n"
 		"$TQA3 parent 8:801 handle 801: $SFQ\n"
-		"$TFA3 parent 8:0 prio %s protocol ip handle 801 fw flowid 8:801\n"
+		"$TFA3 parent 8:0 prio %s protocol all handle 801 fw flowid 8:801\n"
 		,ibw
 		,dlr_3,dlc_3,prio_3
 		,prio_3);
@@ -536,7 +536,7 @@ void new_qoslimit_start(void)
 		fprintf(tc,
 		"$TCAU parent 2:1 classid 2:901 htb rate %skbit ceil %skbit prio %s\n"
 		"$TQAU parent 2:901 handle 901: $SFQ\n"
-		"$TFAU parent 2:0 prio %s protocol ip handle 901 fw flowid 2:901\n"
+		"$TFAU parent 2:0 prio %s protocol all handle 901 fw flowid 2:901\n"
 		,ulr_3,ulc_3,prio_3
 		,prio_3);
 	}

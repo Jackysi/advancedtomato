@@ -85,4 +85,50 @@ No starting char list
         End
 ------------------------------------------------------------------
 
+/\x{212a}+/i8SI
+Capturing subpattern count = 0
+Options: caseless utf
+No first char
+No need char
+Subject length lower bound = 1
+Starting chars: K k \xff 
+    KKkk\x{212a}
+ 0: KKkk\x{212a}
+
+/s+/i8SI
+Capturing subpattern count = 0
+Options: caseless utf
+No first char
+No need char
+Subject length lower bound = 1
+Starting chars: S s \xff 
+    SSss\x{17f}
+ 0: SSss\x{17f}
+
+/[\D]/8
+    \x{1d7cf}
+ 0: \x{1d7cf}
+
+/[\D\P{Nd}]/8
+    \x{1d7cf}
+ 0: \x{1d7cf}
+
+/[^\D]/8
+    a9b
+ 0: 9
+    ** Failers
+No match
+    \x{1d7cf}
+No match
+
+/[^\D\P{Nd}]/8
+    a9b
+ 0: 9
+    \x{1d7cf}
+ 0: \x{1d7cf}
+    ** Failers
+No match
+    \x{10000}
+No match
+
 /-- End of testinput19 --/ 

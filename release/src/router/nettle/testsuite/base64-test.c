@@ -84,25 +84,25 @@ test_main(void)
   ASSERT(BASE64_DECODE_LENGTH(3) == 3); /* At most 24 bits */
   ASSERT(BASE64_DECODE_LENGTH(4) == 3); /* At most 30 bits */
   
-  test_armor(&nettle_base64, 0, "", "");
-  test_armor(&nettle_base64, 1, "H", "SA==");
-  test_armor(&nettle_base64, 2, "He", "SGU=");
-  test_armor(&nettle_base64, 3, "Hel", "SGVs");
-  test_armor(&nettle_base64, 4, "Hell", "SGVsbA==");
-  test_armor(&nettle_base64, 5, "Hello", "SGVsbG8=");
-  test_armor(&nettle_base64, 6, "Hello", "SGVsbG8A");
-  test_armor(&nettle_base64, 9, "Hello?>>>", "SGVsbG8/Pj4+");
-  test_armor(&nettle_base64, 4, "\xff\xff\xff\xff", "/////w==");
+  test_armor(&nettle_base64, LDATA(""), "");
+  test_armor(&nettle_base64, LDATA("H"), "SA==");
+  test_armor(&nettle_base64, LDATA("He"), "SGU=");
+  test_armor(&nettle_base64, LDATA("Hel"), "SGVs");
+  test_armor(&nettle_base64, LDATA("Hell"), "SGVsbA==");
+  test_armor(&nettle_base64, LDATA("Hello"), "SGVsbG8=");
+  test_armor(&nettle_base64, LDATA("Hello\0"), "SGVsbG8A");
+  test_armor(&nettle_base64, LDATA("Hello?>>>"), "SGVsbG8/Pj4+");
+  test_armor(&nettle_base64, LDATA("\xff\xff\xff\xff"), "/////w==");
 
-  test_armor(&nettle_base64url, 0, "", "");
-  test_armor(&nettle_base64url, 1, "H", "SA==");
-  test_armor(&nettle_base64url, 2, "He", "SGU=");
-  test_armor(&nettle_base64url, 3, "Hel", "SGVs");
-  test_armor(&nettle_base64url, 4, "Hell", "SGVsbA==");
-  test_armor(&nettle_base64url, 5, "Hello", "SGVsbG8=");
-  test_armor(&nettle_base64url, 6, "Hello", "SGVsbG8A");
-  test_armor(&nettle_base64url, 9, "Hello?>>>", "SGVsbG8_Pj4-");
-  test_armor(&nettle_base64url, 4, "\xff\xff\xff\xff", "_____w==");
+  test_armor(&nettle_base64url, LDATA(""), "");
+  test_armor(&nettle_base64url, LDATA("H"), "SA==");
+  test_armor(&nettle_base64url, LDATA("He"), "SGU=");
+  test_armor(&nettle_base64url, LDATA("Hel"), "SGVs");
+  test_armor(&nettle_base64url, LDATA("Hell"), "SGVsbA==");
+  test_armor(&nettle_base64url, LDATA("Hello"), "SGVsbG8=");
+  test_armor(&nettle_base64url, LDATA("Hello\0"), "SGVsbG8A");
+  test_armor(&nettle_base64url, LDATA("Hello?>>>"), "SGVsbG8_Pj4-");
+  test_armor(&nettle_base64url, LDATA("\xff\xff\xff\xff"), "_____w==");
 
   {
     /* Test overlapping areas */

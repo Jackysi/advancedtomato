@@ -26,12 +26,16 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "config.h"
+#include "getifaddr.h"
 #include "upnpdescgen.h"
+#include "minidlnapath.h"
+#include "upnpglobalvars.h"
+#include "upnpdescstrings.h"
 
 char uuidvalue[] = "uuid:12345678-0000-0000-0000-00000000abcd";
 char friendly_name[] = "localhost: system_type";
@@ -40,9 +44,6 @@ char modelname[] = "MiniDLNA";
 char modelnumber[] = "1";
 char presentationurl[] = "http://192.168.0.1:8080/";
 unsigned int updateID = 0;
-#if PNPX
-char pnpx_hwid[] = "VEN_01F2&amp;DEV_0101&amp;REV_01 VEN_0033&amp;DEV_0001&amp;REV_01";
-#endif
 
 int getifaddr(const char * ifname, char * buf, int len)
 {

@@ -20,6 +20,8 @@
  *
  ***************************************************************************/
 
+/* !checksrc! disable ASSIGNWITHINCONDITION all */
+
 /* Now include the curl_setup.h file from libcurl's private libdir (the source
    version, but that might include "curl_config.h" from the build dir so we
    need both of them in the include path), so that we get good in-depth
@@ -112,7 +114,7 @@ extern int unitfail;
 ** label 'test_cleanup' is performed.
 **
 ** Every easy_* and multi_* macros have a res_easy_* and res_multi_* macro
-** counterpart that operates in tha same way with the exception that no
+** counterpart that operates in the same way with the exception that no
 ** jump takes place in case of failure. res_easy_* and res_multi_* macros
 ** should be immediately followed by checking if 'res' variable has been
 ** set.

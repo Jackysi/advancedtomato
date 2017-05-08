@@ -9,7 +9,7 @@ No part of this file may be used without permission.
 	<style>textarea { width: 100%; }</style>
 	<script type="text/javascript">
 
-		//	<% nvram("usb_enable,usb_uhci,usb_ohci,usb_usb2,usb_mmc,usb_storage,usb_printer,usb_printer_bidirect,usb_automount,usb_fs_ext3,usb_fs_fat,usb_fs_ntfs,usb_fs_hfs,script_usbmount,script_usbumount,script_usbhotplug,idle_enable,usb_3g"); %>
+		//	<% nvram("usb_enable,usb_uhci,usb_ohci,usb_usb2,usb_mmc,usb_storage,usb_printer,usb_printer_bidirect,usb_automount,usb_fs_ext3,usb_fs_fat,usb_fs_ntfs,usb_fs_hfs,script_usbmount,script_usbumount,script_usbhotplug,idle_enable,usb_3g,usb_apcupsd"); %>
 		//	<% usbdevices(); %>
 
 		list = [];
@@ -52,12 +52,12 @@ No part of this file may be used without permission.
 				}
 				xob = null;
 				_forceRefresh();
-			}
+			};
 
 			xob.onError = function() {
 				xob = null;
 				_forceRefresh();
-			}
+			};
 
 			xob.post('usbcmd.cgi', 'remove=' + host);
 		}
@@ -82,12 +82,12 @@ No part of this file may be used without permission.
 				}
 				xob = null;
 				_forceRefresh();
-			}
+			};
 
 			xob.onError = function() {
 				xob = null;
 				_forceRefresh();
-			}
+			};
 
 			xob.post('usbcmd.cgi', 'mount=' + host);
 		}
@@ -105,7 +105,7 @@ No part of this file may be used without permission.
 			dg.removeAllData();
 			dg.populate();
 			dg.resort();
-		}
+		};
 
 		var dg = new TomatoGrid();
 
@@ -126,7 +126,7 @@ No part of this file may be used without permission.
 					r = cmpText(a.cells[col].innerHTML, b.cells[col].innerHTML);
 			}
 			return this.sortAscending ? r : -r;
-		}
+		};
 
 		dg.populate = function()
 		{
@@ -180,7 +180,7 @@ No part of this file may be used without permission.
 							p = parts[k];
 							if (p) {
 								desc = desc + '<br>Partition \'' + p[0] + '\'' + (p[3] != '' ? ' ' + p[3] : '') +
-								((p[5] != 0) ? ' (' + doScaleSize((p[5] - p[6]), 0) + 
+								((p[5] != 0) ? ' (' + doScaleSize((p[5] - p[6]), 0) +
 									((p[1] == 1) ? ' / ' + doScaleSize(p[5], 0) + ' used' : '') +
 									')' : '') + ' is ' +
 								((p[1] != 0) ? '' : 'not ') + ((p[3] == 'swap') ? 'active' : 'mounted') +
@@ -194,7 +194,7 @@ No part of this file may be used without permission.
 			}
 
 			list = [];
-		}
+		};
 
 		dg.setup = function()
 		{
@@ -202,7 +202,7 @@ No part of this file may be used without permission.
 			this.headerSet(['Type', 'Host', 'Description', 'Mounted?']);
 			this.populate();
 			this.sort(1);
-		}
+		};
 
 		function earlyInit() {
 			$('#last-box').after(genStdRefresh(1,0,'ref.toggle()'));
@@ -364,18 +364,21 @@ No part of this file may be used without permission.
 						/* LINUX26-END */
 						{ title: 'Automount', indent: 2, name: 'f_automount', type: 'checkbox',
 							suffix: ' <small>Automatically mount all partitions to sub-directories in <i>/mnt</i>.</small>', value: nvram.usb_automount == 1 },
-						{ title: 'Run after mounting', indent: 2, name: 'script_usbmount', type: 'textarea', value: nvram.script_usbmount },
-						{ title: 'Run before unmounting', indent: 2, name: 'script_usbumount', type: 'textarea', value: nvram.script_usbumount },
-						null,
+						{ title: 'Run after mounting', indent: 2, name: 'script_usbmount', style: 'min-height: 80px;', type: 'textarea', value: nvram.script_usbmount },
+						{ title: 'Run before unmounting', indent: 2, name: 'script_usbumount', style: 'min-height: 80px;', type: 'textarea', value: nvram.script_usbumount },
 						/* LINUX26-BEGIN */
 						{ title: 'HDD Spindown', name: 'f_idle_enable', type: 'checkbox',
-							suffix: ' <small>Spin down each HDD when idle. No need to use with flashdrive.</small>', value: nvram.idle_enable == 1 },
-						null,
+							suffix: ' <small>Spin down each HDD when idle. No need to use with flash drive.</small>', value: nvram.idle_enable == 1 },
 						{ title: 'USB 3G Modem support', name: 'f_usb_3g', type: 'checkbox',
 							suffix: ' <small>Before disconnecting 3G Modem from USB port, remember to uncheck box. If modem used usbserial module, you have to reboot router before unplug modem.</small>', value: nvram.usb_3g == 1 },
-						null,
+						/* UPS-BEGIN */
+						{
+						    title: 'Run APCUPSD Deamon', name: 'f_usb_apcupsd', type: 'checkbox',
+							suffix: ' <small>Required by UPS Monitor (APC Uninterpretable Power Supply)</small>', value: nvram.usb_apcupsd == 1
+						},
+						/* UPS-END */
 						/* LINUX26-END */
-						{ title: 'Hotplug script<br><small>(called when any USB device is attached or removed)</small>', name: 'script_usbhotplug', type: 'textarea', value: nvram.script_usbhotplug },
+						{ title: 'Hotplug script<br><small>(called when any USB device is attached or removed)</small>', style: 'min-height: 80px;', name: 'script_usbhotplug', type: 'textarea', value: nvram.script_usbhotplug },
 						null,
 						{ text: '<small>Some of the changes will take effect only after a restart.</small>' }
 					]);

@@ -66,6 +66,8 @@ ALL = \
  jisx0208.h \
  jisx0212.h \
  cp932ext.h \
+ cp50221_0208_ext.h \
+ cp50221_0212_ext.h \
  gb2312.h \
  isoir165ext.h \
  gb12345ext.h \
@@ -327,6 +329,12 @@ jisx0212.h : $(TABLESDIR)/unicode.org-mappings/EASTASIA/JIS/JIS0212.TXT cjk_tab_
 
 cp932ext.h : $(TABLESDIR)/unicode.org-mappings/VENDORS/MICSFT/WINDOWS/CP932.TXT cjk_tab_to_h
 	(echo '#' ; grep '^0x\(87\|E[D-F]\|F[0-9A-F]\)[0-9A-F][0-9A-F]' < $< ) | ./cjk_tab_to_h 'CP932 extensions' cp932ext > $@
+
+cp50221_0208_ext.h : CP50221-0208-EXT.TXT 8bit_tab_to_h
+	./8bit_tab_to_h 'CP50221 JISX0208 extensions' cp50221_0208_ext < $<
+
+cp50221_0212_ext.h : CP50221-0212-EXT.TXT 8bit_tab_to_h
+	./8bit_tab_to_h 'CP50221 JISX0212 extensions' cp50221_0212_ext < $<
 
 gb2312.h : $(TABLESDIR)/unicode.org-mappings/EASTASIA/GB/GB2312.TXT cjk_tab_to_h
 	./cjk_tab_to_h GB2312.1980-0 gb2312 < $< > $@

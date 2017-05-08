@@ -1982,6 +1982,7 @@ return(result);
 static int pchar(pcre_uint32 c, FILE *f)
 {
 int n = 0;
+char tempbuffer[16];
 if (PRINTOK(c))
   {
   if (f != NULL) fprintf(f, "%c", c);
@@ -2003,6 +2004,8 @@ if (c < 0x100)
   }
 
 if (f != NULL) n = fprintf(f, "\\x{%02x}", c);
+  else n = sprintf(tempbuffer, "\\x{%02x}", c);
+
 return n >= 0 ? n : 0;
 }
 
@@ -2250,23 +2253,26 @@ data is not zero. */
 static int callout(pcre_callout_block *cb)
 {
 FILE *f = (first_callout | callout_extra)? outfile : NULL;
-int i, pre_start, post_start, subject_length;
+int i, current_position, pre_start, post_start, subject_length;
 
 if (callout_extra)
   {
   fprintf(f, "Callout %d: last capture = %d\n",
     cb->callout_number, cb->capture_last);
 
-  for (i = 0; i < cb->capture_top * 2; i += 2)
+  if (cb->offset_vector != NULL)
     {
-    if (cb->offset_vector[i] < 0)
-      fprintf(f, "%2d: <unset>\n", i/2);
-    else
+    for (i = 0; i < cb->capture_top * 2; i += 2)
       {
-      fprintf(f, "%2d: ", i/2);
-      PCHARSV(cb->subject, cb->offset_vector[i],
-        cb->offset_vector[i+1] - cb->offset_vector[i], f);
-      fprintf(f, "\n");
+      if (cb->offset_vector[i] < 0)
+        fprintf(f, "%2d: <unset>\n", i/2);
+      else
+        {
+        fprintf(f, "%2d: ", i/2);
+        PCHARSV(cb->subject, cb->offset_vector[i],
+          cb->offset_vector[i+1] - cb->offset_vector[i], f);
+        fprintf(f, "\n");
+        }
       }
     }
   }
@@ -2277,14 +2283,19 @@ printed lengths of the substrings. */
 
 if (f != NULL) fprintf(f, "--->");
 
+/* If a lookbehind is involved, the current position may be earlier than the
+match start. If so, use the match start instead. */
+
+current_position = (cb->current_position >= cb->start_match)?
+  cb->current_position : cb->start_match;
+
 PCHARS(pre_start, cb->subject, 0, cb->start_match, f);
 PCHARS(post_start, cb->subject, cb->start_match,
-  cb->current_position - cb->start_match, f);
+  current_position - cb->start_match, f);
 
 PCHARS(subject_length, cb->subject, 0, cb->subject_length, NULL);
 
-PCHARSV(cb->subject, cb->current_position,
-  cb->subject_length - cb->current_position, f);
+PCHARSV(cb->subject, current_position, cb->subject_length - current_position, f);
 
 if (f != NULL) fprintf(f, "\n");
 
@@ -2519,7 +2530,7 @@ re->name_entry_size = swap_uint16(re->name_entry_size);
 re->name_count = swap_uint16(re->name_count);
 re->ref_count = swap_uint16(re->ref_count);
 
-if (extra != NULL)
+if (extra != NULL && (extra->flags & PCRE_EXTRA_STUDY_DATA) != 0)
   {
   pcre_study_data *rsd = (pcre_study_data *)(extra->study_data);
   rsd->size = swap_uint32(rsd->size);
@@ -2700,7 +2711,7 @@ re->name_entry_size = swap_uint16(re->name_entry_size);
 re->name_count = swap_uint16(re->name_count);
 re->ref_count = swap_uint16(re->ref_count);
 
-if (extra != NULL)
+if (extra != NULL && (extra->flags & PCRE_EXTRA_STUDY_DATA) != 0)
   {
   pcre_study_data *rsd = (pcre_study_data *)(extra->study_data);
   rsd->size = swap_uint32(rsd->size);
@@ -3453,7 +3464,7 @@ while (!done)
   pcre_extra *extra = NULL;
 
 #if !defined NOPOSIX  /* There are still compilers that require no indent */
-  regex_t preg;
+  regex_t preg = { NULL, 0, 0} ;
   int do_posix = 0;
 #endif
 
@@ -4618,9 +4629,9 @@ while (!done)
 
       else switch ((c = *p++))
         {
-        case 'a': c =    7; break;
+        case 'a': c =  CHAR_BEL; break;
         case 'b': c = '\b'; break;
-        case 'e': c =   27; break;
+        case 'e': c =  CHAR_ESC; break;
         case 'f': c = '\f'; break;
         case 'n': c = '\n'; break;
         case 'r': c = '\r'; break;
@@ -5034,7 +5045,7 @@ while (!done)
 
     if ((all_use_dfa || use_dfa) && find_match_limit)
       {
-      printf("**Match limit not relevant for DFA matching: ignored\n");
+      printf("** Match limit not relevant for DFA matching: ignored\n");
       find_match_limit = 0;
       }
 
@@ -5247,10 +5258,17 @@ while (!done)
 
         if (do_allcaps)
           {
-          if (new_info(re, NULL, PCRE_INFO_CAPTURECOUNT, &count) < 0)
-            goto SKIP_DATA;
-          count++;   /* Allow for full match */
-          if (count * 2 > use_size_offsets) count = use_size_offsets/2;
+          if (all_use_dfa || use_dfa)
+            {
+            fprintf(outfile, "** Show all captures ignored after DFA matching\n");
+            }
+          else
+           {
+            if (new_info(re, NULL, PCRE_INFO_CAPTURECOUNT, &count) < 0)
+              goto SKIP_DATA;
+            count++;   /* Allow for full match */
+            if (count * 2 > use_size_offsets) count = use_size_offsets/2;
+            }
           }
 
         /* Output the captured substrings. Note that, for the matched string,
@@ -5603,6 +5621,18 @@ while (!done)
 
       if (!do_g && !do_G) break;
 
+      if (use_offsets == NULL)
+        {
+        fprintf(outfile, "Cannot do global matching without an ovector\n");
+        break;
+        }
+
+      if (use_size_offsets < 2)
+        {
+        fprintf(outfile, "Cannot do global matching with an ovector size < 2\n");
+        break;
+        }
+
       /* If we have matched an empty string, first check to see if we are at
       the end of the subject. If so, the /g loop is over. Otherwise, mimic what
       Perl's /g options does. This turns out to be rather cunning. First we set
@@ -5618,9 +5648,33 @@ while (!done)
         g_notempty = PCRE_NOTEMPTY_ATSTART | PCRE_ANCHORED;
         }
 
-      /* For /g, update the start offset, leaving the rest alone */
+      /* For /g, update the start offset, leaving the rest alone. There is a
+      tricky case when \K is used in a positive lookbehind assertion. This can
+      cause the end of the match to be less than or equal to the start offset.
+      In this case we restart at one past the start offset. This may return the
+      same match if the original start offset was bumped along during the
+      match, but eventually the new start offset will hit the actual start
+      offset. (In PCRE2 the true start offset is available, and this can be
+      done better. It is not worth doing more than making sure we do not loop
+      at this stage in the life of PCRE1.) */
 
-      if (do_g) start_offset = use_offsets[1];
+      if (do_g)
+        {
+        if (g_notempty == 0 && use_offsets[1] <= start_offset)
+          {
+          if (start_offset >= len) break;  /* End of subject */
+          start_offset++;
+          if (use_utf)
+            {
+            while (start_offset < len)
+              {
+              if ((bptr[start_offset] & 0xc0) != 0x80) break;
+              start_offset++;
+              }
+            }
+          }
+        else start_offset = use_offsets[1];
+        }
 
       /* For /G, update the pointer and length */
 
@@ -5637,7 +5691,7 @@ while (!done)
   CONTINUE:
 
 #if !defined NOPOSIX
-  if (posix || do_posix) regfree(&preg);
+  if ((posix || do_posix) && preg.re_pcre != 0) regfree(&preg);
 #endif
 
   if (re != NULL) new_free(re);
@@ -5707,3 +5761,4 @@ return yield;
 }
 
 /* End of pcretest.c */
+

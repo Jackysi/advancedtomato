@@ -1,22 +1,22 @@
 /**************************************************************************
- *   nano.h                                                               *
+ *   nano.h  --  This file is part of GNU nano.                           *
  *                                                                        *
  *   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,  *
  *   2008, 2009, 2010, 2011, 2013, 2014 Free Software Foundation, Inc.    *
- *   This program is free software; you can redistribute it and/or modify *
- *   it under the terms of the GNU General Public License as published by *
- *   the Free Software Foundation; either version 3, or (at your option)  *
- *   any later version.                                                   *
+ *   Copyright (C) 2014, 2015, 2016 Benno Schulenberg                     *
  *                                                                        *
- *   This program is distributed in the hope that it will be useful, but  *
- *   WITHOUT ANY WARRANTY; without even the implied warranty of           *
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU    *
- *   General Public License for more details.                             *
+ *   GNU nano is free software: you can redistribute it and/or modify     *
+ *   it under the terms of the GNU General Public License as published    *
+ *   by the Free Software Foundation, either version 3 of the License,    *
+ *   or (at your option) any later version.                               *
+ *                                                                        *
+ *   GNU nano is distributed in the hope that it will be useful,          *
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty          *
+ *   of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.              *
+ *   See the GNU General Public License for more details.                 *
  *                                                                        *
  *   You should have received a copy of the GNU General Public License    *
- *   along with this program; if not, write to the Free Software          *
- *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA            *
- *   02110-1301, USA.                                                     *
+ *   along with this program.  If not, see http://www.gnu.org/licenses/.  *
  *                                                                        *
  **************************************************************************/
 
@@ -49,16 +49,14 @@
 #include <sys/param.h>
 #endif
 
-#ifdef HAVE_STDARG_H
 #include <stdarg.h>
-#endif
 
 /* Suppress warnings for __attribute__((warn_unused_result)). */
 #define IGNORE_CALL_RESULT(call) do { if (call) {} } while(0)
 
 /* Macros for flags, indexing each bit in a small array. */
 #define FLAGS(flag) flags[((flag) / (sizeof(unsigned) * 8))]
-#define FLAGMASK(flag) (1 << ((flag) % (sizeof(unsigned) * 8)))
+#define FLAGMASK(flag) ((unsigned)1 << ((flag) % (sizeof(unsigned) * 8)))
 #define SET(flag) FLAGS(flag) |= FLAGMASK(flag)
 #define UNSET(flag) FLAGS(flag) &= ~FLAGMASK(flag)
 #define ISSET(flag) ((FLAGS(flag) & FLAGMASK(flag)) != 0)
@@ -92,6 +90,10 @@
 #include <curses.h>
 #endif /* CURSES_H */
 
+#if defined(NCURSES_VERSION_MAJOR) && (NCURSES_VERSION_MAJOR < 6)
+#define USING_OLD_NCURSES yes
+#endif
+
 #ifdef ENABLE_NLS
 /* Native language support. */
 #ifdef HAVE_LIBINTL_H
@@ -112,45 +114,9 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <dirent.h>
-#ifdef HAVE_REGEX_H
 #include <regex.h>
-#endif
 #include <signal.h>
 #include <assert.h>
-
-/* If no vsnprintf(), use the version from glib 2.x. */
-#ifndef HAVE_VSNPRINTF
-#include <glib.h>
-#define vsnprintf g_vsnprintf
-#endif
-
-/* If no isblank(), iswblank(), strcasecmp(), strncasecmp(),
- * strcasestr(), strnlen(), getdelim(), or getline(), use the versions
- * we have. */
-#ifndef HAVE_ISBLANK
-#define isblank nisblank
-#endif
-#ifndef HAVE_ISWBLANK
-#define iswblank niswblank
-#endif
-#ifndef HAVE_STRCASECMP
-#define strcasecmp nstrcasecmp
-#endif
-#ifndef HAVE_STRNCASECMP
-#define strncasecmp nstrncasecmp
-#endif
-#ifndef HAVE_STRCASESTR
-#define strcasestr nstrcasestr
-#endif
-#ifndef HAVE_STRNLEN
-#define strnlen nstrnlen
-#endif
-#ifndef HAVE_GETDELIM
-#define getdelim ngetdelim
-#endif
-#ifndef HAVE_GETLINE
-#define getline ngetline
-#endif
 
 /* If we aren't using ncurses with mouse support, turn the mouse support
  * off, as it's useless then. */
@@ -173,7 +139,11 @@ typedef enum {
 
 typedef enum {
     OVERWRITE, APPEND, PREPEND
-} append_type;
+} kind_of_writing_type;
+
+typedef enum {
+    SOFTMARK, HARDMARK
+} mark_type;
 
 typedef enum {
     UPWARD, DOWNWARD
@@ -182,10 +152,6 @@ typedef enum {
 typedef enum {
     CENTERING, FLOWING, STATIONARY
 } update_type;
-
-typedef enum {
-    CONTROL, META, FKEY, RAWINPUT
-}  key_type;
 
 typedef enum {
     ADD, DEL, BACK, CUT, CUT_EOF, REPLACE,
@@ -199,14 +165,6 @@ typedef enum {
 } undo_type;
 
 /* Structure types. */
-typedef struct color_pair {
-    int pairnum;
-	/* The color pair number used for this foreground color and
-	 * background color. */
-    bool bright;
-	/* Is this color A_BOLD? */
-} color_pair;
-
 #ifndef DISABLE_COLOR
 typedef struct colortype {
     short fg;
@@ -218,6 +176,8 @@ typedef struct colortype {
     int pairnum;
 	/* The color pair number used for this foreground color and
 	 * background color. */
+    int attributes;
+	/* Pair number and brightness composed into ready-to-use attributes. */
     int rex_flags;
 	/* The regex compilation flags (with or without REG_ICASE). */
     char *start_regex;
@@ -290,6 +250,8 @@ typedef struct lintstruct {
 	/* Whole line engulfed by the regex, start < me, end > me. */
 #define CSTARTENDHERE	(1<<5)
 	/* Regex starts and ends within this line. */
+#define CWOULDBE	(1<<6)
+	/* An unpaired start match on or before this line. */
 #endif /* !DISABLE_COLOR */
 
 /* More structure types. */
@@ -391,6 +353,9 @@ typedef struct openfilestruct {
 	/* The current line for this file. */
     size_t totsize;
 	/* The file's total number of characters. */
+    size_t firstcolumn;
+	/* The starting column of the top line of the edit window.
+	 * When not in softwrap mode, it's always zero. */
     size_t current_x;
 	/* The file's x-coordinate position. */
     size_t placewewant;
@@ -399,6 +364,8 @@ typedef struct openfilestruct {
 	/* The file's y-coordinate position. */
     bool modified;
 	/* Whether the file has been modified. */
+    struct stat *current_stat;
+	/* The file's current stat information. */
 #ifndef NANO_TINY
     bool mark_set;
 	/* Whether the mark is on in this file. */
@@ -406,10 +373,10 @@ typedef struct openfilestruct {
 	/* The file's line where the mark is, if any. */
     size_t mark_begin_x;
 	/* The file's mark's x-coordinate position, if any. */
+    mark_type kind_of_mark;
+	/* Whether this is a soft or a hard mark. */
     file_format fmt;
 	/* The file's format. */
-    struct stat *current_stat;
-	/* The file's current stat information. */
     undo *undotop;
 	/* The top of the undo list. */
     undo *current_undo;
@@ -441,21 +408,23 @@ typedef struct rcoption {
 #endif
 
 typedef struct sc {
-    char *keystr;
-	/* The shortcut key for a function, ASCII version. */
-    key_type type;
-	/* What kind of command key it is, for convenience later. */
-    int seq;
-	/* The actual sequence to check once the type is determined. */
+    const char *keystr;
+	/* The string that describes a keystroke, like "^C" or "M-R". */
+    bool meta;
+	/* Whether this is a Meta keystroke. */
+    int keycode;
+	/* The integer that, together with meta, identifies the keystroke. */
     int menus;
 	/* Which menus this applies to. */
     void (*scfunc)(void);
 	/* The function we're going to run. */
+#ifndef NANO_TINY
     int toggle;
 	/* If a toggle, what we're toggling. */
     int ordinal;
 	/* The how-manieth toggle this is, in order to be able to
 	 * keep them in sequence. */
+#endif
     struct sc *next;
 	/* Next in the list. */
 } sc;
@@ -482,10 +451,18 @@ typedef struct subnfunc {
 	/* Next item in the list. */
 } subnfunc;
 
+#ifdef ENABLE_WORDCOMPLETION
+typedef struct completion_word {
+    char *word;
+    struct completion_word *next;
+} completion_word;
+#endif
+
 /* The elements of the interface that can be colored differently. */
 enum
 {
     TITLE_BAR = 0,
+    LINE_NUMBER,
     STATUS_BAR,
     KEY_COMBO,
     FUNCTION_TAG,
@@ -533,7 +510,10 @@ enum
     LOCKING,
     NOREAD_MODE,
     MAKE_IT_UNIX,
-    JUSTIFY_TRIM
+    JUSTIFY_TRIM,
+    SHOW_CURSOR,
+    LINE_NUMBERS,
+    NO_PAUSES
 };
 
 /* Flags for the menus in which a given function should be present. */
@@ -556,16 +536,28 @@ enum
 #define MMOST  (MMAIN|MWHEREIS|MREPLACE|MREPLACEWITH|MGOTOLINE|MWRITEFILE|MINSERTFILE|\
 		MEXTCMD|MBROWSER|MWHEREISFILE|MGOTODIR|MSPELL|MLINTER)
 
-/* Control key sequences.  Changing these would be very, very bad. */
-#define NANO_CONTROL_SPACE 0
-#define NANO_CONTROL_I 9
-#define NANO_CONTROL_3 27
-#define NANO_CONTROL_7 31
-#define NANO_CONTROL_8 127
+/* Basic control codes. */
+#define TAB_CODE  0x09
+#define ESC_CODE  0x1B
+#define DEL_CODE  0x7F
 
 /* Codes for "modified" Arrow keys, beyond KEY_MAX of ncurses. */
 #define CONTROL_LEFT 0x401
 #define CONTROL_RIGHT 0x402
+#define CONTROL_UP 0x403
+#define CONTROL_DOWN 0x404
+#define SHIFT_CONTROL_LEFT 0x405
+#define SHIFT_CONTROL_RIGHT 0x406
+#define SHIFT_CONTROL_UP 0x407
+#define SHIFT_CONTROL_DOWN 0x408
+#define SHIFT_ALT_LEFT 0x409
+#define SHIFT_ALT_RIGHT 0x40a
+#define SHIFT_ALT_UP 0x40b
+#define SHIFT_ALT_DOWN 0x40c
+#define SHIFT_PAGEUP 0x40d
+#define SHIFT_PAGEDOWN 0x40e
+#define SHIFT_HOME 0x40f
+#define SHIFT_END 0x410
 
 #ifndef NANO_TINY
 /* An imaginary key for when we get a SIGWINCH (window resize). */
@@ -581,11 +573,6 @@ enum
 
 /* The maximum number of entries displayed in the main shortcut list. */
 #define MAIN_VISIBLE (((COLS + 40) / 20) * 2)
-
-/* The minimum editor window columns and rows required for nano to work
- * correctly.  Don't make these smaller than 4 and 1. */
-#define MIN_EDITOR_COLS 4
-#define MIN_EDITOR_ROWS 1
 
 /* The default number of characters from the end of the line where
  * wrapping occurs. */
@@ -603,11 +590,5 @@ enum
 
 /* The largest size_t number that doesn't have the high bit set. */
 #define HIGHEST_POSITIVE ((~(size_t)0) >> 1)
-
-#ifdef REVISION
-#define BRANDING PACKAGE_VERSION"-git  "REVISION
-#else
-#define BRANDING PACKAGE_STRING
-#endif
 
 #endif /* !NANO_H */

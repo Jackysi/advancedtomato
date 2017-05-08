@@ -10,7 +10,7 @@
 
 
 #define NGX_HTTP_MAX_URI_CHANGES           10
-#define NGX_HTTP_MAX_SUBREQUESTS           200
+#define NGX_HTTP_MAX_SUBREQUESTS           50
 
 /* must be 2^n */
 #define NGX_HTTP_LC_HEADER_LEN             32
@@ -23,6 +23,7 @@
 #define NGX_HTTP_VERSION_9                 9
 #define NGX_HTTP_VERSION_10                1000
 #define NGX_HTTP_VERSION_11                1001
+#define NGX_HTTP_VERSION_20                2000
 
 #define NGX_HTTP_UNKNOWN                   0x0001
 #define NGX_HTTP_GET                       0x0002
@@ -94,6 +95,7 @@
 #define NGX_HTTP_REQUEST_URI_TOO_LARGE     414
 #define NGX_HTTP_UNSUPPORTED_MEDIA_TYPE    415
 #define NGX_HTTP_RANGE_NOT_SATISFIABLE     416
+#define NGX_HTTP_MISDIRECTED_REQUEST       421
 
 
 /* Our own HTTP codes */
@@ -270,6 +272,7 @@ typedef struct {
     ngx_array_t                       cache_control;
 
     off_t                             content_length_n;
+    off_t                             content_offset;
     time_t                            date_time;
     time_t                            last_modified_time;
 } ngx_http_headers_out_t;
@@ -282,6 +285,9 @@ typedef struct {
     ngx_chain_t                      *bufs;
     ngx_buf_t                        *buf;
     off_t                             rest;
+#if (NGX_HTTP_V2)
+    off_t                             received;
+#endif
     ngx_chain_t                      *free;
     ngx_chain_t                      *busy;
     ngx_http_chunked_t               *chunked;
@@ -309,8 +315,9 @@ typedef struct {
     ngx_int_t                         nfree;
 
 #if (NGX_HTTP_SSL)
-    ngx_uint_t                        ssl;    /* unsigned  ssl:1; */
+    unsigned                          ssl:1;
 #endif
+    unsigned                          proxy_protocol:1;
 } ngx_http_connection_t;
 
 
@@ -430,16 +437,16 @@ struct ngx_http_request_s {
     ngx_uint_t                        err_status;
 
     ngx_http_connection_t            *http_connection;
-#if (NGX_HTTP_SPDY)
-    ngx_http_spdy_stream_t           *spdy_stream;
+#if (NGX_HTTP_V2)
+    ngx_http_v2_stream_t             *stream;
 #endif
 
     ngx_http_log_handler_pt           log_handler;
 
     ngx_http_cleanup_t               *cleanup;
 
+    unsigned                          count:16;
     unsigned                          subrequests:8;
-    unsigned                          count:8;
     unsigned                          blocked:8;
 
     unsigned                          aio:1;
@@ -472,6 +479,7 @@ struct ngx_http_request_s {
     unsigned                          request_body_in_clean_file:1;
     unsigned                          request_body_file_group_access:1;
     unsigned                          request_body_file_log_level:3;
+    unsigned                          request_body_no_buffering:1;
 
     unsigned                          subrequest_in_memory:1;
     unsigned                          waited:1;
@@ -508,9 +516,9 @@ struct ngx_http_request_s {
     unsigned                          keepalive:1;
     unsigned                          lingering_close:1;
     unsigned                          discard_body:1;
+    unsigned                          reading_body:1;
     unsigned                          internal:1;
     unsigned                          error_page:1;
-    unsigned                          ignore_content_encoding:1;
     unsigned                          filter_finalize:1;
     unsigned                          post_action:1;
     unsigned                          request_complete:1;
@@ -527,6 +535,9 @@ struct ngx_http_request_s {
     unsigned                          filter_need_in_memory:1;
     unsigned                          filter_need_temporary:1;
     unsigned                          allow_ranges:1;
+    unsigned                          subrequest_ranges:1;
+    unsigned                          single_range:1;
+    unsigned                          disable_not_modified:1;
 
 #if (NGX_STAT_STUB)
     unsigned                          stat_reading:1;
@@ -572,23 +583,18 @@ struct ngx_http_request_s {
 
 typedef struct {
     ngx_http_posted_request_t         terminal_posted_request;
-#if (NGX_HAVE_AIO_SENDFILE)
-    u_char                            aio_preload;
-#endif
 } ngx_http_ephemeral_t;
+
+
+#define ngx_http_ephemeral(r)  (void *) (&r->uri_start)
 
 
 extern ngx_http_header_t       ngx_http_headers_in[];
 extern ngx_http_header_out_t   ngx_http_headers_out[];
 
 
-#define ngx_http_set_connection_log(c, l)                                     \
-                                                                              \
-    c->log->file = l->file;                                                   \
-    c->log->next = l->next;                                                   \
-    if (!(c->log->log_level & NGX_LOG_DEBUG_CONNECTION)) {                    \
-        c->log->log_level = l->log_level;                                     \
-    }
+#define ngx_http_set_log_request(log, r)                                      \
+    ((ngx_http_log_ctx_t *) log->data)->current_request = r
 
 
 #endif /* _NGX_HTTP_REQUEST_H_INCLUDED_ */
