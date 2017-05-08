@@ -2556,6 +2556,7 @@ tor: tor/stamp-h1
 	$(MAKE) -C tor $(PARALLEL_BUILD)
 
 tor-install: tor
+	install -d $(INSTALLDIR)/tor/usr/share
 	install -D tor/src/or/tor $(INSTALLDIR)/tor/usr/sbin/tor
 	$(STRIP) -s $(INSTALLDIR)/tor/usr/sbin/tor
 
