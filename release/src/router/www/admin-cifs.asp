@@ -142,9 +142,9 @@ No part of this file may be used without permission.
 
 		if (cifs2.size) {
 
-			var calcCifs2 = (Math.round(((cifs2.size - cifs2.free) / cifs2.size) * 100)) + '%';
-			$('.txtcifs2').html(calcCifs2);
-			$('.progress.cifs2 .bar').css('width', calcCifs2);
+            var calcCifs2 = (Math.round( ((cifs2.size - cifs2.free) / cifs2.size) * 100 )) + '%';
+            $( '.txtcifs2' ).html( calcCifs2 );
+            $( '.progress.cifs2 .bar' ).css( 'width', calcCifs2 );
 
 		}
 	</script>

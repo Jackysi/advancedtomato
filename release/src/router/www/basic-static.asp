@@ -27,20 +27,20 @@ No part of this file may be used without permission.
 				if (data[i][f] == v) return true;
 			}
 			return false;
-		}
+		};
 
 		sg.existMAC = function(mac) {
 			if (isMAC0(mac)) return false;
 			return this.exist(0, mac) || this.exist(1, mac);
-		}
+		};
 
 		sg.existName = function(name) {
 			return this.exist(5, name);
-		}
+		};
 
 		sg.inStatic = function(n) {
 			return this.exist(3, n);
-		}
+		};
 
 		sg.dataToView = function(data) {
 			var v = [];
@@ -53,7 +53,7 @@ No part of this file may be used without permission.
 			v.push((data[4].toString() != '0') ? '<small><i>Enabled</i></small>' : '');
 			v.push(escapeHTML('' + data[5]));
 			return v;
-		}
+		};
 
 		sg.dataToFieldValues = function (data) {
 			return ([data[0],
@@ -62,7 +62,7 @@ No part of this file may be used without permission.
 				data[3],
 				(data[4].toString() != '0') ? 'checked' : '',
 				data[5]]);
-		}
+		};
 
 		sg.fieldValuesToData = function(row) {
 			var f = fields.getAll(row);
@@ -72,7 +72,7 @@ No part of this file may be used without permission.
 				f[3].value,
 				f[4].checked ? '1' : '0',
 				f[5].value]);
-		}
+		};
 
 		sg.sortCompare = function(a, b) {
 			var da = a.getRowData();
@@ -94,7 +94,7 @@ No part of this file may be used without permission.
 			}
 			if (r == 0) r = cmpText(da[5], db[5]);
 			return this.sortAscending ? r : -r;
-		}
+		};
 
 		sg.verifyFields = function(row, quiet) {
 			var f, s, i;
@@ -177,7 +177,7 @@ No part of this file may be used without permission.
 			}
 
 			return 1;
-		}
+		};
 
 		sg.resetNewEditor = function() {
 			var f, c, n;
@@ -214,7 +214,7 @@ No part of this file may be used without permission.
 			} while (((c = fixIP(ntoa(autonum), 1)) == null) || (c == nvram.lan_ipaddr) || (this.inStatic(c)));
 
 			f[3].value = c;
-		}
+		};
 
 		sg.setup = function() {
 			this.init('bs-grid', 'sort', 250, [
@@ -250,7 +250,7 @@ No part of this file may be used without permission.
 			this.sort(4);
 			this.showNewEditor();
 			this.resetNewEditor();
-		}
+		};
 
 		function save() {
 			if (sg.isEditing()) return;
@@ -306,62 +306,65 @@ No part of this file may be used without permission.
 
 	</script>
 
-	<form id="_fom" method="post" action="tomato.cgi">
-		<input type="hidden" name="_nextpage" value="/#basic-static.asp">
-		<input type="hidden" name="_service" value="dhcpd-restart,arpbind-restart,cstats-restart">
+    <form id="_fom" method="post" action="tomato.cgi">
+        <input type="hidden" name="_nextpage" value="/#basic-static.asp">
+        <input type="hidden" name="_service" value="dhcpd-restart,arpbind-restart,cstats-restart">
 
-		<input type="hidden" name="dhcpd_static">
-		<input type="hidden" name="dhcpd_static_only">
-		<input type="hidden" name="cstats_include">
-		<input type="hidden" name="arpbind_listed">
+        <input type="hidden" name="dhcpd_static">
+        <input type="hidden" name="dhcpd_static_only">
+        <input type="hidden" name="cstats_include">
+        <input type="hidden" name="arpbind_listed">
 
-		<div class="box">
-			<div class="heading">Static DHCP/ARP & Bandwidth Monitoring of LAN Clients</div>
-			<div class="content">
-				<table class="line-table" id="bs-grid"></table><br />
+        <div class="box">
+            <div class="heading">Static DHCP/ARP & Bandwidth Monitoring of LAN Clients</div>
+            <div class="content">
 
-				<h3><a href="javascript:toggleVisibility('options');">Options <span id="sesdivoptionsshowhide"><i class="icon-chevron-up"></i></span></a></h3>
-				<div class="section" id="sesdivoptions" style="display:none"></div><hr>
-				<script type="text/javascript">
-					$('#sesdivoptions').forms([
-						{ title: 'Ignore DHCP requests from unknown devices', name: 'f_dhcpd_static_only', type: 'checkbox', value: nvram.dhcpd_static_only == '1' }
-					]);
-				</script>
+                <table class="line-table" id="bs-grid"></table><br>
+
+                <h3><a href="javascript:toggleVisibility('options');">Options <span id="sesdivoptionsshowhide"><i class="icon-chevron-up"></i></span></a></h3>
+                <div class="section" id="sesdivoptions" style="display:none"></div><hr>
+
+                <script type="text/javascript">
+                    $( '#sesdivoptions' ).forms(
+                        [
+                            { title: 'Ignore DHCP requests from unknown devices', name: 'f_dhcpd_static_only', type: 'checkbox', value: nvram.dhcpd_static_only == '1' }
+                        ] );
+                </script>
 
 
-				<h4>Notes <a href="javascript:toggleVisibility('notes');"><span id="sesdivnotesshowhide"><i class="icon-chevron-up"></i></span></a></h4>
-				<div class="section" id="sesdivnotes" style="display:none">
-					<ul>
-						<li><b>MAC Address</b> - Unique identifier associated to a network interface on this particular device.</li>
-						<li><b>Bound to</b> - Enforce static ARP binding of this particular IP/MAC address pair.</li>
-						<li><b>IP Address</b> - Network address assigned to this device on the local network.</li>
-						<li><b>IPTraffic</b> - Keep track of bandwidth usage for this IP address.</li>
-						<li><b>Hostname</b> - Human-readable nickname/label assigned to this device on the network.</li>
-					</ul>
+                <h4><a href="javascript:toggleVisibility('notes');">Notes <span id="sesdivnotesshowhide"><i class="icon-chevron-up"></i></span></h4></a>
+                <div class="section" id="sesdivnotes" style="display:none">
+                    <ul>
+                        <li><b>MAC Address</b> - Unique identifier associated to a network interface on this particular device.</li>
+                        <li><b>Bound to</b> - Enforce static ARP binding of this particular IP/MAC address pair.</li>
+                        <li><b>IP Address</b> - Network address assigned to this device on the local network.</li>
+                        <li><b>IPTraffic</b> - Keep track of bandwidth usage for this IP address.</li>
+                        <li><b>Hostname</b> - Human-readable nickname/label assigned to this device on the network.</li>
+                    </ul>
 
-					<ul>
-						<li><b>Enable static ARP for (...)</b> - Enforce static ARP binding for all IP/MAC address pairs listed above.</li>
-						<li><b>Ignore DHCP requests (...)</b> - Unlisted MAC addresses won"t be able to obtain an IP address through DHCP.</li>
-					</ul>
+                    <ul>
+                        <li><b>Enable static ARP for (...)</b> - Enforce static ARP binding for all IP/MAC address pairs listed above.</li>
+                        <li><b>Ignore DHCP requests (...)</b> - Unlisted MAC addresses won"t be able to obtain an IP address through DHCP.</li>
+                    </ul>
 
-					<ul>
-						<li><b>Other relevant notes/hints:</b>
-						<ul>
-							<li>To specify multiple hostnames for a device, separate them with spaces.</li>
-							<li>To enable/enforce static ARP binding for a particular device, it must have only one MAC associated with that particular IP address (i.e. you can"t have two MAC addresses linked to the same hostname/device in the table above).</li>
-							<li>When ARP binding is enabled for a particular MAC/IP address pair, that device will always be shown as "active" in the <a href="#tools-wol.asp">Wake On LAN</a> table.</li>
-							<li>See also the <a href="#advanced-dhcpdns.asp">Advanced DHCP/DNS</a> settings page for more DHCP-related configuration options.</li>
-						</ul>
-					</ul>
-				</div>
+                    <ul>
+                        <li><b>Other relevant notes/hints:</b>
+                            <ul>
+                                <li>To specify multiple hostnames for a device, separate them with spaces.</li>
+                                <li>To enable/enforce static ARP binding for a particular device, it must have only one MAC associated with that particular IP address (i.e. you can"t have two MAC addresses linked to the same hostname/device in the table above).</li>
+                                <li>When ARP binding is enabled for a particular MAC/IP address pair, that device will always be shown as "active" in the <a href="#tools-wol.asp">Wake On LAN</a> table.</li>
+                                <li>See also the <a href="#advanced-dhcpdns.asp">Advanced DHCP/DNS</a> settings page for more DHCP-related configuration options.</li>
+                            </ul>
+                    </ul>
+                </div>
 
-			</div>
-		</div>
+            </div>
+        </div>
 
-		<button type="button" value="Save" id="save-button" onclick="save()" class="btn btn-primary">Save <i class="icon-check"></i></button>
-		<button type="button" value="Cancel" id="cancel-button" onclick="javascript:reloadPage();" class="btn">Cancel <i class="icon-cancel"></i></button>
-		<span id="footer-msg" class="alert alert-warning" style="visibility: hidden;"></span>
-	</form>
+        <button type="button" value="Save" id="save-button" onclick="save()" class="btn btn-primary">Save <i class="icon-check"></i></button>
+        <button type="button" value="Cancel" id="cancel-button" onclick="javascript:reloadPage();" class="btn">Cancel <i class="icon-cancel"></i></button>
+        <span id="footer-msg" class="alert alert-warning" style="visibility: hidden;"></span>
+    </form>
 
-	<script type="text/javascript">init();</script>
+    <script type="text/javascript">init();</script>
 </content>

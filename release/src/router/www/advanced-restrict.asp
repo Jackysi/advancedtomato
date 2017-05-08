@@ -9,16 +9,16 @@ No part of this file may be used without permission.
 <content>
 	<style type="text/css">
 		#res-over-grid .co1 {
-			width: 40%;
+			width: 20%;
 		}
 		#res-over-grid .co2 {
 			width: 60%;
 		}
-		#res-over-grid .footer {
-			text-align: right;
-		}
 		#res-over-add {
 			width: 100px;
+		}
+		table tr {
+			cursor: pointer;
 		}
 	</style>
 	<script type="text/javascript">
@@ -31,9 +31,10 @@ No part of this file may be used without permission.
 		og.setup = function() {
 			this.init('res-over-grid', 'sort');
 			this.headerSet(['Description', 'Schedule']);
-			var r = this.footerSet(['<button type="button" value="Add" onclick="TGO(this).addEntry()" id="res-over-add" class="btn btn-danger">Add <i class="icon-plus"></i></button>']);
+			var r = this.footerSet(['<br><button type="button" value="Add" onclick="TGO(this).addEntry()" id="res-over-add" class="btn btn-danger">Add <i class="icon-plus"></i></button>']);
 			r.cells[0].colSpan = 2;
-		}
+		};
+
 		og.populate = function() {
 			this.removeAllData();
 			for (var i = 0; i < rrules.length; ++i) {
@@ -68,14 +69,17 @@ No part of this file may be used without permission.
 				this.insertData(-1, [i, v[8], s]);
 			}
 			og.sort(0);
-		}
+		};
+
 		og.dataToView = function(data) {
 			return [escapeHTML(data[1]), data[2]];
-		}
+		};
+
 		og.onClick = function(cell) {
 			E('_rruleN').value = PR(cell).getRowData()[0];
 			form.submit('_fom');
-		}
+		};
+
 		og.addEntry = function() {
 			for (var i = 0; i < 500; ++i) {
 				if ((rrules[i] == null) || (rrules[i] == '')) {
@@ -108,5 +112,5 @@ No part of this file may be used without permission.
 		</div>
 	</form>
 
-	<script text="text/javascript">init();</script>
+	<script type="text/javascript">init();</script>
 </content>

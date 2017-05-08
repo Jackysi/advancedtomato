@@ -294,7 +294,7 @@ LAN Access admin module by Augusto Bott
 			<div class="content">
 				<div id="svg-0"></div>
 				<table id="firstTable">
-					<tr><td class="color" style="height:1em"></td><td class="title" style="width:45px">&nbsp;</td><td class="thead count">kbit/s</td><td class="thead count">KB/s</td><td class="pct">&nbsp;</td></tr>
+					<tr><td class="color" style="height:1em"></td><td class="title" style="width:45px">&nbsp;</td><td class="thead count">kbit/s</td><td class="pct">&nbsp;</td></tr>
 					<tr><td>&nbsp;</td><td class="total">Total</td><td id="ccnt-total" class="total count"></td><td class="total pct">100%</td></tr>
 				</table>
 			</div>

@@ -66,16 +66,16 @@
 				}
 			}
 			th.showNewEditor();
-		}
+		};
 
 		th.dataToView = function(data) {
 			return [(data[0] != '0') ? 'On' : '', data[1], data[2], data[3], data[4] ,data[5] ];
-		}
+		};
 
 		th.fieldValuesToData = function(row) {
 			var f = fields.getAll(row);
 			return [f[0].checked ? 1 : 0, f[1].value, f[2].value, f[3].value, f[4].value, f[5].value, E('_host_rsa_key').value, E('_host_ed25519_key').value, E('_host_custom').value ];
-		}
+		};
 
 
 		th.resetNewEditor = function() {
@@ -91,7 +91,7 @@
 			E('_host_custom').value = '';
 			ferror.clearAll(fields.getAll(this.newEditor));
 			ferror.clear(E('_host_ed25519_key'));
-		}
+		};
 
 		th.verifyFields = function(row, quiet) {
 
@@ -125,7 +125,7 @@
 			else {  ferror.clear(E('_host_ed25519_key')) }
 
 			return 1;
-		}
+		};
 
 		function verifyFields(focused, quiet)
 		{
@@ -247,7 +247,7 @@
 				}
 			}
 			return s;
-		}
+		};
 
 		function displayKeys()
 		{
@@ -275,11 +275,11 @@
 			cmd.onCompleted = function(text, xml) {
 				eval(text);
 				displayKeys();
-			}
+			};
 			cmd.onError = function(x) {
 				cmdresult = 'ERROR: ' + x;
 				displayKeys();
-			}
+			};
 
 			var commands = "/bin/rm -rf /etc/keys \n\
 			/bin/mkdir /etc/keys \n\
@@ -373,11 +373,11 @@
 			}
 		}
 
-		function displayVersion()
-		{
-			E('version').innerHTML = "<small>Tinc (" + escapeText(cmdresult).replace('<br>', '').replace('&nbsp;','') + ")</small>";
-			cmdresult = '';
-		}
+        function displayVersion() {
+            cmdresult                = cmdresult.replace( 'Must be connected to a terminal.', '' );
+            E( 'version' ).innerHTML = "<small>(" + cmdresult.replace( /\s+/g, '' ) + ")</small>";
+            cmdresult                = '';
+        }
 
 		function getVersion()
 		{
@@ -385,11 +385,11 @@
 			cmd.onCompleted = function(text, xml) {
 				eval(text);
 				displayVersion();
-			}
+			};
 			cmd.onError = function(x) {
 				cmdresult = 'ERROR: ' + x;
 				displayVersion();
-			}
+			};
 
 			var commands = "/usr/sbin/tinc --version | /bin/busybox awk 'NR==1  {print $3}'";
 			cmd.post('shell.cgi', 'action=execute&command=' + escapeCGI(commands.replace(/\r/g, '')));
@@ -426,7 +426,7 @@
 			}
 
 			E('_' + service + '_button').disabled = true;
-			
+
 			form.submitHidden('/service.cgi', {
 				_redirect: '/#vpn-tinc.asp',
 				_sleep: ((service == 'tinc') && (!isup)) ? '3' : '3',

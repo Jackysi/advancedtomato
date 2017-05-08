@@ -32,7 +32,7 @@ No part of this file may be used without permission.
 			font-weight: normal;
 		}
 	</style>
-	<script type='text/ecmascript'><![CDATA[
+    <script type='text/ecmascript'><![CDATA[
 		//	<% nvram("qos_classnames,qos_enable,qos_orules"); %>
 		//	var Unclassified = ['Unclassified'];			//	Todo - Toastman - assign Class Labels
 		//	var classNames = nvram.qos_classnames.split(' ');	// 	How to fetch nvram variable in SVG ?
@@ -151,36 +151,72 @@ No part of this file may be used without permission.
 			}
 		}
 	]]></script>
-	<defs>
-		<linearGradient id="lg0"><stop/><stop/></linearGradient>
-		<linearGradient id="lg1"><stop/><stop/></linearGradient>
-		<linearGradient id="lg2"><stop/><stop/></linearGradient>
-		<linearGradient id="lg3"><stop/><stop/></linearGradient>
-		<linearGradient id="lg4"><stop/><stop/></linearGradient>
-		<linearGradient id="lg5"><stop/><stop/></linearGradient>
-		<linearGradient id="lg6"><stop/><stop/></linearGradient>
-		<linearGradient id="lg7"><stop/><stop/></linearGradient>
-		<linearGradient id="lg8"><stop/><stop/></linearGradient>
-		<linearGradient id="lg9"><stop/><stop/></linearGradient>
-		<linearGradient id="lg10"><stop/><stop/></linearGradient>
-		<linearGradient id="lg11"><stop/><stop/></linearGradient>
-	</defs>
-	<g transform="rotate(135, 155, 155)">
-		<path />
-		<path />
-		<path />
-		<path />
-		<path />
-		<path />
-		<path />
-		<path />
-		<path />
-		<path />
-		<path />
-		<path />
-	</g>
-	<g id="tip-group" visibility="hidden">
-		<rect id="tip-mask" x="0" y="0" width="160" height="18" />
-		<text id="tip-text" x="5" y="13">Unclassified 100.00% (9999)</text>
-	</g>
+    <defs>
+        <linearGradient id="lg0">
+            <stop/>
+            <stop/>
+        </linearGradient>
+        <linearGradient id="lg1">
+            <stop/>
+            <stop/>
+        </linearGradient>
+        <linearGradient id="lg2">
+            <stop/>
+            <stop/>
+        </linearGradient>
+        <linearGradient id="lg3">
+            <stop/>
+            <stop/>
+        </linearGradient>
+        <linearGradient id="lg4">
+            <stop/>
+            <stop/>
+        </linearGradient>
+        <linearGradient id="lg5">
+            <stop/>
+            <stop/>
+        </linearGradient>
+        <linearGradient id="lg6">
+            <stop/>
+            <stop/>
+        </linearGradient>
+        <linearGradient id="lg7">
+            <stop/>
+            <stop/>
+        </linearGradient>
+        <linearGradient id="lg8">
+            <stop/>
+            <stop/>
+        </linearGradient>
+        <linearGradient id="lg9">
+            <stop/>
+            <stop/>
+        </linearGradient>
+        <linearGradient id="lg10">
+            <stop/>
+            <stop/>
+        </linearGradient>
+        <linearGradient id="lg11">
+            <stop/>
+            <stop/>
+        </linearGradient>
+    </defs>
+    <g transform="rotate(135, 155, 155)">
+        <path/>
+        <path/>
+        <path/>
+        <path/>
+        <path/>
+        <path/>
+        <path/>
+        <path/>
+        <path/>
+        <path/>
+        <path/>
+        <path/>
+    </g>
+    <g id="tip-group" visibility="hidden">
+        <rect id="tip-mask" x="0" y="0" width="160" height="18"/>
+        <text id="tip-text" x="5" y="13">Unclassified 100.00% (9999)</text>
+    </g>
 </svg>

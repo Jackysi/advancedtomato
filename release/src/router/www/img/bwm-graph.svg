@@ -45,7 +45,7 @@ No part of this file may be used without permission.
 		#xpst.show { opacity: 1; visibility: visible; transform: translate(0); }
 		#maxText { cursor: pointer; }
 	</style>
-	<script type='text/ecmascript'><![CDATA[
+    <script type='text/ecmascript'><![CDATA[
 		/*
 		Hi there! What are you looking at? Messy isn't it?
 		^_^
@@ -310,66 +310,66 @@ No part of this file may be used without permission.
 			ignoreNext = 1;
 		}
 	]]></script>
-	<rect x="0" y="0" width="100%" height="100%" style="fill:none" />
+    <rect x="0" y="0" width="100%" height="100%" style="fill:none"/>
 
-	<line x1="0" y1="50%" x2="100%" y2="50%" />
-	<line x1="0" y1="25%" x2="100%" y2="25%" />
-	<line x1="0" y1="75%" x2="100%" y2="75%" />
+    <line x1="0" y1="50%" x2="100%" y2="50%"/>
+    <line x1="0" y1="25%" x2="100%" y2="25%"/>
+    <line x1="0" y1="75%" x2="100%" y2="75%"/>
 
-	<line x1="0" y1="0%" x2="0" y2="100%" id="tick0" />
-	<line x1="0" y1="0%" x2="0" y2="100%" id="tick1" />
-	<line x1="0" y1="0%" x2="0" y2="100%" id="tick2" />
-	<line x1="0" y1="0%" x2="0" y2="100%" id="tick3" />
-	<line x1="0" y1="0%" x2="0" y2="100%" id="tick4" />
-	<line x1="0" y1="0%" x2="0" y2="100%" id="tick5" />
-	<line x1="0" y1="0%" x2="0" y2="100%" id="tick6" />
-	<line x1="0" y1="0%" x2="0" y2="100%" id="tick7" />
-	<line x1="0" y1="0%" x2="0" y2="100%" id="tick8" />
-	<line x1="0" y1="0%" x2="0" y2="100%" id="tick9" />
-	<line x1="0" y1="0%" x2="0" y2="100%" id="tick10" />
-	<line x1="0" y1="0%" x2="0" y2="100%" id="tick11" />
-	<line x1="0" y1="0%" x2="0" y2="100%" id="tick12" />
-	<line x1="0" y1="0%" x2="0" y2="100%" id="tick13" />
-	<line x1="0" y1="0%" x2="0" y2="100%" id="tick14" />
-	<line x1="0" y1="0%" x2="0" y2="100%" id="tick15" />
-	<line x1="0" y1="0%" x2="0" y2="100%" id="tick16" />
-	<line x1="0" y1="0%" x2="0" y2="100%" id="tick17" />
-	<line x1="0" y1="0%" x2="0" y2="100%" id="tick18" />
-	<line x1="0" y1="0%" x2="0" y2="100%" id="tick19" />
-	<line x1="0" y1="0%" x2="0" y2="100%" id="tick20" />
-	<line x1="0" y1="0%" x2="0" y2="100%" id="tick21" />
-	<line x1="0" y1="0%" x2="0" y2="100%" id="tick22" />
-	<line x1="0" y1="0%" x2="0" y2="100%" id="tick23" />
+    <line x1="0" y1="0%" x2="0" y2="100%" id="tick0"/>
+    <line x1="0" y1="0%" x2="0" y2="100%" id="tick1"/>
+    <line x1="0" y1="0%" x2="0" y2="100%" id="tick2"/>
+    <line x1="0" y1="0%" x2="0" y2="100%" id="tick3"/>
+    <line x1="0" y1="0%" x2="0" y2="100%" id="tick4"/>
+    <line x1="0" y1="0%" x2="0" y2="100%" id="tick5"/>
+    <line x1="0" y1="0%" x2="0" y2="100%" id="tick6"/>
+    <line x1="0" y1="0%" x2="0" y2="100%" id="tick7"/>
+    <line x1="0" y1="0%" x2="0" y2="100%" id="tick8"/>
+    <line x1="0" y1="0%" x2="0" y2="100%" id="tick9"/>
+    <line x1="0" y1="0%" x2="0" y2="100%" id="tick10"/>
+    <line x1="0" y1="0%" x2="0" y2="100%" id="tick11"/>
+    <line x1="0" y1="0%" x2="0" y2="100%" id="tick12"/>
+    <line x1="0" y1="0%" x2="0" y2="100%" id="tick13"/>
+    <line x1="0" y1="0%" x2="0" y2="100%" id="tick14"/>
+    <line x1="0" y1="0%" x2="0" y2="100%" id="tick15"/>
+    <line x1="0" y1="0%" x2="0" y2="100%" id="tick16"/>
+    <line x1="0" y1="0%" x2="0" y2="100%" id="tick17"/>
+    <line x1="0" y1="0%" x2="0" y2="100%" id="tick18"/>
+    <line x1="0" y1="0%" x2="0" y2="100%" id="tick19"/>
+    <line x1="0" y1="0%" x2="0" y2="100%" id="tick20"/>
+    <line x1="0" y1="0%" x2="0" y2="100%" id="tick21"/>
+    <line x1="0" y1="0%" x2="0" y2="100%" id="tick22"/>
+    <line x1="0" y1="0%" x2="0" y2="100%" id="tick23"/>
 
-	<text x="0" y="98%" class="tickH" id="h0" />
-	<text x="0" y="98%" class="tickH" id="h1" />
-	<text x="0" y="98%" class="tickH" id="h2" />
-	<text x="0" y="98%" class="tickH" id="h3" />
-	<text x="0" y="98%" class="tickH" id="h4" />
-	<text x="0" y="98%" class="tickH" id="h5" />
-	<text x="0" y="98%" class="tickH" id="h6" />
-	<text x="0" y="98%" class="tickH" id="h7" />
-	<text x="0" y="98%" class="tickH" id="h8" />
-	<text x="0" y="98%" class="tickH" id="h9" />
-	<text x="0" y="98%" class="tickH" id="h10" />
-	<text x="0" y="98%" class="tickH" id="h11" />
-	<text x="0" y="98%" class="tickH" id="h12" />
+    <text x="0" y="98%" class="tickH" id="h0"/>
+    <text x="0" y="98%" class="tickH" id="h1"/>
+    <text x="0" y="98%" class="tickH" id="h2"/>
+    <text x="0" y="98%" class="tickH" id="h3"/>
+    <text x="0" y="98%" class="tickH" id="h4"/>
+    <text x="0" y="98%" class="tickH" id="h5"/>
+    <text x="0" y="98%" class="tickH" id="h6"/>
+    <text x="0" y="98%" class="tickH" id="h7"/>
+    <text x="0" y="98%" class="tickH" id="h8"/>
+    <text x="0" y="98%" class="tickH" id="h9"/>
+    <text x="0" y="98%" class="tickH" id="h10"/>
+    <text x="0" y="98%" class="tickH" id="h11"/>
+    <text x="0" y="98%" class="tickH" id="h12"/>
 
-	<g id="xpst">
-		<text x="40" y="24%" id="xpst0" />
-		<text x="40" y="49%" id="xpst1" />
-		<text x="40" y="74%" id="xpst2" />
-	</g>
+    <g id="xpst">
+        <text x="40" y="24%" id="xpst0"/>
+        <text x="40" y="49%" id="xpst1"/>
+        <text x="40" y="74%" id="xpst2"/>
+    </g>
 
-	<polyline class="dataLine" id="polyTx" stroke="#fff" fill="#fff" points="" />
-	<polyline class="dataLine" id="polyRx" stroke="#fff" fill="#fff" points="" />
+    <polyline class="dataLine" id="polyTx" stroke="#fff" fill="#fff" points=""/>
+    <polyline class="dataLine" id="polyRx" stroke="#fff" fill="#fff" points=""/>
 
-	<g id="pointGroup" visibility="hidden">
-		<rect x="490" y="0" width="268" height="15" id="pointTextBack" class="back" />
-		<text x="99%" y="12" id="pointText" />
-	</g>
+    <g id="pointGroup" visibility="hidden">
+        <rect x="490" y="0" width="268" height="15" id="pointTextBack" class="back"/>
+        <text x="99%" y="12" id="pointText"/>
+    </g>
 
-	<rect x="0" y="0" width="40" height="100%" id="maxTextBack" class="back" onclick="toggleXpst()"/>
-	<text x="-5%" y="20" transform="rotate(-90)" text-anchor="end" id="maxText" onclick="toggleXpst()"/>
+    <rect x="0" y="0" width="40" height="100%" id="maxTextBack" class="back" onclick="toggleXpst()"/>
+    <text x="-5%" y="20" transform="rotate(-90)" text-anchor="end" id="maxText" onclick="toggleXpst()"/>
 
 </svg>

@@ -84,9 +84,8 @@ No part of this file may be used without permission.
 	<div id="afu-input">
 
 		<div class="alert alert-warning icon">
-			<h5>Attention!</h5>There has been many reports how AdvancedTomato did not flash well or it came with many bugs. Reason for that is bad image files which can sometimes get corrupted at the download process.
-			This message is here to warn you to check MD5 checksum (<a target="_blank" href="http://en.wikipedia.org/wiki/Checksum"><i class="icon-info"></i></a>) before flashing any images to your router.
-			By using this process and learning if image is corrupted or not, you will eliminate many issues with the upgrade process.
+			<h5>Attention!</h5>Sometimes an image file can become corrupted while downloading to your computer.
+			To avoid problems, please verify the MD5 checksum (<a target="_blank" href="http://en.wikipedia.org/wiki/Checksum">Read more</a>) of the AdvancedTomato image file before attempting to flash your router.
 			<a class="close"><i class="icon-cancel"></i></a>
 		</div>
 
