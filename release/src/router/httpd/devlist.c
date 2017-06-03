@@ -39,7 +39,7 @@ void asp_arplist(int argc, char **argv)
 			if (sscanf(s, "%15s %*s 0x%X %17s %*s %16s", ip, &flags, mac, dev) != 4) continue;
 			if ((strlen(mac) != 17) || (strcmp(mac, "00:00:00:00:00:00") == 0)) continue;
 			if (flags == 0) continue;
-//			if ((nvram_match("wan_ifname", dev)) && (!nvram_match("wan_ipaddr", ip))) continue; // half
+			if ( nvram_match( "devlist_hidewan", "1" ) && nvram_match( "wan_ifname", dev ) && ( !nvram_match( "wan_ipaddr", ip ))) continue; // half
 			web_printf("%c['%s','%s','%s']", comma, ip, mac, dev);
 			comma = ',';
 		}
