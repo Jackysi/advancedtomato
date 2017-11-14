@@ -388,7 +388,7 @@ No part of this file may be used without permission.
 				}
 
 				var action = (eval('vpn'+(i+1)+'up') ? 'title="Stop VPN Client ' + (i+1) + '"><i class="icon-stop"></i>' : 'title="Start VPN Client ' + (i+1) + '"><i class="icon-play"></i>');
-				var status = (!eval('vpn'+(i+1)+'up') ? '<small style="color: red">(Stopped)</small>' : '<small style="color: green;">(Running)</small>');
+				var status = (!eval('vpn'+(i+1)+'up') ? '<small class="text-danger">(Stopped)</small>' : '<small class="text-success">(Running)</small>');
 
 				htmlOut += '</ul>'
 				+ '<div class="box"><div class="heading">VPN Client #'+(i+1) + status + ' <a id="_vpn' + t + '_button" class="pull-right" href="#" data-toggle="tooltip"' +
@@ -415,10 +415,10 @@ No part of this file may be used without permission.
 					{ title: 'Username: ', indent: 2, name: 'vpn_'+t+'_username', type: 'text', maxlen: 50, size: 54, value: eval( 'nvram.vpn_'+t+'_username' ) },
 					{ title: 'Password: ', indent: 2, name: 'vpn_'+t+'_password', type: 'password', maxlen: 50, size: 54, value: eval( 'nvram.vpn_'+t+'_password' ) },
 					{ title: 'Username Authen. Only', indent: 2, name: 'f_vpn_'+t+'_useronly', type: 'checkbox', value: eval( 'nvram.vpn_'+t+'_useronly' ) != 0,
-						suffix: '<span style="color: red" id=\''+t+'_ca_warn_text\'>&nbsp<small>Warning: Must define Certificate Authority.</small></span>' },
+						suffix: '<span class="text-danger" id=\''+t+'_ca_warn_text\'>&nbsp<small>Warning: Must define Certificate Authority.</small></span>' },
 					{ title: 'Extra HMAC authorization (tls-auth)', name: 'vpn_'+t+'_hmac', type: 'select', options: [ [-1, 'Disabled'], [2, 'Bi-directional'], [0, 'Incoming (0)'], [1, 'Outgoing (1)'] ], value: eval( 'nvram.vpn_'+t+'_hmac' ) },
 					{ title: 'Server is on the same subnet', name: 'f_vpn_'+t+'_bridge', type: 'checkbox', value: eval( 'nvram.vpn_'+t+'_bridge' ) != 0,
-						suffix: '</span><span style="color: red" id=\''+t+'_bridge_warn_text\'>&nbsp<small>Warning: Cannot bridge distinct subnets. Defaulting to routed mode.</small></span>' },
+						suffix: '</span><span class="text-danger" id=\''+t+'_bridge_warn_text\'>&nbsp<small>Warning: Cannot bridge distinct subnets. Defaulting to routed mode.</small></span>' },
 					{ title: 'Create NAT on tunnel', name: 'f_vpn_'+t+'_nat', type: 'checkbox', value: eval( 'nvram.vpn_'+t+'_nat' ) != 0,
 						suffix: '<span style="font-style: italic" id=\''+t+'_nat_warn_text\'>&nbsp<small>Routes must be configured manually.</small></span>' },
 					{ title: 'Local/remote endpoint addresses', multi: [

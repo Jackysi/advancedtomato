@@ -289,7 +289,7 @@ No part of this file may be used without permission.
 
 				$('#dlna .heading').append('<a href="#" class="minidlna-control pull-right" data-toggle="tooltip" title="' + (mdup ? 'Res' : 'S') + 'tart Now" onclick="restart(mdup)"' +
 					'id="_restart_button">' + (mdup ? '<i class="icon-reboot"></i>' : '<i class="icon-play"></i>') + '</a>');
-				$('#dlna .heading').append('<small ' + (mdup ? 'style="color: green;">(Running' : 'style="color: red;">(Stopped') + ')</small>');
+				$('#dlna .heading').append('<small ' + (mdup ? 'class="text-success">(Running' : 'class="text-danger">(Stopped') + ')</small>');
 			</script>
 		</div>
 

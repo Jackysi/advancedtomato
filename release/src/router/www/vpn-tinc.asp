@@ -503,7 +503,7 @@
 				}
 
 				var action = ((tincup) ? 'title="Stop now"><i class="icon-stop"></i>' : 'title="Start now"><i class="icon-play"></i>');
-				var status = ((!tincup) ? '<small style="color: red">(Stopped)</small>' : '<small style="color: green;">(Running)</small>');
+				var status = ((!tincup) ? '<small class="text-danger">(Stopped)</small>' : '<small class="text-success">(Running)</small>');
 
 				html += '</ul>\
 				<div class="box">\

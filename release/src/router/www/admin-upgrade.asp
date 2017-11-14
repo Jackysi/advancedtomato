@@ -7,46 +7,6 @@ For use with Tomato Firmware only.
 No part of this file may be used without permission.
 --><title>Firmware Upgrade</title>
 <content>
-	<style>
-		#afu-progress {
-			display: block;
-			position: fixed;
-			top: 0;
-			right: 0;
-			left: 0;
-			bottom: 0;
-			z-index: 20;
-			background: #fff;
-			color: #5A5A5A;
-			opacity: 0;
-			transition: opacity 250ms ease-out;
-		}
-
-		#afu-progress .text-container {
-			position: absolute;
-			display: block;
-			text-align: center;
-			font-size: 14px;
-			width: 100%;
-			height: 150px;
-			top: 30%;
-			margin-top: -75px;
-			transform: scale(0.2);
-			transition: all 350ms ease-out;
-		}
-
-		#afu-progress.active {
-			opacity: 1;
-		}
-
-		#afu-progress.active .text-container {
-			transform: scale(1);
-			top: 40%;
-		}
-		
-		.line-table tr { background: transparent !important; }
-		.line-table tr:last-child { border: 0; }
-	</style>
 	<script type="text/javascript">
 		// <% nvram("jffs2_on"); %>
 
@@ -127,7 +87,12 @@ No part of this file may be used without permission.
 
 			<div id="afu-progress" style="display:none;">
 				<div class="text-container">
-					<div class="spinner spinner-large"></div><br /><br />
+					<div class="preloader-circle">
+						<svg viewBox="25 25 50 50">
+							<circle cx="50" cy="50" r="20"></circle>
+						</svg>
+					</div>
+					<br /><br />
 					<b id="afu-time">0:00</b><br />
 					Please wait while new image is being uploaded and flashed...<br />
 					<b>Do not interrupt web browser or the router!</b>

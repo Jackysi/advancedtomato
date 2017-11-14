@@ -239,6 +239,9 @@ No part of this file may be used without permission.
 			E('_f_idle_enable').disabled = b || a;
 			E('_f_usb_3g').disabled = b;
 			/* LINUX26-END */
+			/* UPS-BEGIN */
+			E('_f_usb_apcupsd').disabled = b;
+			/* UPS-END */
 			/* NTFS-BEGIN */
 			E('_f_ntfs').disabled = b || a;
 			/* NTFS-END */
@@ -293,6 +296,9 @@ No part of this file may be used without permission.
 			fom.idle_enable.value = E('_f_idle_enable').checked ? 1 : 0;
 			fom.usb_3g.value = E('_f_usb_3g').checked ? 1 : 0;
 			/* LINUX26-END */
+            /* UPS-BEGIN */
+            fom.usb_apcupsd.value = E( '_f_usb_apcupsd' ).checked ? 1 : 0;
+            /* UPS-END */
 
 			form.submit(fom, 1);
 		}
@@ -328,6 +334,9 @@ No part of this file may be used without permission.
 		<input type="hidden" name="idle_enable">
 		<input type="hidden" name="usb_3g">
 		/* LINUX26-END */
+		/* UPS-BEGIN */
+		<input type="hidden" name="usb_apcupsd">
+		/* UPS-END */
 
 		<div class="box" data-box="usb-supp">
 			<div class="heading">USB Support</div>
@@ -373,7 +382,7 @@ No part of this file may be used without permission.
 							suffix: ' <small>Before disconnecting 3G Modem from USB port, remember to uncheck box. If modem used usbserial module, you have to reboot router before unplug modem.</small>', value: nvram.usb_3g == 1 },
 						/* UPS-BEGIN */
 						{
-						    title: 'Run APCUPSD Deamon', name: 'f_usb_apcupsd', type: 'checkbox',
+						    title: 'Run APCUPSD Daemon', name: 'f_usb_apcupsd', type: 'checkbox',
 							suffix: ' <small>Required by UPS Monitor (APC Uninterpretable Power Supply)</small>', value: nvram.usb_apcupsd == 1
 						},
 						/* UPS-END */

@@ -10,7 +10,7 @@ No part of this file may be used without permission.
 <svg width="100%" height="100%" version="1.1" xmlns="http://www.w3.org/2000/svg" onload="init(evt)"	onmousemove="mMove(evt)">
 	<style type='text/css'>
 		line {
-			stroke: #f0f0f0;
+			stroke: rgba(0,0,0,0.05);
 			stroke-width: 1px;
 		 	shape-rendering: geometricPrecision;
 		}

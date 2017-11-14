@@ -189,31 +189,32 @@ LAN Access admin module by Augusto Bott
 	</script>
 
 	<form id="_fom" method="post" action="tomato.cgi">
-	<input type="hidden" name="_nextpage" value="/#advanced-access.asp">
-	<input type="hidden" name="_nextwait" value="10">
-	<input type="hidden" name="_service" value="firewall-restart">
-	<input type="hidden" name="lan_access">
+        <input type="hidden" name="_nextpage" value="/#advanced-access.asp">
+        <input type="hidden" name="_nextwait" value="10">
+        <input type="hidden" name="_service" value="firewall-restart">
+        <input type="hidden" name="lan_access">
 
-	<div class="box">
-		<div class="heading">LAN Access Settings</div>
-		<div class="content">
-			<table class="line-table" id="la-grid"></table><br /><hr>
+        <div class="box">
+            <div class="heading">LAN Access Settings</div>
+            <div class="content">
+                <table class="line-table" id="la-grid"></table><br /><hr>
 
-			<h4>Notes <a href="javascript:toggleVisibility('notes');"><span id="sesdiv_notes_showhide"><i class="icon-chevron-up"></i></span></a></h4>
-			<div class="section" id="sesdiv_notes" style="display:none">
-				<ul>
-					<li><b>Src</b> - Source LAN bridge.</li>
-					<li><b>Src Address</b> <i>(optional)</i> - Source address allowed. Ex: "1.2.3.4", "1.2.3.4 - 2.3.4.5", "1.2.3.0/24".</li>
-					<li><b>Dst</b> - Destination LAN bridge.</li>
-					<li><b>Dst Address</b> <i>(optional)</i> - Destination address inside the LAN.</li>
-				</ul>
-			</div>
-		</div>
-	</div>
+                <h4><a href="javascript:toggleVisibility('notes');">Notes <span id="sesdiv_notes_showhide"><i class="icon-chevron-up"></i></span></a></h4>
+                <div class="section" id="sesdiv_notes" style="display:none">
+                    <ul>
+                        <li><b>Src</b> - Source LAN bridge.</li>
+                        <li><b>Src Address</b> <i>(optional)</i> - Source address allowed. Ex: "1.2.3.4", "1.2.3.4 - 2.3.4.5", "1.2.3.0/24".</li>
+                        <li><b>Dst</b> - Destination LAN bridge.</li>
+                        <li><b>Dst Address</b> <i>(optional)</i> - Destination address inside the LAN.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
 
-	<button type="button" value="Save" id="save-button" onclick="save()" class="btn btn-primary">Save <i class="icon-check"></i></button>
-	<button type="button" value="Cancel" id="cancel-button" onclick="javascript:reloadPage();" class="btn">Cancel <i class="icon-cancel"></i></button>
-	<span id="footer-msg" class="alert alert-warning" style="visibility: hidden;"></span>
+        <button type="button" value="Save" id="save-button" onclick="save()" class="btn btn-primary">Save <i class="icon-check"></i></button>
+        <button type="button" value="Cancel" id="cancel-button" onclick="javascript:reloadPage();" class="btn">Cancel <i class="icon-cancel"></i></button>
+        <span id="footer-msg" class="alert alert-warning" style="visibility: hidden;"></span>
 
-	<script type="text/javascript">init();</script>
+        <script type="text/javascript">init();</script>
+	</form>
 </content>

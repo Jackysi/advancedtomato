@@ -7,12 +7,13 @@ For use with Tomato Firmware only.
 No part of this file may be used without permission.
 --><title>UPnP / NAT-PMP Forwarding</title>
 <content>
-	<script type="text/javascript">
+    <style>textarea { width: 100%; }</style>
+    <script type="text/javascript">
 
-		/* REMOVE-BEGIN
-		!!TB - additional miniupnp settings
-		REMOVE-END */
-		//	<% nvram("at_update,tomatoanon_answer,upnp_enable,upnp_mnp,upnp_clean,upnp_secure,upnp_clean_interval,upnp_clean_threshold,upnp_lan,upnp_lan1,upnp_lan2,upnp_lan3,lan_ifname,lan1_ifname,lan2_ifname,lan3_ifname,"); %>
+        /* REMOVE-BEGIN
+        !!TB - additional miniupnp settings
+        REMOVE-END */
+        //	<% nvram("at_update,tomatoanon_answer,upnp_enable,upnp_mnp,upnp_clean,upnp_secure,upnp_clean_interval,upnp_clean_threshold,upnp_custom,upnp_lan,upnp_lan1,upnp_lan2,upnp_lan3,lan_ifname,lan1_ifname,lan2_ifname,lan3_ifname,"); %>
 		// <% upnpinfo(); %>
 
 		nvram.upnp_enable = fixInt(nvram.upnp_enable, 0, 3, 0);
@@ -237,7 +238,9 @@ No part of this file may be used without permission.
 					{ title: 'LAN2', indent: 2, name: 'f_upnp_lan2', type: 'checkbox', value: (nvram.upnp_lan2 == '1') },
 					{ title: 'LAN3', indent: 2, name: 'f_upnp_lan3', type: 'checkbox', value: (nvram.upnp_lan3 == '1') },
 					/* VLAN-END */
-					{ title: 'Show In My Network Places',  name: 'f_upnp_mnp',  type: 'checkbox',  value: (nvram.upnp_mnp == '1')}
+					{ title: 'Show In My Network Places',  name: 'f_upnp_mnp',  type: 'checkbox',  value: (nvram.upnp_mnp == '1')},
+                    null,
+	                { title: 'Miniupnpd</a><br>Custom configuration', name: 'upnp_custom', style: 'min-height: 120px;', type: 'textarea', value: nvram.upnp_custom }
 				]);
 			</script>
 		</div>

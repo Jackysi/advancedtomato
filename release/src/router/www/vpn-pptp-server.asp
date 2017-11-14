@@ -206,7 +206,7 @@ No part of this file may be used without permission.
 						] },
 						{ title: 'Broadcast Relay Mode', name: 'pptpd_broadcast', type: 'select',
 							options: [['disable','Disabled'], ['br0','LAN to VPN Clients'], ['ppp','VPN Clients to LAN'], ['br0ppp','Both']],
-							value: nvram.pptpd_broadcast, suffix: ' <span style="color: red; font-size: 80%">Enabling this may cause HIGH CPU usage</span>' },
+							value: nvram.pptpd_broadcast, suffix: ' <span class="text-danger" style="font-size: 80%">Enabling this may cause HIGH CPU usage</span>' },
 						{ title: 'Encryption', name: 'pptpd_forcemppe', type: 'select', options: [[0, 'None'], [1, 'MPPE-128']], value: nvram.pptpd_forcemppe },
 						{ title: 'DNS Servers', name: 'pptpd_dns1', type: 'text', maxlen: 15, size: 17, value: nvram.pptpd_dns1 },
 						{ title: '', name: 'pptpd_dns2', type: 'text', maxlen: 15, size: 17, value: nvram.pptpd_dns2 },

@@ -2269,7 +2269,10 @@ function escapeHTML( s ) {
 }
 
 function escapeCGI( s ) {
-    return escape( s ).replace( /\+/g, '%2B' );	// escape() doesn't handle +
+    // Don't call escape here as it is deprecated and mangles unicode
+    // Which should not be an issue since we are UTF-8
+    return s.replace( /\+/g, '%2B' );
+
 }
 
 function escapeD( s ) {

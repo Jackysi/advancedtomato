@@ -106,13 +106,13 @@ No part of this file may be used without permission.
 				REMOVE-END */
 			}
 			--updating;
-		}
+		};
 
 		ref.toggleX = function() {
 			this.toggle();
 			$('#refresh-but').html('<i class="icon-' + (this.running ? 'stop' : 'reboot') + '"></i>');
 			cookie.set(cprefix + 'refresh', this.running ? 1 : 0);
-		}
+		};
 
 		ref.initX = function() {
 			var a;
@@ -122,7 +122,7 @@ No part of this file may be used without permission.
 				ref.refreshTime = 100;
 				ref.toggleX();
 			}
-		}
+		};
 
 		function init() {
 

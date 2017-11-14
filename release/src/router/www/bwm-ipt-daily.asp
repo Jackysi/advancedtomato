@@ -70,7 +70,7 @@ No part of this file may be used without permission.
 		dg.setup = function() {
 			this.init('daily-grid', 'sort');
 			this.headerSet(['Date', 'Host', 'Download', 'Upload', 'Total']);
-		}
+		};
 
 		function redraw() {
 			var i, b, d;
@@ -223,7 +223,7 @@ No part of this file may be used without permission.
 
 		dg.dataToView = function(data) {
 			return(data);
-		}
+		};
 
 		dg.sortCompare = function(a, b) {
 			var col = this.sortColumn;
@@ -244,7 +244,7 @@ No part of this file may be used without permission.
 					break;
 			}
 			return this.sortAscending ? r : -r;
-		}
+		};
 
 		function init_filter_dates() {
 			var dates = [];

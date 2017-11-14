@@ -241,6 +241,7 @@ No part of this file may be used without permission.
 						{ title: '<h5>User Interface Settings</h5>' },
 						{ title: 'Interface Theme', name: 'web_css', type: 'select', help: 'With AdvancedTomato you get very few built in skins, others are available on AdvancedTomato Themes Directory. This way we can save space on router for more important functions.',
 							options: [['tomato','Default'],
+								['css/schemes/dark-scheme', 'Dark Color Scheme'],
 							['css/schemes/green-scheme','Green Color Scheme'],
 							['css/schemes/red-scheme','Red Color Scheme'],
 							['css/schemes/torquoise-scheme','Torquoise Color Scheme'],
@@ -294,7 +295,7 @@ No part of this file may be used without permission.
 					]);
 					$('#section-ssh .heading').append('<a href="#" data-toggle="tooltip" class="pull-right" title="' + (sdup ? 'Stop' : 'Start') + ' SSH Daemon" onclick="toggle(\'sshd\', sdup)" id="_sshd_button">'
 						+ (sdup ? '<i class="icon-stop"></i>' : '<i class="icon-play"></i>') + '</a>');
-					$('.ssh-status').html((sdup ? '<small style="color: green;">(Running)</small>' : '<small style="color: red;">(Stopped)</small>'));
+					$('.ssh-status').html((sdup ? '<small class="text-success">(Running)</small>' : '<small class="text-danger">(Stopped)</small>'));
 				</script>
 			</div>
 		</div>
@@ -309,7 +310,7 @@ No part of this file may be used without permission.
 					]);
 					$('#section-telnet .heading').append('<a href="#" data-toggle="tooltip" class="pull-right" title="' + (tdup ? 'Stop' : 'Start') + ' Telnet Daemon" onclick="toggle(\'telnetd\', tdup)" id="_telnetd_button">'
 						+ (tdup ? '<i class="icon-stop"></i>' : '<i class="icon-play"></i>') + '</a>');
-					$('.telnet-status').html((tdup ? '<small style="color: green;">(Running)</small>' : '<small style="color: red;">(Stopped)</small>'));
+					$('.telnet-status').html((tdup ? '<small class="text-success">(Running)</small>' : '<small class="text-danger">(Stopped)</small>'));
 				</script>
 			</div>
 		</div>

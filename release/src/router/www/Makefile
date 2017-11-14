@@ -228,25 +228,10 @@ ifneq ($(TCONFIG_CTF),y)
 	sed -i $(INSTALLDIR)/www/advanced-misc.asp -e "/CTF-BEGIN/,/CTF-END/d"
 endif
 
-ifeq ($(TOMATO_EXPERIMENTAL),1)
-	cd $(INSTALLDIR)/www && \
-	for F in $(wildcard *.asp); do \
-		sed -e "s,<div class='title'>Tomato</div>,<div class='title'>Tomato <small><i>(beta)</i></small></div>," $$F > $$F.tmp; \
-		mv $$F.tmp $$F; \
-	done
-endif
-
-	cd $(INSTALLDIR)/www && \
-	for F in $(wildcard *.asp); do \
-		sed -e "s,<div class='version'>Version <% version(); %></div>,<div class='version'>Version <% version(); %> by shibby</div>," $$F > $$F.tmp; \
-		mv $$F.tmp $$F; \
-	done
-
 # Only include the vpn pages if OpenVPN is compiled in
 # Remove AES ciphers from the GUI if openssl doesn't have an AES directory
-# Bugfix: vpn.js in AdvancedTomato is in the /js folder
 ifeq ($(TCONFIG_OPENVPN),y)
-	test -d ../openssl/crypto/aes || sed -i $(INSTALLDIR)/www/js/vpn.js -e "/AES-BEGIN/,/AES-END/d"
+	test -d ../openssl/crypto/aes || sed -i $(INSTALLDIR)/www/vpn.js -e "/AES-BEGIN/,/AES-END/d"
 	sed -i $(INSTALLDIR)/www/tomato.js -e "/ VPN-BEGIN/d" -e "/ VPN-END/d"
 	sed -i $(INSTALLDIR)/www/admin-access.asp -e "/ VPN-BEGIN/d" -e "/ VPN-END/d"
 	sed -i $(INSTALLDIR)/www/about.asp -e "/ VPN-BEGIN/d" -e "/ VPN-END/d"
@@ -331,6 +316,7 @@ endif
 		-e "/MIPSR2-BEGIN/d"	-e "/MIPSR2-END/d" \
 		-e "/MIPSR1-BEGIN/d"	-e "/MIPSR1-END/d" \
 		-e "/USB-BEGIN/d"	-e "/USB-END/d" \
+		-e "/UPS-BEGIN/d"	-e "/UPS-END/d" \
 		-e "/EXTRAS-BEGIN/d"	-e "/EXTRAS-END/d" \
 		-e "/NTFS-BEGIN/d"	-e "/NTFS-END/d" \
 		-e "/SAMBA-BEGIN/d"	-e "/SAMBA-END/d" \
@@ -358,17 +344,19 @@ endif
 		-e "/DNSSEC-BEGIN/d"	-e "/DNSSEC-END/d"\
 		-e "/TOR-BEGIN/d"	-e "/TOR-END/d"\
 		-e "/TINC-BEGIN/d"	-e "/TINC-END/d"\
+		-e "/PARAGON-BEGIN/d"	-e "/PARAGON-END/d"\
+		-e "/TUXERA-BEGIN/d"	-e "/TUXERA-END/d"\
+		-e "/MICROSD-BEGIN/d"	-e "/MICROSD-END/d"\
 		-e "/MULTIWAN-BEGIN/d"	-e "/MULTIWAN-END/d"\
 		-e "/DUALWAN-BEGIN/d"	-e "/DUALWAN-END/d"\
 		|| true; \
 	done
 
-# After cleaning up the compiler directive, all html comments in asp can be removed
+# Use HTML compressor to compress HTML as much as possible sed -r -i "s,//\s?<%(.*)%>,/*! @preserve: \1*/," $$F &&
 	cd $(INSTALLDIR)/www && \
-	for F in $(wildcard *.asp *.html); do \
-		[ -f $(INSTALLDIR)/www/$$F ] && sed -i $$F \
-		-e :a -re 's/<!--.*?-->//g;/<!--/N;//ba' \
-		|| true; \
+	for F in $(wildcard *.asp ); do \
+			[ -f $(INSTALLDIR)/www/$$F ] && \
+			$(TOP)/www/tools/node_modules/.bin/html-minifier $$F --minify-css -o $$F || true; \
 	done
 	
 # Remove all javascript multiline comments in asp files
@@ -379,36 +367,25 @@ endif
 		|| true; \
 	done
 
-# Copy YUI Compressor into WWW directory
-	cp tools/yuicompressor-2.4.8.jar $(INSTALLDIR)/www
-		
 # Compress JAVASCRIPT files
 	cd $(INSTALLDIR)/www && \
 	for F in $(wildcard js/*.js *.js ); do \
-		[ -f $(INSTALLDIR)/www/$$F ] && java -jar yuicompressor-2.4.8.jar --type js -o $$F $$F || true; \
+		[ -f $(INSTALLDIR)/www/$$F ] && $(TOP)/www/tools/node_modules/.bin/uglifyjs $$F -c -o $$F || true; \
 	done 
 
 # Compress CSS files
 	cd $(INSTALLDIR)/www && \
 	for F in $(wildcard css/schemes/*.css css/*.css *.css ); do \
-			[ -f $(INSTALLDIR)/www/$$F ] && java -jar yuicompressor-2.4.8.jar --type css -o $$F $$F || true; \
+			[ -f $(INSTALLDIR)/www/$$F ] && $(TOP)/www/tools/node_modules/.bin/uglifycss $$F --output $$F || true; \
 	done 
-
-# Remove yuicompressor
-	rm 	$(INSTALLDIR)/www/yuicompressor-2.4.8.jar
 
 # make sure old and debugging crap is gone
 	@rm -f $(INSTALLDIR)/www/debug.js
 	@rm -f $(INSTALLDIR)/www/*-x.*
 	@rm -f $(INSTALLDIR)/www/*-old.*
 	@rm -f $(INSTALLDIR)/www/color.css
+	@rm -f $(INSTALLDIR)/www/authorization.asp
 
 # secure the files in the installdir and change file ACLs (and preserve the existing folder ACLs)
 #	chmod 0644 $(INSTALLDIR)/www/*
 	find $(INSTALLDIR)/www/ -type f -print0 | xargs -0 chmod 644	
-
-# remove C-style comments from java files. All "control" comments have been processed by now.
-	for F in $(wildcard js/*.jsx *.jsx); do \
-		[ -f $(INSTALLDIR)/www/$$F ] && $(TOP)/www/remcoms2.sh $(INSTALLDIR)/www/$$F c; \
-	done
-	

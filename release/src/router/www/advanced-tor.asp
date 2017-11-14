@@ -159,7 +159,7 @@ No part of this file may be used without permission.
 						<li><b>Enable TOR</b> - Be patient. Starting the TOR client can take from several seconds to several minutes.
 						<li><b>Selected IP`s</b> - ex: 1.2.3.4,1.1.0/24,1.2.3.1-1.2.3.4
 						<li><b>Selected Ports</b> - ex: one port (80), few ports (80,443,8888), range of ports (80:88), mix (80,8000:9000,9999)
-						<li><span style="color: red;">Caution!</span> If your router has only 32MB of RAM, you'll have to use swap.
+						<li><span class="text-danger">Caution!</span> If your router has only 32MB of RAM, you'll have to use swap.
 					</ul>
 				</div>
 			</div>

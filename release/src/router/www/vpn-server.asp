@@ -491,7 +491,7 @@ No part of this file may be used without permission.
 					}
 
 					var action = (eval('vpn'+(i+1)+'up') ? 'title="Stop VPN Server ' + (i+1) + '"><i class="icon-stop"></i>' : 'title="Start VPN Server ' + (i+1) + '"><i class="icon-play"></i>');
-					var status = (!eval('vpn'+(i+1)+'up') ? '<small style="color: red">(Stopped)</small>' : '<small style="color: green;">(Running)</small>');
+					var status = (!eval('vpn'+(i+1)+'up') ? '<small class="text-danger">(Stopped)</small>' : '<small class="text-success">(Running)</small>');
 
 					htmlOut += '</ul>'
 					+ '<div class="box"><div class="heading">VPN Server #'+(i+1) + status + ' <a id="_vpn' + t + '_button" class="pull-right" href="#" data-toggle="tooltip"' +

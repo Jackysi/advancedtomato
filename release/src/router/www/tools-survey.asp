@@ -9,12 +9,6 @@ No part of this file may be used without permission.
 --><title>Wireless Survey</title>
 <content>
 	<style type="text/css">
-		#survey-grid .brate {
-			color: blue;
-		}
-		#survey-grid .grate {
-			color: green;
-		}
 		#survey-grid .co4,
 		#survey-grid .co5 {
 			text-align: right;
@@ -175,10 +169,10 @@ No part of this file may be used without permission.
 				rg.sort(this.rateSorter);
 
 				t = '';
-				if (rb.length) t = '<span class="brate">' + rb.join(',') + '</span>';
+				if (rb.length) t = '<span class="brate text-info">' + rb.join(',') + '</span>';
 				if (rg.length) {
 					if (rb.length) t += '<br>';
-					t +='<span class="grate">' + rg.join(',') + '</span>';
+					t +='<span class="grate text-success">' + rg.join(',') + '</span>';
 				}
 				e.rates = t;
 			}

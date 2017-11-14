@@ -32,7 +32,7 @@ No part of this file may be used without permission.
 
 		ref.stop = function() {
 			this.timer.start(1000);
-		}
+		};
 
 		ref.refresh = function(text) {
 			var c, i, h, n, j, k;
@@ -102,7 +102,7 @@ No part of this file may be used without permission.
 		{
 			speed_history = [];
 
-			initCommon(2, 1, 1);
+			initCommon(2, 0, 0);
 
 			wdogWarn = E('warnwd');
 			watchdogReset();

@@ -1,7 +1,11 @@
 # Web GUI - Tools
-These tools do various optimizations to the tomato web interface. YUI Compressor for example makes sure that the CSS and JS files are as minified as possible prior compiled into router image.
+These tools do various optimizations to the tomato web interface. NodeJS is required for these tools to work!
 
-### YUI Compressor
-Requires **JAVA** to be installed and added to PATH variable (executable)
-Download from http://yui.github.io/yuicompressor/.
-Instructions are here: http://www.cyberciti.biz/faq/linux-unix-minify-compress-css-javascript-files-shell-prompt/
+### HTML Minify
+NPM Package: https://www.npmjs.com/package/html-minifier
+
+### uglifyjs
+NPM Package: https://www.npmjs.com/package/uglifyjs
+
+### uglifycss
+NPM Package: https://www.npmjs.com/package/uglifycss

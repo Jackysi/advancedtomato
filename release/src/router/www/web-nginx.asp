@@ -77,7 +77,7 @@ No part of this file may be used without permission.
 		function init()
 		{
 			verifyFields(null, 1);
-			$('.nginx-status').html((!nginxup ? '<small style="color: red;">(Stopped)</small>' : '<small style="color: green;">(Running)</small>'));
+			$('.nginx-status').html((!nginxup ? '<small class="text-danger">(Stopped)</small>' : '<small class="text-success">(Running)</small>'));
 			$('.nginx-status').after('<a href="#" data-toggle="tooltip" class="pull-right nginx-control" title="' +
 				(nginxup ? 'Stop NGINX Server' : 'Start NGINX Server') + '" onclick="toggle(\'nginxfp\', nginxup); return false;" id="_nginxfp_button">' + (nginxup ? '<i class="icon-stop"></i>' : '<i class="icon-play"></i>') + '</a>');
 		}

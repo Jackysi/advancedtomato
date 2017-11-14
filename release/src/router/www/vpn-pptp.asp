@@ -110,7 +110,7 @@ No part of this file may be used without permission.
 					{ title: 'Custom Configuration', name: 'pptp_client_custom', type: 'textarea', value: nvram.pptp_client_custom, style: "width: 100%; height: 80px;" }
 				]);
 
-				$('#pptp-client .pptp-client-status').html((!pptpup ? '<small style="color: red;">(Stopped)</small>' : '<small style="color: green;">(Running)</small>'));
+				$('#pptp-client .pptp-client-status').html((!pptpup ? '<small class="text-danger">(Stopped)</small>' : '<small class="text-success">(Running)</small>'));
 				$('#pptp-client .pptp-client-status').after('<a href="#" data-toggle="tooltip" class="pull-right pptp-client-control" title="' +
 					(pptpup ? 'Stop PPTP Client' : 'Start PPTP Client') + '" onclick="toggle(\'pptpclient\', pptpup); return false;" id="_pptpclient_button">' + (pptpup ? '<i class="icon-stop"></i>' : '<i class="icon-play"></i>') + '</a>');
 

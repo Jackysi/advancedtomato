@@ -205,7 +205,7 @@ No part of this file may be used without permission.
 			<div class="heading">FTP Server Configuration</div>
 			<div class="content">
 				<div id="ftpconf"></div>
-				<small style="color: red">Note: Avoid using this option when FTP server is enabled for WAN. IT PROVIDES FULL ACCESS TO THE ROUTER FILE SYSTEM!</small>
+				<small class="text-danger">Note: Avoid using this option when FTP server is enabled for WAN. IT PROVIDES FULL ACCESS TO THE ROUTER FILE SYSTEM!</small>
 				<script type="text/javascript">
 					$('#ftpconf').forms([
 						{ title: 'Enable FTP Server', name: 'ftp_enable', type: 'select',
