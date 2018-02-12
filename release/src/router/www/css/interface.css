@@ -1417,6 +1417,7 @@ a.close:hover {
   line-height: 1.2;
   border: solid #f0f0f0;
   border-width: 1px 0 0 1px;
+  float: left;
 }
 
 .btn.btn-tab:hover,
